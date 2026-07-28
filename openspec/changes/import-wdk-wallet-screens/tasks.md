@@ -20,10 +20,10 @@
 
 ## 4. WalletStore (MobX domain store)
 
-- [ ] 4.1 Add `src/shared/store/domains/WalletStore.ts` (or equivalent domain-store location per AGENTS.md's store kinds) seeded with the mockup's exact mock data: wallet address, 12-word seed phrase, 4 assets (BTC, USDt-Arbitrum, USDt-Tron, UTL), 5 transactions, 4 coupons, biometrics-enabled flag
-- [ ] 4.2 Implement observable actions: `enableBiometrics()`, `sendAsset(assetId, amount, destination)` (appends a mock outgoing transaction), `recordScanToPayment(merchant, amount, assetId)` (appends transaction + issues a coupon), `claimCoupon(code)` (marks coupon claimed, credits UTL asset balance)
-- [ ] 4.3 Add computed `totalFiatBalance` and `claimableCashbackTotal`
-- [ ] 4.4 Wire `WalletStore` into `src/app/providers/RootStore.ts`; confirm `useStores()` exposes it
+- [x] 4.1 Add `src/shared/store/domains/WalletStore.ts` (or equivalent domain-store location per AGENTS.md's store kinds) seeded with the mockup's exact mock data: wallet address, 12-word seed phrase, 4 assets (BTC, USDt-Arbitrum, USDt-Tron, UTL), 5 transactions, 4 coupons, biometrics-enabled flag
+- [x] 4.2 Implement observable actions: `enableBiometrics()`, `sendAsset(assetId, amount, destination)` (appends a mock outgoing transaction), `recordScanToPayment(merchant, amount, assetId)` (appends transaction + issues a coupon), `claimCoupon(code)` (marks coupon claimed, credits UTL asset balance)
+- [x] 4.3 Add computed `totalFiatBalance` and `claimableCashbackTotal`
+- [x] 4.4 Wire `WalletStore` into `src/app/providers/RootStore.ts`; confirm `useStores()` exposes it
 
 ## 5. Widgets (`src/widgets`)
 
