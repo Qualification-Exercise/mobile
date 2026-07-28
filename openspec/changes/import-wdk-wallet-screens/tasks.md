@@ -6,10 +6,10 @@
 
 ## 2. Shared design-system tokens (`src/shared/ui`)
 
-- [ ] 2.1 Add `src/shared/ui/tokens.ts` with color tokens ported verbatim from the mockup's inline styles (background `#05070A`, accent `#26A17B`/`#2DBE8C`, surfaces `#12171C`/`#161B21`, text `#F2F5F7`/`#8A929B`/`#5A626B`), radii, and spacing scale
-- [ ] 2.2 Add `PrimaryButton` (solid accent), `SecondaryButton` (outlined), and `LightButton` (filled-light, used for "Continue with Apple") to `src/shared/ui`
-- [ ] 2.3 Add `Card`/`Surface` and `ScreenContainer` (safe-area + dark background wrapper) primitives to `src/shared/ui`
-- [ ] 2.4 Export all of the above through `src/shared/ui/index.ts`
+- [x] 2.1 Add `src/shared/ui/tokens.ts` with color tokens ported verbatim from the mockup's inline styles (background `#05070A`, accent `#26A17B`/`#2DBE8C`, surfaces `#12171C`/`#161B21`, text `#F2F5F7`/`#8A929B`/`#5A626B`), radii, and spacing scale
+- [x] 2.2 Add `PrimaryButton` (solid accent), `SecondaryButton` (outlined), and `LightButton` (filled-light, used for "Continue with Apple") to `src/shared/ui`
+- [x] 2.3 Add `Card`/`Surface` and `ScreenContainer` (safe-area + dark background wrapper) primitives to `src/shared/ui`
+- [x] 2.4 Export all of the above through `src/shared/ui/index.ts`
 
 ## 3. Entities
 
