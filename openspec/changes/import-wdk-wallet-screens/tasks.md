@@ -13,10 +13,10 @@
 
 ## 3. Entities
 
-- [ ] 3.1 Add `src/entities/wallet` — `Wallet` type (address, display name) + barrel
-- [ ] 3.2 Add `src/entities/asset` — `Asset` type (id, symbol, name, network, balance, fiatValue) + display helpers (icon glyph, color) + barrel
-- [ ] 3.3 Add `src/entities/transaction` — `Transaction` type (id, direction, counterparty/source, amount, date, assetId) + barrel
-- [ ] 3.4 Add `src/entities/coupon` — `Coupon` type (code, merchant, amount, status) + barrel
+- [x] 3.1 Add `src/entities/wallet` — `Wallet` type (address, display name) + barrel
+- [x] 3.2 Add `src/entities/asset` — `Asset` type (id, symbol, name, network, balance, fiatValue) + display helpers (icon glyph, color) + barrel
+- [x] 3.3 Add `src/entities/transaction` — `Transaction` type (id, direction, counterparty/source, amount, date, assetId) + barrel
+- [x] 3.4 Add `src/entities/coupon` — `Coupon` type (code, merchant, amount, status) + barrel
 
 ## 4. WalletStore (MobX domain store)
 
