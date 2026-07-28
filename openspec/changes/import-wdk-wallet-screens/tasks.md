@@ -1,8 +1,8 @@
 ## 1. Navigation dependency setup
 
-- [ ] 1.1 Add `@react-navigation/native`, `@react-navigation/native-stack`, `react-native-screens`, `react-native-gesture-handler` to `package.json` (versions per React Navigation's RN 0.86 compatibility table)
-- [ ] 1.2 Run `bundle exec pod install` for iOS after adding native deps; confirm Android Gradle sync is unaffected
-- [ ] 1.3 Add the one-line native setup each library requires (gesture-handler import at app entry, `react-native-screens` `enableScreens()` if required for RN 0.86)
+- [x] 1.1 Add `@react-navigation/native`, `@react-navigation/native-stack`, `react-native-screens`, `react-native-gesture-handler` to `package.json` (versions per React Navigation's RN 0.86 compatibility table)
+- [x] 1.2 Run `bundle exec pod install` for iOS after adding native deps; confirm Android Gradle sync is unaffected
+- [x] 1.3 Add the one-line native setup each library requires (gesture-handler import at app entry, `react-native-screens` `enableScreens()` if required for RN 0.86)
 
 ## 2. Shared design-system tokens (`src/shared/ui`)
 
