@@ -11,14 +11,20 @@ import {
   SafeAreaProvider,
   useSafeAreaInsets,
 } from 'react-native-safe-area-context';
+import { RootStoreContext } from '@shared/store';
+import { RootStore } from './providers';
+
+const rootStore = new RootStore();
 
 function App() {
   const isDarkMode = useColorScheme() === 'dark';
 
   return (
     <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
+      <RootStoreContext.Provider value={rootStore}>
+        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+        <AppContent />
+      </RootStoreContext.Provider>
     </SafeAreaProvider>
   );
 }
