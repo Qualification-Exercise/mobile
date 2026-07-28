@@ -75,15 +75,15 @@
 
 ## 12. Navigation wiring (`src/app`)
 
-- [ ] 12.1 Define the root param list (`RootStackParamList`) covering all 12 routes and their params (`AssetDetail: { assetId }`, `Send: { assetId }`, `ApproveTransaction: { amount, destination, assetId }`, `ClaimCoupon: { couponCode?: string }`, others `undefined`)
-- [ ] 12.2 Build the native-stack navigator in `src/app` with `SignIn` as `initialRouteName`; register `ApproveTransaction` with sheet/modal `presentation` and `ScanToPay` with full-screen-modal `presentation`
-- [ ] 12.3 Replace `NewAppScreen` usage in `App.tsx` with `NavigationContainer` wrapping the stack, inside the existing `SafeAreaProvider`/`RootStoreContext.Provider`
-- [ ] 12.4 Wire every screen's navigation calls (Continue, Send, Receive, Scan, back, Claim now, Done, Claim all) per the specs' scenarios
+- [x] 12.1 Define the root param list (`RootStackParamList`) covering all 12 routes and their params (`AssetDetail: { assetId }`, `Send: { assetId }`, `ApproveTransaction: { amount, destination, assetId }`, `ClaimCoupon: { couponCode?: string }`, others `undefined`)
+- [x] 12.2 Build the native-stack navigator in `src/app` with `SignIn` as `initialRouteName`; register `ApproveTransaction` with sheet/modal `presentation` and `ScanToPay` with full-screen-modal `presentation`
+- [x] 12.3 Replace `NewAppScreen` usage in `App.tsx` with `NavigationContainer` wrapping the stack, inside the existing `SafeAreaProvider`/`RootStoreContext.Provider`
+- [x] 12.4 Wire every screen's navigation calls (Continue, Send, Receive, Scan, back, Claim now, Done, Claim all) per the specs' scenarios
 
 ## 13. Verification
 
-- [ ] 13.1 `npm run typecheck` and `npm run lint` pass
+- [x] 13.1 `npm run typecheck` and `npm run lint` pass
 - [ ] 13.2 App boots on iOS simulator (or Android emulator) straight to `SignInScreen`
 - [ ] 13.3 Manually walk the full flow: SignIn → EnableBiometric → RecoveryPhrase → Home → AssetDetail (back) → Receive (back) → Send → ApproveTransaction → Home; Home → Scan → ScanToPay → PaymentSuccess → ClaimCoupon; Home → Rewards → ClaimCoupon
 - [ ] 13.4 Confirm mock data on each screen matches the design canvas (balances, seed words, transactions, coupon codes) via visual comparison against `WDK Wallet.dc.html`
-- [ ] 13.5 Update/add a smoke test under `__tests__` if the existing `App.test.tsx` assumed `NewAppScreen` content
+- [x] 13.5 Update/add a smoke test under `__tests__` if the existing `App.test.tsx` assumed `NewAppScreen` content
