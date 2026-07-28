@@ -27,13 +27,13 @@
 
 ## 5. Widgets (`src/widgets`)
 
-- [ ] 5.1 `asset-row` — icon, name, network, balance, fiat value (home + selectors)
-- [ ] 5.2 `transaction-row` — direction icon, title/subtitle, signed amount, date
-- [ ] 5.3 `coupon-row` — code, merchant, amount, status badge
-- [ ] 5.4 `qr-placeholder` — renders the mockup's 21×21 decorative finder-pattern grid at a given size
-- [ ] 5.5 `seed-word-grid` — numbered 2-column word list
-- [ ] 5.6 `amount-entry` — large numeric amount display + percentage/max quick-fill row (used by Send)
-- [ ] 5.7 Barrel-export each widget
+- [x] 5.1 `asset-row` — icon, name, network, balance, fiat value (home + selectors)
+- [x] 5.2 `transaction-row` — direction icon, title/subtitle, signed amount, date
+- [x] 5.3 `coupon-row` — code, merchant, amount, status badge
+- [x] 5.4 `qr-placeholder` — renders the mockup's 21×21 decorative finder-pattern grid at a given size
+- [x] 5.5 `seed-word-grid` — numbered 2-column word list
+- [x] 5.6 `amount-entry` — large numeric amount display + percentage/max quick-fill row (used by Send)
+- [x] 5.7 Barrel-export each widget
 
 ## 6. Features (`src/features`)
 
