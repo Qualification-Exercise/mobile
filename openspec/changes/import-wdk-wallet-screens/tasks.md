@@ -37,41 +37,41 @@
 
 ## 6. Features (`src/features`)
 
-- [ ] 6.1 `sso-sign-in` — three continue actions, calls a passed `onContinue` (navigation is the screen's concern)
-- [ ] 6.2 `enable-biometric` — enable/skip actions wired to `WalletStore.enableBiometrics()`
-- [ ] 6.3 `reveal-recovery-phrase` — renders `seed-word-grid` from `WalletStore`, backup-status row, confirm action
-- [ ] 6.4 `send-asset` — amount entry + destination field + review action, validating non-zero amount and non-empty destination
-- [ ] 6.5 `approve-transaction` — pending-transaction summary + hold-to-sign action, calls `WalletStore.sendAsset(...)` on confirm
-- [ ] 6.6 `scan-to-pay` — mock viewfinder + merchant summary + pay action, calls `WalletStore.recordScanToPayment(...)` on confirm
-- [ ] 6.7 `claim-coupon` — 3-segment code entry + resolved amount + claim action, calls `WalletStore.claimCoupon(...)`
-- [ ] 6.8 Barrel-export each feature
+- [x] 6.1 `sso-sign-in` — three continue actions, calls a passed `onContinue` (navigation is the screen's concern)
+- [x] 6.2 `enable-biometric` — enable/skip actions wired to `WalletStore.enableBiometrics()`
+- [x] 6.3 `reveal-recovery-phrase` — renders `seed-word-grid` from `WalletStore`, backup-status row, confirm action
+- [x] 6.4 `send-asset` — amount entry + destination field + review action, validating non-zero amount and non-empty destination
+- [x] 6.5 `approve-transaction` — pending-transaction summary + hold-to-sign action, calls `WalletStore.sendAsset(...)` on confirm
+- [x] 6.6 `scan-to-pay` — mock viewfinder + merchant summary + pay action, calls `WalletStore.recordScanToPayment(...)` on confirm
+- [x] 6.7 `claim-coupon` — 3-segment code entry + resolved amount + claim action, calls `WalletStore.claimCoupon(...)`
+- [x] 6.8 Barrel-export each feature
 
 ## 7. Screens (`src/screens`) — onboarding
 
-- [ ] 7.1 `SignInScreen` (mockup 01)
-- [ ] 7.2 `EnableBiometricScreen` (mockup 02)
-- [ ] 7.3 `RecoveryPhraseScreen` (mockup 03)
+- [x] 7.1 `SignInScreen` (mockup 01)
+- [x] 7.2 `EnableBiometricScreen` (mockup 02)
+- [x] 7.3 `RecoveryPhraseScreen` (mockup 03)
 
 ## 8. Screens — dashboard
 
-- [ ] 8.1 `HomeScreen` (mockup 04) — total balance, quick actions, asset list from `WalletStore`
-- [ ] 8.2 `AssetDetailScreen` (mockup 05) — resolves `assetId` route param, renders activity feed
+- [x] 8.1 `HomeScreen` (mockup 04) — total balance, quick actions, asset list from `WalletStore`
+- [x] 8.2 `AssetDetailScreen` (mockup 05) — resolves `assetId` route param, renders activity feed
 
 ## 9. Screens — transfers
 
-- [ ] 9.1 `ReceiveScreen` (mockup 06)
-- [ ] 9.2 `SendScreen` (mockup 07)
-- [ ] 9.3 `ApproveTransactionScreen` (mockup 08) — presented as a modal/sheet
+- [x] 9.1 `ReceiveScreen` (mockup 06)
+- [x] 9.2 `SendScreen` (mockup 07)
+- [x] 9.3 `ApproveTransactionScreen` (mockup 08) — presented as a modal/sheet
 
 ## 10. Screens — cashback payments
 
-- [ ] 10.1 `ScanToPayScreen` (mockup 09) — presented as a full-screen modal
-- [ ] 10.2 `PaymentSuccessScreen` (mockup 10)
+- [x] 10.1 `ScanToPayScreen` (mockup 09) — presented as a full-screen modal
+- [x] 10.2 `PaymentSuccessScreen` (mockup 10)
 
 ## 11. Screens — rewards
 
-- [ ] 11.1 `RewardsScreen` (mockup 11)
-- [ ] 11.2 `ClaimCouponScreen` (mockup 12)
+- [x] 11.1 `RewardsScreen` (mockup 11)
+- [x] 11.2 `ClaimCouponScreen` (mockup 12)
 
 ## 12. Navigation wiring (`src/app`)
 

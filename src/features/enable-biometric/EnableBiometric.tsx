@@ -1,0 +1,124 @@
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useStore } from '@shared/store';
+import { PrimaryButton, colors, radii, spacing } from '@shared/ui';
+
+type EnableBiometricProps = {
+  onContinue: () => void;
+};
+
+const FEATURES = [
+  'Unlock app on launch',
+  'Approve sends & signatures',
+  'Guard account setup',
+];
+
+export function EnableBiometric({ onContinue }: EnableBiometricProps) {
+  const { walletStore } = useStore();
+
+  function handleEnable() {
+    walletStore.enableBiometrics();
+    onContinue();
+  }
+
+  return (
+    <View style={styles.container}>
+      <View style={styles.hero}>
+        <View style={styles.iconFrame}>
+          <View style={styles.iconInner} />
+        </View>
+        <View style={styles.heroText}>
+          <Text style={styles.title}>Enable Face ID</Text>
+          <Text style={styles.description}>
+            Use Face ID to unlock the app and approve every transaction. Your
+            biometrics never leave the device.
+          </Text>
+        </View>
+        <View style={styles.featureList}>
+          {FEATURES.map(feature => (
+            <View key={feature} style={styles.featureRow}>
+              <Text style={styles.featureCheck}>✓</Text>
+              <Text style={styles.featureLabel}>{feature}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={styles.actions}>
+        <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
+        <TouchableOpacity onPress={onContinue}>
+          <Text style={styles.skip}>Not now</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  hero: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.xl,
+  },
+  iconFrame: {
+    width: 110,
+    height: 110,
+    borderRadius: radii.xxl,
+    borderWidth: 2,
+    borderColor: 'rgba(45,190,140,0.5)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  iconInner: {
+    width: 46,
+    height: 46,
+    borderRadius: radii.sm,
+    borderWidth: 2,
+    borderColor: colors.accentBright,
+  },
+  heroText: {
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  description: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    lineHeight: 21,
+  },
+  featureList: {
+    width: '100%',
+    gap: spacing.sm,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.sm,
+    padding: spacing.md,
+  },
+  featureCheck: {
+    color: colors.accentBright,
+  },
+  featureLabel: {
+    fontSize: 13.5,
+    color: colors.textPrimary,
+  },
+  actions: {
+    gap: spacing.md,
+  },
+  skip: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+});

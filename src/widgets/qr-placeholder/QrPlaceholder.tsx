@@ -48,11 +48,10 @@ export function QrPlaceholder({ size = 236 }: QrPlaceholderProps) {
         {QR_MODULES.map((on, index) => (
           <View
             key={index}
-            style={{
-              width: cellSize,
-              height: cellSize,
-              backgroundColor: on ? '#0B0E11' : 'transparent',
-            }}
+            style={[
+              on ? styles.cellOn : styles.cellOff,
+              { width: cellSize, height: cellSize },
+            ]}
           />
         ))}
       </View>
@@ -69,5 +68,11 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     flexWrap: 'wrap',
+  },
+  cellOn: {
+    backgroundColor: '#0B0E11',
+  },
+  cellOff: {
+    backgroundColor: 'transparent',
   },
 });
