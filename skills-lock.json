@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "skills": {
+    "code-of-conduct": {
+      "source": "tetherto/wdk-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/code-of-conduct/SKILL.md",
+      "computedHash": "9fd7185baef52c1d4678ae67c378a7f1ce49125a5edbe4925016ab43e9511e21"
+    },
+    "wdk": {
+      "source": "tetherto/wdk-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/wdk/SKILL.md",
+      "computedHash": "cf00ba1e05e13ea05956ad857fd4ef0ab2f4926d71076a1df794afc4a1e499b1"
+    },
+    "wdk-review-tests": {
+      "source": "tetherto/wdk-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/reviews/wdk-review-tests/SKILL.md",
+      "computedHash": "3a770e70527a899b92ce83647d42c56c6dce50472a03a145aa0af1cbd06a5ac3"
+    },
+    "wdk-review-types-jsdoc": {
+      "source": "tetherto/wdk-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/reviews/wdk-review-types-jsdoc/SKILL.md",
+      "computedHash": "95bba964873bdd5e78594996798289b6efc13252ad766f6ecac5d52bf59ae70c"
+    }
+  }
+}
