@@ -10,7 +10,8 @@
     "start": "react-native start",
     "expo:start": "EXPO_UNSTABLE_MCP_SERVER=1 expo start",
     "test": "jest",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "skills:update": "npx skills update; node scripts/sync-wdk-skills.js"
   },
   "dependencies": {
     "@react-native/new-app-screen": "0.86.2",

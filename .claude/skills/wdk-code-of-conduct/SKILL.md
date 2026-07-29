@@ -1,5 +1,5 @@
 ---
-name: code-of-conduct
+name: wdk-code-of-conduct
 description: Code of conduct that contributors — including AI coding assistants — MUST follow when writing, modifying, or reviewing code for any Tether Wallet Development Kit (WDK) module (wallets, protocols, core). Covers project workflow (atomic single-feature pull requests, design-before-implementation specs), code quality (avoid code smells, never violate S.O.L.I.D. principles, document every public/protected component, use narrow types, avoid defensive programming, mark every thrown error with @throws), and testing (arrange-act-assert, test only the public API, assert real values not patterns, define jest mocks at the top level, mock all external-service dependencies).
 ---
 

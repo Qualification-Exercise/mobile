@@ -77,3 +77,6 @@ yarn-error.log
 # Expo
 .expo
 dist/
+
+# WDK skills update cache (agent copies live in .cursor/skills and .claude/skills)
+.wdk-skills-source/
