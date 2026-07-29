@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   LightButton,
   SecondaryButton,
@@ -9,9 +9,10 @@ import {
 
 type SsoSignInProps = {
   onContinue: () => void;
+  onRestore: () => void;
 };
 
-export function SsoSignIn({ onContinue }: SsoSignInProps) {
+export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -30,6 +31,12 @@ export function SsoSignIn({ onContinue }: SsoSignInProps) {
         <LightButton title="Continue with Apple" onPress={onContinue} />
         <SecondaryButton title="Continue with Google" onPress={onContinue} />
         <SecondaryButton title="Continue with email" onPress={onContinue} />
+        <TouchableOpacity onPress={onRestore}>
+          <Text style={styles.restore}>
+            Already have a wallet?{' '}
+            <Text style={styles.restoreLink}>Restore</Text>
+          </Text>
+        </TouchableOpacity>
         <Text style={styles.footer}>
           Secured by single sign-on.{'\n'}Powered by WDK.
         </Text>
@@ -86,5 +93,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: spacing.sm,
     lineHeight: 18,
+  },
+  restore: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 14,
+  },
+  restoreLink: {
+    color: colors.accentBright,
+    fontWeight: '700',
   },
 });

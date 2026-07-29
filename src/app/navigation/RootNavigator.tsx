@@ -7,6 +7,7 @@ import { HomeScreen } from '@screens/HomeScreen';
 import { PaymentSuccessScreen } from '@screens/PaymentSuccessScreen';
 import { ReceiveScreen } from '@screens/ReceiveScreen';
 import { RecoveryPhraseScreen } from '@screens/RecoveryPhraseScreen';
+import { RestoreWalletScreen } from '@screens/RestoreWalletScreen';
 import { RewardsScreen } from '@screens/RewardsScreen';
 import { ScanToPayScreen } from '@screens/ScanToPayScreen';
 import { SendScreen } from '@screens/SendScreen';
@@ -27,6 +28,18 @@ export function RootNavigator() {
         {({ navigation }) => (
           <SignInScreen
             onContinue={() => navigation.navigate('EnableBiometric')}
+            onRestore={() => navigation.navigate('RestoreWallet')}
+          />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="RestoreWallet">
+        {({ navigation }) => (
+          <RestoreWalletScreen
+            onBack={() => navigation.goBack()}
+            onRestore={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+            }
           />
         )}
       </Stack.Screen>
