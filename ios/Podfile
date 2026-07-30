@@ -17,6 +17,7 @@ end
 
 target 'wdkqualification' do
   use_expo_modules!
+  use_modular_headers!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'
     config_command = ['node', '-e', "process.argv=['', '', 'config'];require('@react-native-community/cli').run()"];
@@ -48,5 +49,18 @@ target 'wdkqualification' do
       :mac_catalyst_enabled => false,
       # :ccache_enabled => true
     )
+
+    # spark-sdk (gRPC-Swift) requires module maps on CNIO transitive deps when linked statically
+    cnio_modular_header_pods = %w[
+      CNIOAtomics CNIOBoringSSL CNIOBoringSSLShims CNIODarwin CNIOLinux
+      CNIOWindows CNIOHTTPParser CGRPCZlib
+    ]
+    installer.pods_project.targets.each do |target|
+      next unless cnio_modular_header_pods.include?(target.name)
+
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['DEFINES_MODULE'] = 'YES'
+      end
+    end
   end
 end
