@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Provides minimal WDK core setup for the React Native app: engine bundle, provider wiring, single testnet network config, and boot lifecycle gating. Feature-level wallet operations (create, import, balances, sends) and multi-chain expansion are out of scope for this capability.
+Provides WDK core setup for the React Native app: engine bundle, provider wiring, multi-chain network configuration (Spark, Ethereum, Arbitrum, Polygon, Tron), and boot lifecycle gating. Feature-level wallet operations (create, import, balances, sends) remain out of scope for this capability.
 
 ## Requirements
 
@@ -22,21 +22,53 @@ The app SHALL initialize a wallet runtime at the composition root on every cold 
 
 ### Requirement: Minimal network configuration
 
-The wallet runtime SHALL be configured with at least one EVM testnet network (Sepolia) using the ERC-4337 wallet module. Additional networks (Spark, Tron, Arbitrum) are explicitly out of scope for this capability and SHALL be added in follow-up changes.
+The wallet runtime SHALL be configured with the following networks, each mapped to the correct wallet module in the worklet bundle:
 
-#### Scenario: Sepolia network is configured
+| Network key | Chain / layer              | Module                              |
+| ----------- | -------------------------- | ----------------------------------- |
+| `spark`     | Bitcoin Spark (mainnet)    | `@tetherto/wdk-wallet-spark`        |
+| `ethereum`  | EVM Sepolia testnet        | `@tetherto/wdk-wallet-evm-erc-4337` |
+| `arbitrum`  | EVM Arbitrum One (mainnet) | `@tetherto/wdk-wallet-evm-erc-4337` |
+| `polygon`   | EVM Polygon (mainnet)      | `@tetherto/wdk-wallet-evm-erc-4337` |
+| `tron`      | TRON mainnet               | `@tetherto/wdk-wallet-tron`         |
+
+Public RPC and bundler URLs SHALL be used for EVM networks so no paid API keys are required for runtime boot. Tron API credentials (`TRON_API_KEY`, `TRON_API_SECRET`) SHALL be optional for boot; when absent, the Tron network entry SHALL still be present with a public provider default.
+
+Feature-level wallet operations (create, import, balances, sends) remain out of scope; mock UI data MAY still display placeholder values until features migrate.
+
+#### Scenario: Spark network is configured
 
 - **WHEN** the wallet runtime completes initialization successfully
-- **THEN** a Sepolia (`ethereum`) network entry is present in the runtime configuration
+- **THEN** a `spark` network entry is present in the runtime configuration with mainnet Spark settings
 
-#### Scenario: Unconfigured network is not part of this change
+#### Scenario: Ethereum Sepolia network remains configured
 
-- **WHEN** a downstream feature references a network not yet added (Spark, Tron, Arbitrum)
-- **THEN** that network is not expected to work in this change; mock UI data MAY still display placeholder values from application store
+- **WHEN** the wallet runtime completes initialization successfully
+- **THEN** an `ethereum` network entry is present with Sepolia testnet chain configuration
+
+#### Scenario: Arbitrum network is configured
+
+- **WHEN** the wallet runtime completes initialization successfully
+- **THEN** an `arbitrum` network entry is present with Arbitrum One mainnet chain configuration
+
+#### Scenario: Polygon network is configured
+
+- **WHEN** the wallet runtime completes initialization successfully
+- **THEN** a `polygon` network entry is present with Polygon mainnet chain configuration
+
+#### Scenario: Tron network is configured without credentials
+
+- **WHEN** the wallet runtime completes initialization and no Tron API credentials are set in environment configuration
+- **THEN** a `tron` network entry is present and runtime initialization reaches the no-wallet or ready state without failing solely due to missing Tron credentials
 
 ### Requirement: Wallet engine bundle is present
 
-The app SHALL include a generated wallet engine bundle containing the ERC-4337 wallet module. The bundle SHALL be loadable at runtime without requiring a live network connection solely to start the engine.
+The app SHALL include a generated wallet engine bundle containing the ERC-4337, Spark, and Tron wallet modules. The bundle SHALL be loadable at runtime without requiring a live network connection solely to start the engine.
+
+#### Scenario: Bundle includes all required modules
+
+- **WHEN** `npm run wdk:bundle` completes successfully after this change
+- **THEN** the generated bundle includes `@tetherto/wdk-wallet-evm-erc-4337`, `@tetherto/wdk-wallet-spark`, and `@tetherto/wdk-wallet-tron`
 
 #### Scenario: Bundle present at runtime
 

@@ -8,6 +8,8 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 
 This app uses [WDK React Native Core](https://docs.wdk.tether.io/start-building/react-native-quickstart/). The wallet engine runs in a Bare worklet; the bundle is **generated locally** and is not committed to git.
 
+**Configured networks:** `spark`, `ethereum` (Sepolia testnet), `arbitrum`, `polygon`, and `tron`. Network keys and RPC defaults live in `src/shared/config/wdk.ts`; wallet modules are mapped in `wdk.config.js`.
+
 After cloning the repo or whenever you change `wdk.config.js`:
 
 ```sh

@@ -9,7 +9,11 @@ module.exports = {
   // Network mappings
   // Map logical network names to WDK wallet packages
   networks: {
+    spark: { package: '@tetherto/wdk-wallet-spark' },
     ethereum: { package: '@tetherto/wdk-wallet-evm-erc-4337' },
+    arbitrum: { package: '@tetherto/wdk-wallet-evm-erc-4337' },
+    polygon: { package: '@tetherto/wdk-wallet-evm-erc-4337' },
+    tron: { package: '@tetherto/wdk-wallet-tron' },
   },
 
   // Output paths (optional, defaults shown)
