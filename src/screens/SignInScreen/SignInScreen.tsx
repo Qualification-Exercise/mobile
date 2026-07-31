@@ -28,7 +28,7 @@ export function SignInScreen({ onContinue, onRestore }: SignInScreenProps) {
 
   return (
     <ScreenContainer>
-      <SsoSignIn onContinue={onContinue} onRestore={onRestore} />
+      <SsoSignIn onRestore={onRestore} />
     </ScreenContainer>
   );
 }

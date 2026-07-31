@@ -1,21 +1,13 @@
 import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import {
-  LightButton,
-  PressableButton,
-  SecondaryButton,
-  colors,
-  radii,
-  spacing,
-} from '@shared/ui';
+import { PressableButton, colors, radii, spacing } from '@shared/ui';
 import { useStore } from '@shared/store';
 
 type SsoSignInProps = {
-  onContinue: () => void;
   onRestore: () => void;
 };
 
-function SsoSignInView({ onContinue, onRestore }: SsoSignInProps) {
+function SsoSignInView({ onRestore }: SsoSignInProps) {
   const { authStore } = useStore();
 
   return (
@@ -33,13 +25,11 @@ function SsoSignInView({ onContinue, onRestore }: SsoSignInProps) {
         </View>
       </View>
       <View style={styles.actions}>
-        <LightButton title="Continue with Apple" onPress={onContinue} />
         <PressableButton
           title="Continue with Google"
           busyTitle="Signing in…"
           onPress={() => authStore.signInWithGoogle()}
         />
-        <SecondaryButton title="Continue with email" onPress={onContinue} />
         <TouchableOpacity onPress={onRestore}>
           <Text style={styles.restore}>
             Already have a wallet?{' '}
