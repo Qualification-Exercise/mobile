@@ -9,7 +9,7 @@ import { StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootStoreContext } from '@shared/store';
 import { RootNavigator } from './navigation';
-import { RootStore } from './providers';
+import { RootStore, WdkProvider } from './providers';
 
 const rootStore = new RootStore();
 
@@ -18,12 +18,14 @@ function App() {
 
   return (
     <SafeAreaProvider>
-      <RootStoreContext.Provider value={rootStore}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        <NavigationContainer>
-          <RootNavigator />
-        </NavigationContainer>
-      </RootStoreContext.Provider>
+      <WdkProvider>
+        <RootStoreContext.Provider value={rootStore}>
+          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+          <NavigationContainer>
+            <RootNavigator />
+          </NavigationContainer>
+        </RootStoreContext.Provider>
+      </WdkProvider>
     </SafeAreaProvider>
   );
 }

@@ -4,6 +4,26 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
+## WDK worklet bundle
+
+This app uses [WDK React Native Core](https://docs.wdk.tether.io/start-building/react-native-quickstart/). The wallet engine runs in a Bare worklet; the bundle is **generated locally** and is not committed to git.
+
+After cloning the repo or whenever you change `wdk.config.js`:
+
+```sh
+npm install
+npm run wdk:bundle
+```
+
+This writes:
+
+- `.wdk/` — TypeScript declarations and re-export used by `WdkProvider`
+- `.wdk-bundle/` — compiled worklet JavaScript loaded at runtime
+
+If either folder is missing, Metro fails when bundling the app (build-time error). Regenerate with `npm run wdk:bundle`.
+
+**Native prerequisites:** Android `minSdkVersion` is 29. After adding or updating WDK npm packages, run `bundle exec pod install` in `ios/` before building for iOS.
+
 ## Step 1: Start Metro
 
 First, you will need to run **Metro**, the JavaScript build tool for React Native.
