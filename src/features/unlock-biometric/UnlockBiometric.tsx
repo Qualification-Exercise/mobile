@@ -55,6 +55,7 @@ function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
           </Text>
         </View>
       </View>
+      {/* TODO: Replace on PressableButton */}
       <PrimaryButton
         title={'Unlock with Face ID'}
         onPress={handlePrimaryPress}
