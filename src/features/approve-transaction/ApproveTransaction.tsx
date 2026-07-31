@@ -22,7 +22,7 @@ export function ApproveTransaction({
   const { walletStore, biometryStore } = useStore();
 
   async function verifyTransaction() {
-    const outcome = await biometryStore.enableBiometric('Confirm transaction');
+    const outcome = await biometryStore.verify('Confirm transaction');
 
     switch (outcome) {
       case 'unlocked':

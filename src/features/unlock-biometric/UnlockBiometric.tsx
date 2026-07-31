@@ -12,15 +12,19 @@ function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
   const { biometryStore } = useStore();
 
   async function runUnlock() {
-    const outcome = await biometryStore.enableBiometric('Unlock WDK Wallet');
+    const outcome = await biometryStore.verify('Unlock WDK Wallet');
 
     switch (outcome) {
       case 'unlocked':
         onUnlocked();
         return;
+      case 'failed':
+        // Wrong face, cancel, or lockout — transient. Stay on this screen; the
+        // "Unlock with Face ID" button re-runs a fresh scan. No alert, and the
+        // user's enrollment is left intact.
+        return;
       case 'permission-denied':
       case 'unavailable':
-      case 'failed':
         Alert.alert(
           'Face ID unavailable',
           'We could not verify your biometrics. Make sure Face ID is set up on this device, then try again.',
