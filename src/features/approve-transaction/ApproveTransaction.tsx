@@ -21,9 +21,17 @@ export function ApproveTransaction({
   fee = '≈ $0.02',
   onConfirmed,
 }: ApproveTransactionProps) {
-  const { walletStore } = useStore();
+  const { walletStore, biometryStore } = useStore();
 
-  function handleConfirm() {
+  async function handleConfirm() {
+    const authenticated = await biometryStore.confirm(
+      'Confirm transaction to sign',
+    );
+
+    if (!authenticated) {
+      return;
+    }
+
     walletStore.sendAsset(assetId, amount, destination);
     onConfirmed();
   }

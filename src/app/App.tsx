@@ -22,20 +22,36 @@ GoogleSignin.configure({
   iosClientId: GOOGLE_IOS_CLIENT_ID,
 });
 
-// Restore any persisted session from the keychain on startup. Fire-and-forget:
-// the UI reacts to `authStore` once hydration resolves.
+// Restore any persisted session + biometry preference from the keychain on
+// startup. Fire-and-forget: the UI reacts once both hydrations resolve.
 rootStore.authStore.hydrate();
+rootStore.biometryStore.hydrate();
 
 const App = observer(function App() {
   const isDarkMode = useColorScheme() === 'dark';
-  const { authStore } = rootStore;
+  const { authStore, biometryStore } = rootStore;
 
-  // Wait for the keychain read before mounting the navigator so the initial
-  // route reflects the restored session. A returning user lands on
-  // EnableBiometric; everyone else starts at SignIn.
-  const initialRouteName = authStore.isAuthenticated
-    ? 'EnableBiometric'
-    : 'SignIn';
+  // Wait for the keychain reads before mounting the navigator so the initial
+  // route reflects the restored session and biometry state.
+  if (!authStore.isHydrated || !biometryStore.isHydrated) {
+    return null;
+  }
+
+  // Initial route resolution:
+  //   - Not signed in            → SignIn
+  //   - Signed in, biometry OK    → Home
+  //   - Signed in, biometry off or permission not granted → EnableBiometric
+  // Biometry is mandatory for authenticated users: if it is disabled or the OS
+  // permission was never granted, we hold them on EnableBiometric so the app
+  // cannot be used until they enable it.
+  let initialRouteName: 'SignIn' | 'EnableBiometric' | 'Home';
+  if (!authStore.isAuthenticated) {
+    initialRouteName = 'SignIn';
+  } else if (!biometryStore.isActive) {
+    initialRouteName = 'EnableBiometric';
+  } else {
+    initialRouteName = 'Home';
+  }
 
   return (
     <SafeAreaProvider>

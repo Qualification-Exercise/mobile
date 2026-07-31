@@ -49,8 +49,6 @@ export class WalletStore {
     'glance',
   ];
 
-  biometricsEnabled = false;
-
   assets: Asset[] = [
     {
       id: 'btc',
@@ -168,10 +166,6 @@ export class WalletStore {
     return this.coupons
       .filter(coupon => coupon.status === 'Claimable')
       .reduce((sum, coupon) => sum + coupon.amount, 0);
-  }
-
-  enableBiometrics() {
-    this.biometricsEnabled = true;
   }
 
   restoreWallet(words: string[]) {

@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useState } from 'react';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '@shared/store';
 import { PrimaryButton, colors, radii, spacing } from '@shared/ui';
 
@@ -13,11 +14,39 @@ const FEATURES = [
 ];
 
 export function EnableBiometric({ onContinue }: EnableBiometricProps) {
-  const { walletStore } = useStore();
+  const { biometryStore } = useStore();
+  const [isEnabling, setIsEnabling] = useState(false);
 
-  function handleEnable() {
-    walletStore.enableBiometrics();
-    onContinue();
+  async function handleEnable() {
+    setIsEnabling(true);
+    try {
+      const outcome = await biometryStore.enable();
+
+      switch (outcome) {
+        case 'enabled':
+          onContinue();
+          return;
+        case 'permission-denied':
+          Alert.alert(
+            'Face ID is turned off for this app',
+            'Enable Face ID for this app in Settings, then come back and try again.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        case 'unavailable':
+        case 'failed':
+          Alert.alert(
+            'Face ID unavailable',
+            'We could not verify your biometrics. Make sure Face ID is set up on this device, then try again.',
+          );
+          return;
+      }
+    } finally {
+      setIsEnabling(false);
+    }
   }
 
   return (
@@ -43,10 +72,11 @@ export function EnableBiometric({ onContinue }: EnableBiometricProps) {
         </View>
       </View>
       <View style={styles.actions}>
-        <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
-        <TouchableOpacity onPress={onContinue}>
-          <Text style={styles.skip}>Not now</Text>
-        </TouchableOpacity>
+        <PrimaryButton
+          title={isEnabling ? 'Verifying…' : 'Enable Face ID'}
+          onPress={handleEnable}
+          disabled={isEnabling}
+        />
       </View>
     </View>
   );
@@ -115,10 +145,5 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.md,
-  },
-  skip: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    fontSize: 14,
   },
 });
