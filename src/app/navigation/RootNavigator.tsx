@@ -18,10 +18,14 @@ const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function RootNavigator() {
+type RootNavigatorProps = {
+  initialRouteName: keyof RootStackParamList;
+};
+
+export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
   return (
     <Stack.Navigator
-      initialRouteName="SignIn"
+      initialRouteName={initialRouteName}
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="SignIn">

@@ -10,6 +10,17 @@ Formatting: Prettier config is `.prettierrc.js` (single quotes, trailing commas,
 
 ## Production practices
 
+### Comments
+
+Use single-line `//` comments everywhere, including for multi-line notes and for documenting functions, types, and public APIs. Do not use block (`/* */`) or JSDoc (`/** */`) comments. For a multi-line note, prefix each line with `//`:
+
+```ts
+// Load the persisted Google account, or `null` if none is stored or the
+// stored value is unreadable. Corrupt payloads are dropped so callers fall
+// back to a clean state.
+export async function loadGoogleAccount(): Promise<GoogleAccount | null> {
+```
+
 ## Architecture (Feature-Sliced Design)
 
 Source lives under `src/`, layered per FSD, adapted for React Native (no URL routing, so the pages layer is named `screens`):
@@ -29,4 +40,4 @@ Path aliases (`babel-plugin-module-resolver` + `tsconfig` paths) map to each lay
 
 - Use a generic MobX wrapper around a single async call, `src/shared/store/request.ts` exports `Request<R>`
 - Take into consideration four kinds of stores: root store, feature stores, domain stores, domain objects
-- Wrap any component in named function that reads observable state in `observer()` from `mobx-react-lite`
+- Wrap any component that reads observable state in `observer()` from `mobx-react-lite`. Always pass a **named** function — never an anonymous arrow. Use `const App = observer(function App() { … })`, not `observer(() => …)`, so the component has a display name in React DevTools and stack traces.
