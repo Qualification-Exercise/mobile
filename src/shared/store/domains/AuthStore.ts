@@ -3,7 +3,6 @@ import {
   GoogleSignin,
   isErrorWithCode,
   isSuccessResponse,
-  statusCodes,
 } from '@react-native-google-signin/google-signin';
 import {
   clearGoogleAccount,
@@ -16,21 +15,14 @@ export type GoogleAccount = {
   logged: boolean;
 };
 
-export type AuthStatus = 'idle' | 'pending' | 'success' | 'error';
-
 export class AuthStore {
   account: GoogleAccount | null = null;
-  status: AuthStatus = 'idle';
   // Flips to `true` once the startup keychain read has completed (whether or
   // not a session was found). Navigation waits on this before mounting.
   isHydrated = false;
 
   constructor() {
     makeAutoObservable(this);
-  }
-
-  get isPending() {
-    return this.status === 'pending';
   }
 
   get isAuthenticated() {
@@ -50,7 +42,6 @@ export class AuthStore {
       if (account) {
         runInAction(() => {
           this.account = account;
-          this.status = 'success';
         });
       }
     } finally {
@@ -65,18 +56,10 @@ export class AuthStore {
     await clearGoogleAccount();
     runInAction(() => {
       this.account = null;
-      this.status = 'idle';
     });
   }
 
   async signInWithGoogle() {
-    // Ignore re-taps while a sign-in is already running.
-    if (this.status === 'pending') {
-      return;
-    }
-
-    this.status = 'pending';
-
     try {
       // Ensure Play Services are available (Android)
       await GoogleSignin.hasPlayServices();
@@ -89,32 +72,19 @@ export class AuthStore {
           logged: Boolean(response.data.idToken),
         };
 
-        // Securely persist the account before flipping to `success` so a
+        // Securely persist the account before storing it in memory so a
         // relaunch can rehydrate it via `hydrate()`.
         await saveGoogleAccount(account);
 
         runInAction(() => {
           this.setGoogleAccount(account);
-          this.status = 'success';
-        });
-      } else {
-        // The user dismissed or cancelled the sign-in flow.
-        runInAction(() => {
-          this.status = 'idle';
         });
       }
+      // Otherwise the user dismissed or cancelled the sign-in flow.
     } catch (error) {
       if (isErrorWithCode(error)) {
         console.error('Google Sign-In Error:', error.code, error.message);
       }
-
-      // A concurrent sign-in already owns the flow; leave its state untouched.
-      const alreadyInProgress =
-        isErrorWithCode(error) && error.code === statusCodes.IN_PROGRESS;
-
-      runInAction(() => {
-        this.status = alreadyInProgress ? this.status : 'error';
-      });
     }
   }
 }

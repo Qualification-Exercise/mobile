@@ -2,6 +2,7 @@ import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   LightButton,
+  PressableButton,
   SecondaryButton,
   colors,
   radii,
@@ -33,10 +34,10 @@ function SsoSignInView({ onContinue, onRestore }: SsoSignInProps) {
       </View>
       <View style={styles.actions}>
         <LightButton title="Continue with Apple" onPress={onContinue} />
-        <SecondaryButton
-          title={authStore.isPending ? 'Signing in…' : 'Continue with Google'}
+        <PressableButton
+          title="Continue with Google"
+          busyTitle="Signing in…"
           onPress={() => authStore.signInWithGoogle()}
-          disabled={authStore.isPending}
         />
         <SecondaryButton title="Continue with email" onPress={onContinue} />
         <TouchableOpacity onPress={onRestore}>
