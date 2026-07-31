@@ -14,13 +14,11 @@ export function SignInScreen({ onContinue, onRestore }: SignInScreenProps) {
   const onContinueRef = useRef(onContinue);
   onContinueRef.current = onContinue;
 
-  // Navigation is a reactive consequence of a successful Google sign-in,
-  // not something the button press triggers directly.
   useEffect(() => {
     const dispose = reaction(
-      () => authStore.status,
-      status => {
-        if (status === 'success') {
+      () => authStore.isAuthenticated,
+      isAuthenticated => {
+        if (isAuthenticated) {
           onContinueRef.current();
         }
       },

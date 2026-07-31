@@ -12,7 +12,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@env';
 import { RootStoreContext } from '@shared/store';
 import { RootNavigator } from './navigation';
-import { RootStore } from './providers';
+import { RootStore, WdkProvider } from './providers';
 
 const rootStore = new RootStore();
 
@@ -39,14 +39,14 @@ const App = observer(function App() {
 
   return (
     <SafeAreaProvider>
-      <RootStoreContext.Provider value={rootStore}>
-        <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-        {authStore.isHydrated && (
+      <WdkProvider>
+        <RootStoreContext.Provider value={rootStore}>
+          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <NavigationContainer>
             <RootNavigator initialRouteName={initialRouteName} />
           </NavigationContainer>
-        )}
-      </RootStoreContext.Provider>
+        </RootStoreContext.Provider>
+      </WdkProvider>
     </SafeAreaProvider>
   );
 });

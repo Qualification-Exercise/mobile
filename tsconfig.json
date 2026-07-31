@@ -1,21 +1,21 @@
 {
   "extends": "@react-native/typescript-config",
   "compilerOptions": {
-    "types": ["jest"],
-    "baseUrl": ".",
+    "types": ["jest", "node"],
+    "skipLibCheck": true,
     "paths": {
-      "@app": ["src/app"],
-      "@app/*": ["src/app/*"],
-      "@screens": ["src/screens"],
-      "@screens/*": ["src/screens/*"],
-      "@widgets": ["src/widgets"],
-      "@widgets/*": ["src/widgets/*"],
-      "@features": ["src/features"],
-      "@features/*": ["src/features/*"],
-      "@entities": ["src/entities"],
-      "@entities/*": ["src/entities/*"],
-      "@shared": ["src/shared"],
-      "@shared/*": ["src/shared/*"]
+      "@app": ["./src/app"],
+      "@app/*": ["./src/app/*"],
+      "@screens": ["./src/screens"],
+      "@screens/*": ["./src/screens/*"],
+      "@widgets": ["./src/widgets"],
+      "@widgets/*": ["./src/widgets/*"],
+      "@features": ["./src/features"],
+      "@features/*": ["./src/features/*"],
+      "@entities": ["./src/entities"],
+      "@entities/*": ["./src/entities/*"],
+      "@shared": ["./src/shared"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

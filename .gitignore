@@ -80,3 +80,7 @@ dist/
 
 # Environment variables
 .env
+
+# WDK worklet bundle (generated via npm run wdk:bundle)
+.wdk/
+.wdk-bundle/

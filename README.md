@@ -4,6 +4,41 @@ This is a new [**React Native**](https://reactnative.dev) project, bootstrapped 
 
 > **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
 
+## WDK worklet bundle
+
+This app uses [WDK React Native Core](https://docs.wdk.tether.io/start-building/react-native-quickstart/). The wallet engine runs in a Bare worklet; the bundle is **generated locally** and is not committed to git.
+
+**Configured networks:** `spark`, `ethereum` (Sepolia testnet), `arbitrum`, `polygon`, and `tron`. Network keys and RPC defaults live in `src/shared/config/wdk.ts`; wallet modules are mapped in `wdk.config.js`.
+
+The bundle is generated automatically after every `npm install` via a `postinstall` script, so cloning the repo is enough:
+
+```sh
+npm install
+```
+
+This writes:
+
+- `.wdk/` — TypeScript declarations and re-export used by `WdkProvider`
+- `.wdk-bundle/` — compiled worklet JavaScript loaded at runtime
+
+Whenever you change `wdk.config.js`, the bundle is regenerated automatically:
+
+- **While editing** — `npm start` runs the watcher alongside Metro, rebuilding on every save (or run `npm run wdk:watch` standalone).
+- **On commit** — a `lint-staged` rule rebuilds when `wdk.config.js` is staged.
+- **After `git pull` / branch switch** — husky `post-merge` and `post-checkout` hooks rebuild when an incoming `wdk.config.js` change is detected.
+
+You can always regenerate manually:
+
+```sh
+npm run wdk:bundle
+```
+
+If either folder is missing, Metro fails when bundling the app (build-time error) — regenerate it with the command above.
+
+> **CI note:** `postinstall` runs the bundler on every install. To skip it (e.g. in CI where the bundle isn't needed), use `npm ci --ignore-scripts`.
+
+**Native prerequisites:** Android `minSdkVersion` is 29. After adding or updating WDK npm packages, run `bundle exec pod install` in `ios/` before building for iOS.
+
 ## Step 1: Start Metro
 
 First, you will need to run **Metro**, the JavaScript build tool for React Native.
@@ -11,12 +46,10 @@ First, you will need to run **Metro**, the JavaScript build tool for React Nativ
 To start the Metro dev server, run the following command from the root of your React Native project:
 
 ```sh
-# Using npm
 npm start
-
-# OR using Yarn
-yarn start
 ```
+
+This runs Metro **and** the WDK bundle watcher together (via `concurrently`), so edits to `wdk.config.js` rebuild the worklet bundle while you develop. To start Metro on its own, use `npm run start:metro`.
 
 ## Step 2: Build and run your app
 
