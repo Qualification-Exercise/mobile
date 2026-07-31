@@ -1,18 +1,23 @@
+import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
   LightButton,
+  PressableButton,
   SecondaryButton,
   colors,
   radii,
   spacing,
 } from '@shared/ui';
+import { useStore } from '@shared/store';
 
 type SsoSignInProps = {
   onContinue: () => void;
   onRestore: () => void;
 };
 
-export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
+function SsoSignInView({ onContinue, onRestore }: SsoSignInProps) {
+  const { authStore } = useStore();
+
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -29,7 +34,11 @@ export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
       </View>
       <View style={styles.actions}>
         <LightButton title="Continue with Apple" onPress={onContinue} />
-        <SecondaryButton title="Continue with Google" onPress={onContinue} />
+        <PressableButton
+          title="Continue with Google"
+          busyTitle="Signing in…"
+          onPress={() => authStore.signInWithGoogle()}
+        />
         <SecondaryButton title="Continue with email" onPress={onContinue} />
         <TouchableOpacity onPress={onRestore}>
           <Text style={styles.restore}>
@@ -44,6 +53,8 @@ export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
     </View>
   );
 }
+
+export const SsoSignIn = observer(SsoSignInView);
 
 const styles = StyleSheet.create({
   container: {
