@@ -1,40 +1,24 @@
+import { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
-import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '@shared/store';
 import { PrimaryButton, colors, radii, spacing } from '@shared/ui';
 
-type EnableBiometricProps = {
-  onContinue: () => void;
+type UnlockBiometricProps = {
+  onUnlocked: () => void;
 };
 
-const FEATURES = [
-  'Unlock app on launch',
-  'Approve sends & signatures',
-  'Guard account setup',
-];
-
-function EnableBiometricView({ onContinue }: EnableBiometricProps) {
+function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
   const { biometryStore } = useStore();
 
-  async function handleEnable() {
-    const outcome = await biometryStore.enableBiometric(
-      'Enable biometric unlock',
-    );
+  async function runUnlock() {
+    const outcome = await biometryStore.enableBiometric('Unlock WDK Wallet');
 
     switch (outcome) {
       case 'unlocked':
-        onContinue();
+        onUnlocked();
         return;
       case 'permission-denied':
-        Alert.alert(
-          'Face ID is turned off for this app',
-          'Enable Face ID for this app in Settings, then come back and try again.',
-          [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ],
-        );
-        return;
       case 'unavailable':
       case 'failed':
         Alert.alert(
@@ -45,6 +29,15 @@ function EnableBiometricView({ onContinue }: EnableBiometricProps) {
     }
   }
 
+  useEffect(() => {
+    runUnlock();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function handlePrimaryPress() {
+    runUnlock();
+  }
+
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -52,27 +45,21 @@ function EnableBiometricView({ onContinue }: EnableBiometricProps) {
           <View style={styles.iconInner} />
         </View>
         <View style={styles.heroText}>
-          <Text style={styles.title}>Enable Face ID</Text>
+          <Text style={styles.title}>Unlock WDK Wallet</Text>
           <Text style={styles.description}>
-            Use Face ID to unlock the app and approve every transaction. Your
-            biometrics never leave the device.
+            Verify your identity to open your wallet.
           </Text>
         </View>
-        <View style={styles.featureList}>
-          {FEATURES.map(feature => (
-            <View key={feature} style={styles.featureRow}>
-              <Text style={styles.featureCheck}>✓</Text>
-              <Text style={styles.featureLabel}>{feature}</Text>
-            </View>
-          ))}
-        </View>
       </View>
-      <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
+      <PrimaryButton
+        title={'Unlock with Face ID'}
+        onPress={handlePrimaryPress}
+      />
     </View>
   );
 }
 
-export const EnableBiometric = observer(EnableBiometricView);
+export const UnlockBiometric = observer(UnlockBiometricView);
 
 const styles = StyleSheet.create({
   container: {
@@ -115,25 +102,6 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     lineHeight: 21,
-  },
-  featureList: {
-    width: '100%',
-    gap: spacing.sm,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.sm,
-    padding: spacing.md,
-  },
-  featureCheck: {
-    color: colors.accentBright,
-  },
-  featureLabel: {
-    fontSize: 13.5,
-    color: colors.textPrimary,
   },
   signOut: {
     fontSize: 14,
