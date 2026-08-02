@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { AssetDetailScreen } from '@screens/AssetDetailScreen';
 import { ApproveTransactionScreen } from '@screens/ApproveTransactionScreen';
+import { BiometricUnlockScreen } from '@screens/BiometricUnlockScreen';
 import { ClaimCouponScreen } from '@screens/ClaimCouponScreen';
 import { EnableBiometricScreen } from '@screens/EnableBiometricScreen';
 import { HomeScreen } from '@screens/HomeScreen';
@@ -31,7 +32,7 @@ export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
       <Stack.Screen name="SignIn">
         {({ navigation }) => (
           <SignInScreen
-            onContinue={() => navigation.navigate('EnableBiometric')}
+            onContinue={() => navigation.navigate('RecoveryPhrase')}
             onRestore={() => navigation.navigate('RestoreWallet')}
           />
         )}
@@ -48,18 +49,30 @@ export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
         )}
       </Stack.Screen>
 
-      <Stack.Screen name="EnableBiometric">
+      <Stack.Screen name="RecoveryPhrase">
         {({ navigation }) => (
-          <EnableBiometricScreen
-            onContinue={() => navigation.navigate('RecoveryPhrase')}
+          <RecoveryPhraseScreen
+            onConfirm={() => navigation.navigate('EnableBiometric')}
           />
         )}
       </Stack.Screen>
 
-      <Stack.Screen name="RecoveryPhrase">
+      <Stack.Screen name="EnableBiometric">
         {({ navigation }) => (
-          <RecoveryPhraseScreen
-            onConfirm={() =>
+          <EnableBiometricScreen
+            // TODO: Decide where to navigate depends on seed phrase
+            onContinue={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="BiometricUnlock">
+        {({ navigation }) => (
+          <BiometricUnlockScreen
+            // TODO: Decide where to navigate depends on seed phrase
+            onUnlocked={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
             }
           />

@@ -1,9 +1,3 @@
-/**
- * WDK Wallet
- *
- * @format
- */
-
 import { NavigationContainer } from '@react-navigation/native';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { observer } from 'mobx-react-lite';
@@ -22,20 +16,33 @@ GoogleSignin.configure({
   iosClientId: GOOGLE_IOS_CLIENT_ID,
 });
 
-// Restore any persisted session from the keychain on startup. Fire-and-forget:
-// the UI reacts to `authStore` once hydration resolves.
+// Restore any persisted session + biometry preference from the keychain on
+// startup. Fire-and-forget: the UI reacts once both hydrations resolve.
 rootStore.authStore.hydrate();
+rootStore.biometryStore.hydrate();
 
 const App = observer(function App() {
   const isDarkMode = useColorScheme() === 'dark';
-  const { authStore } = rootStore;
+  const { authStore, biometryStore } = rootStore;
 
-  // Wait for the keychain read before mounting the navigator so the initial
-  // route reflects the restored session. A returning user lands on
-  // EnableBiometric; everyone else starts at SignIn.
-  const initialRouteName = authStore.isAuthenticated
-    ? 'EnableBiometric'
-    : 'SignIn';
+  // Wait for the keychain reads before mounting the navigator so the initial
+  // route reflects the restored session and biometry state.
+  if (!authStore.isHydrated || !biometryStore.isHydrated) {
+    return null;
+  }
+
+  let initialRouteName:
+    | 'SignIn'
+    | 'EnableBiometric'
+    | 'BiometricUnlock'
+    | 'Home';
+  if (!authStore.isAuthenticated) {
+    initialRouteName = 'SignIn';
+  } else if (!biometryStore.isEnrolled) {
+    initialRouteName = 'EnableBiometric';
+  } else {
+    initialRouteName = 'BiometricUnlock';
+  }
 
   return (
     <SafeAreaProvider>

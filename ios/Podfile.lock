@@ -68,7 +68,7 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (57.0.1):
     - ExpoModulesCore
-  - ExpoLocalAuthentication (55.0.16):
+  - ExpoLocalAuthentication (57.0.2):
     - ExpoModulesCore
   - ExpoLogBox (57.0.2):
     - React-Core
@@ -1609,7 +1609,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - "react-native-bare-kit (0.15.0+eda574)":
+  - "react-native-bare-kit (0.15.0+7814db)":
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2708,7 +2708,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: e441dae0ae671fc451640517550973d9e024fdf0
   ExpoFont: 59e1faf66ba9bcd232ae1e2ce58d202a48b6f65e
   ExpoKeepAwake: c26f14275017370cc8a4b7b43a0e23361f2053a5
-  ExpoLocalAuthentication: c4abaae8709b8b15727f2e8dd6d74c5ad38acb0c
+  ExpoLocalAuthentication: 96989637e567a10cdeabe61e5c6026d30c0dc53f
   ExpoLogBox: 6bb73c341aca22e699bd4da6cc61afc844e1a648
   ExpoModulesCore: c74426df582d7c3f7bfbaf20306c9c526c14e75d
   ExpoModulesJSI: b20fefa4cdd9097e7e6b715466d1900b8c5d4711
@@ -2763,7 +2763,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 44dd007f917e2396afa0e70bbd70273237d93fde
   React-microtasksnativemodule: f413ee411341fb3c34d20e85e9f6f524921fab15
   React-mutationobservernativemodule: 58f6d2adf7d98e72b241608dfa2ddce414d2a4e7
-  react-native-bare-kit: 05df2dd146e3f894d363ac3a22998bdc7df4d975
+  react-native-bare-kit: 6fc1e79370acd7bfc422522d3c6218c16d7bb5ef
   react-native-safe-area-context: fb5c8ee9f6dd62ef710611b3d370c501f42a4ac0
   React-NativeModulesApple: 167e532fb9bae30f3c66636b8ee0092bab263667
   React-networking: 89f6b69755a3176f30e56ba1ba8e214b1518ecfb
