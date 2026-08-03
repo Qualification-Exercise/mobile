@@ -1,0 +1,12 @@
+/*
+ * libbare-kit.so references JNI_GetCreatedJavaVMs@LIBNATIVEHELPER_S (a versioned
+ * symbol). Emit the definition under the same version node so the dynamic linker
+ * binds the versioned reference, and keep JNI_OnLoad visible for the runtime.
+ */
+LIBNATIVEHELPER_S {
+  global:
+    JNI_GetCreatedJavaVMs;
+    JNI_OnLoad;
+  local:
+    *;
+};

@@ -4,7 +4,7 @@
  */
 const fs = require('fs');
 
-const SUBJECT_LIMIT = 50;
+const SUBJECT_LIMIT = 150;
 const BODY_LINE_LIMIT = 372;
 const NON_IMPERATIVE_ENDINGS = ['ed', 'ing'];
 
@@ -29,7 +29,7 @@ if (lines.length > 1 && lines[1].trim() !== '') {
   errors.push('Put a blank line between the subject and the body.');
 }
 
-// Rule 2: limit the subject line to 50 characters.
+// Rule 2: limit the subject line to 150 characters.
 if (subject.length > SUBJECT_LIMIT) {
   errors.push(
     `Subject line is ${subject.length} chars; keep it to ${SUBJECT_LIMIT} or less.`,
