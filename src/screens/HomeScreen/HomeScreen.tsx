@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import {
   ScrollView,
@@ -6,17 +7,12 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { ScreenContainer, colors, radii, spacing } from '@shared/ui';
 import { AssetRow } from '@widgets/asset-row';
 
-type HomeScreenProps = {
-  onSend: () => void;
-  onReceive: () => void;
-  onScan: () => void;
-  onRewards: () => void;
-  onSelectAsset: (assetId: string) => void;
-};
+const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
 type QuickActionProps = {
   label: string;
@@ -52,13 +48,8 @@ function QuickAction({ label, glyph, onPress, highlighted }: QuickActionProps) {
   );
 }
 
-export const HomeScreen = observer(function HomeScreenView({
-  onSend,
-  onReceive,
-  onScan,
-  onRewards,
-  onSelectAsset,
-}: HomeScreenProps) {
+export const HomeScreen = observer(function HomeScreenView() {
+  const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore } = useStore();
   const [wholePart, decimalPart] = walletStore.totalFiatBalance
     .toFixed(2)
@@ -96,10 +87,29 @@ export const HomeScreen = observer(function HomeScreenView({
         </View>
 
         <View style={styles.actionsRow}>
-          <QuickAction label="Send" glyph="↑" onPress={onSend} highlighted />
-          <QuickAction label="Receive" glyph="↓" onPress={onReceive} />
-          <QuickAction label="Scan" glyph="⛶" onPress={onScan} />
-          <QuickAction label="Rewards" glyph="◆" onPress={onRewards} />
+          <QuickAction
+            label="Send"
+            glyph="↑"
+            onPress={() =>
+              navigation.navigate('Send', { assetId: DEFAULT_ASSET_ID })
+            }
+            highlighted
+          />
+          <QuickAction
+            label="Receive"
+            glyph="↓"
+            onPress={() => navigation.navigate('Receive')}
+          />
+          <QuickAction
+            label="Scan"
+            glyph="⛶"
+            onPress={() => navigation.navigate('ScanToPay')}
+          />
+          <QuickAction
+            label="Rewards"
+            glyph="◆"
+            onPress={() => navigation.navigate('Rewards')}
+          />
         </View>
 
         <View style={styles.assetsHeader}>
@@ -111,7 +121,9 @@ export const HomeScreen = observer(function HomeScreenView({
             <AssetRow
               key={asset.id}
               asset={asset}
-              onPress={() => onSelectAsset(asset.id)}
+              onPress={() =>
+                navigation.navigate('AssetDetail', { assetId: asset.id })
+              }
             />
           ))}
         </View>

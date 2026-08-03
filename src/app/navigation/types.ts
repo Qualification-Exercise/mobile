@@ -1,3 +1,5 @@
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 export type RootStackParamList = {
   SignIn: undefined;
   RestoreWallet: undefined;
@@ -17,5 +19,12 @@ export type RootStackParamList = {
   ScanToPay: undefined;
   PaymentSuccess: undefined;
   Rewards: undefined;
-  ClaimCoupon: { couponCode?: string };
+  ClaimCoupon: { couponCode?: string } | undefined;
 };
+
+/**
+ * Native-stack navigation prop typed with the app's param list. Pass to
+ * `useNavigation<RootStackNavigationProp>()` for typed navigation actions.
+ */
+export type RootStackNavigationProp =
+  NativeStackNavigationProp<RootStackParamList>;

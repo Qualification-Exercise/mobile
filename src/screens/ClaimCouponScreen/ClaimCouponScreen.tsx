@@ -1,28 +1,30 @@
+import {
+  type RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { ClaimCoupon } from '@features/claim-coupon';
 import { ScreenContainer, colors, spacing } from '@shared/ui';
 
-type ClaimCouponScreenProps = {
-  couponCode?: string;
-  onBack: () => void;
-  onClaimed?: (code: string) => void;
-};
+export function ClaimCouponScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const { params } = useRoute<RouteProp<RootStackParamList, 'ClaimCoupon'>>();
 
-export function ClaimCouponScreen({
-  couponCode,
-  onBack,
-  onClaimed,
-}: ClaimCouponScreenProps) {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Claim UTL</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <ClaimCoupon initialCode={couponCode} onClaimed={onClaimed} />
+      <ClaimCoupon initialCode={params?.couponCode} />
     </ScreenContainer>
   );
 }

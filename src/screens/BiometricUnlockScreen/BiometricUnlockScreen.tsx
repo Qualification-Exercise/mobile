@@ -1,16 +1,19 @@
+import { useNavigation } from '@react-navigation/native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { ScreenContainer } from '@shared/ui';
 import { UnlockBiometric } from '@features/unlock-biometric';
 
-type BiometricUnlockScreenProps = {
-  onUnlocked: () => void;
-};
+export function BiometricUnlockScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
 
-export function BiometricUnlockScreen({
-  onUnlocked,
-}: BiometricUnlockScreenProps) {
   return (
     <ScreenContainer>
-      <UnlockBiometric onUnlocked={onUnlocked} />
+      <UnlockBiometric
+        // TODO: Decide where to navigate depends on seed phrase
+        onUnlocked={() =>
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+        }
+      />
     </ScreenContainer>
   );
 }

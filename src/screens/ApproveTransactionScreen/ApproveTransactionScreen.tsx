@@ -1,24 +1,14 @@
+import { type RouteProp, useRoute } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { StyleSheet, View } from 'react-native';
+import type { RootStackParamList } from '@app/navigation/types';
 import { ApproveTransaction } from '@features/approve-transaction';
 import { useStore } from '@shared/store';
 
-type ApproveTransactionScreenProps = {
-  assetId: string;
-  amount: number;
-  destination: string;
-  network: string;
-  onConfirmed: () => void;
-};
-
 export const ApproveTransactionScreen = observer(
-  function ApproveTransactionScreenView({
-    assetId,
-    amount,
-    destination,
-    network,
-    onConfirmed, // eslint-disable-line @typescript-eslint/no-unused-vars
-  }: ApproveTransactionScreenProps) {
+  function ApproveTransactionScreenView() {
+    const { assetId, amount, destination, network } =
+      useRoute<RouteProp<RootStackParamList, 'ApproveTransaction'>>().params;
     const { walletStore } = useStore();
     const asset = walletStore.assets.find(a => a.id === assetId);
 
@@ -34,7 +24,6 @@ export const ApproveTransactionScreen = observer(
           amount={amount}
           destination={destination}
           network={network}
-          // onConfirmed={onConfirmed}
         />
       </View>
     );

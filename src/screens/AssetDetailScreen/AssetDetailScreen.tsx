@@ -1,3 +1,8 @@
+import {
+  type RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import {
   ScrollView,
@@ -6,6 +11,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import {
   getAssetColor,
   getAssetGlyphColor,
@@ -21,19 +30,10 @@ import {
 } from '@shared/ui';
 import { TransactionRow } from '@widgets/transaction-row';
 
-type AssetDetailScreenProps = {
-  assetId: string;
-  onBack: () => void;
-  onSend: (assetId: string) => void;
-  onReceive: (assetId: string) => void;
-};
-
-export const AssetDetailScreen = observer(function AssetDetailScreenView({
-  assetId,
-  onBack,
-  onSend,
-  onReceive,
-}: AssetDetailScreenProps) {
+export const AssetDetailScreen = observer(function AssetDetailScreenView() {
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const { assetId } =
+    useRoute<RouteProp<RootStackParamList, 'AssetDetail'>>().params;
   const { walletStore } = useStore();
   const asset = walletStore.assets.find(a => a.id === assetId);
   const transactions = walletStore.transactions.filter(
@@ -47,7 +47,7 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView({
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{asset.name}</Text>
@@ -69,12 +69,12 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView({
       <View style={styles.actionsRow}>
         <PrimaryButton
           title="↑ Send"
-          onPress={() => onSend(assetId)}
+          onPress={() => navigation.navigate('Send', { assetId })}
           style={styles.actionButton}
         />
         <SecondaryButton
           title="↓ Receive"
-          onPress={() => onReceive(assetId)}
+          onPress={() => navigation.navigate('Receive')}
           style={styles.actionButton}
         />
       </View>

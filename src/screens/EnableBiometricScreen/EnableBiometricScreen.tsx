@@ -1,16 +1,19 @@
+import { useNavigation } from '@react-navigation/native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { ScreenContainer } from '@shared/ui';
 import { EnableBiometric } from '@features/enable-biometric';
 
-type EnableBiometricScreenProps = {
-  onContinue: () => void;
-};
+export function EnableBiometricScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
 
-export function EnableBiometricScreen({
-  onContinue,
-}: EnableBiometricScreenProps) {
   return (
     <ScreenContainer>
-      <EnableBiometric onContinue={onContinue} />
+      <EnableBiometric
+        // TODO: Decide where to navigate depends on seed phrase
+        onContinue={() =>
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+        }
+      />
     </ScreenContainer>
   );
 }
