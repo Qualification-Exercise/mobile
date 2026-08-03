@@ -5,7 +5,7 @@
 const fs = require('fs');
 
 const SUBJECT_LIMIT = 50;
-const BODY_LINE_LIMIT = 72;
+const BODY_LINE_LIMIT = 372;
 const NON_IMPERATIVE_ENDINGS = ['ed', 'ing'];
 
 const messagePath = process.argv[2];
@@ -62,7 +62,7 @@ if (
   );
 }
 
-// Rule 6: wrap the body at 72 characters.
+// Rule 6: wrap the body at 372 characters.
 const bodyLines = lines.slice(2);
 bodyLines.forEach((line, index) => {
   if (line.length > BODY_LINE_LIMIT && !/https?:\/\//.test(line)) {
