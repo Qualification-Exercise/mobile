@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '@shared/store';
@@ -15,6 +16,14 @@ const FEATURES = [
 
 function EnableBiometricView({ onContinue }: EnableBiometricProps) {
   const { biometryStore } = useStore();
+  const onContinueRef = useRef(onContinue);
+  onContinueRef.current = onContinue;
+
+  useEffect(() => {
+    if (biometryStore.isEnrolled) {
+      onContinueRef.current();
+    }
+  }, [biometryStore.isEnrolled]);
 
   async function handleEnable() {
     const outcome = await biometryStore.enableBiometric(
@@ -134,11 +143,5 @@ const styles = StyleSheet.create({
   featureLabel: {
     fontSize: 13.5,
     color: colors.textPrimary,
-  },
-  signOut: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    paddingVertical: spacing.sm,
-    textAlign: 'center',
   },
 });

@@ -16,16 +16,21 @@ The app SHALL display a 12-word recovery phrase in numbered order on the recover
 
 #### Scenario: Phrase generation happens before display
 
-- **WHEN** the user reaches the recovery-phrase screen from the biometric gate
+- **WHEN** the user reaches the recovery-phrase screen from Wallet Setup
 - **THEN** the app has already requested mnemonic generation from WDK and shows a loading or error state until words are available
 
-## ADDED Requirements (pending UI — see tasks §7)
+## ADDED Requirements
 
-### Requirement: Open saved wallet on sign-in
+### Requirement: Wallet setup hub after auth gates
 
-When secure storage already contains a wallet for the default identifier, the sign-in screen SHALL offer an explicit action to unlock and open that wallet without requiring SSO or restore.
+After Google Sign-In and app biometry enrollment, when no wallet exists on device, the app SHALL present Wallet Setup with explicit create-new and restore paths.
 
-#### Scenario: Open wallet on sign-in
+#### Scenario: Create new wallet from setup
 
-- **WHEN** the sign-in screen is shown and a wallet exists on the device
-- **THEN** an "Open wallet" (or equivalent) action is visible and successful unlock navigates to home
+- **WHEN** the user taps create new wallet on Wallet Setup
+- **THEN** the app navigates to the recovery-phrase screen to generate and display a new mnemonic
+
+#### Scenario: Restore from setup
+
+- **WHEN** the user taps restore with recovery phrase on Wallet Setup
+- **THEN** the app navigates to the restore screen

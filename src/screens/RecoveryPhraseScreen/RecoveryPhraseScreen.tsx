@@ -9,7 +9,12 @@ export function RecoveryPhraseScreen() {
   return (
     <ScreenContainer>
       <RevealRecoveryPhrase
-        onConfirm={() => navigation.navigate('EnableBiometric')}
+        onConfirm={() =>
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+          })
+        }
       />
     </ScreenContainer>
   );

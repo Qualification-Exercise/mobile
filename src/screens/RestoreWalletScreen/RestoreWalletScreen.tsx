@@ -16,7 +16,10 @@ export function RestoreWalletScreen() {
       </View>
       <RestoreWallet
         onRestore={() =>
-          navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+          })
         }
       />
     </ScreenContainer>

@@ -102,28 +102,52 @@ Debounced async validation in restore feature when `filledCount === 12`.
 
 ### 5. Lifecycle gating in `WdkProvider`
 
-Extend `WdkGate` to read `useWdkApp().state.status`:
+`WdkGate` handles boot errors only:
 
-| Status                            | Behavior                                                                                                            |
-| --------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `INITIALIZING` / `REINITIALIZING` | Existing loading UI                                                                                                 |
-| `ERROR`                           | Existing error UI                                                                                                   |
-| `NO_WALLET`                       | Render children (onboarding)                                                                                        |
-| `LOCKED`                          | Render children OR dedicated unlock screen (defer full unlock UI — auto-unlock after restore/create in this change) |
-| `READY`                           | Render children                                                                                                     |
+| Status                            | Behavior                     |
+| --------------------------------- | ---------------------------- |
+| `INITIALIZING` / `REINITIALIZING` | Full-screen loading UI       |
+| `ERROR`                           | Full-screen error + retry    |
+| All other states                  | Render children (navigation) |
 
-After successful create/restore, WDK sets active wallet + ready — no separate unlock screen in v1 unless cold start finds locked wallet.
+Wallet unlock, session lock, and lifecycle navigation are handled outside `WdkGate`:
 
-**Cold start with existing wallet:** `WdkAppProvider` auto-initializes; if `LOCKED`, call `unlock('default')` from bridge on boot or show minimal unlock prompt. Check provider auto-init behavior during implementation.
+| Concern             | Owner                                                                 |
+| ------------------- | --------------------------------------------------------------------- |
+| Boot stack          | `resolveBootRoute` + `WalletNavigationContainer`                      |
+| App biometry unlock | `BiometricUnlockScreen` → `openExistingWallet()` when WDK not `READY` |
+| Session lock        | `WalletSessionLock` on app `background` → `BiometricUnlock` on return |
+| Delete navigation   | `walletDeletedSignal` → `authStore.signOut()` → Sign In               |
 
-### 6. WalletStore seed phrase field
+**Cold start with existing wallet:** After Google Sign-In and app biometry enrollment, `resolveBootRoute` lands on `BiometricUnlock`. Successful app biometry triggers WDK `unlock('default')` if needed, then Home.
+
+**No wallet on device:** Boot lands on `WalletSetup` (create or restore). Home redirects to `WalletSetup` if accessed without a persisted wallet.
+
+### 6. App biometry gating for wallet operations
+
+When `BiometryStore.isEnrolled`, sensitive wallet actions call `requireWalletBiometry(prompt)` before invoking WDK:
+
+- View recovery phrase (settings)
+- Delete wallet (settings, restore replace flow)
+- Restore wallet submit
+- Open saved wallet (restore duplicate path)
+
+App-level biometry (Sign In → Enable Biometric → BiometricUnlock) is separate from WDK secure-storage prompts.
+
+### 7. Session lock vs WDK lock
+
+**Session lock** (`lockWalletSession` / `wdkSessionLock.ts`): clears in-memory worklet state on app background; keeps `activeWalletId` so `unlock()` can reload. Used by `WalletSessionLock`.
+
+**WDK `deleteWallet`**: clears secure storage; used only for wallet deletion (and replace-wallet flow). Not exposed as a manual "lock wallet" button in settings.
+
+### 8. WalletStore seed phrase field
 
 - Remove hard-coded default 12-word array.
 - `seedPhrase` becomes optional UI cache set after generation or cleared on logout.
 - `restoreWallet` mock mutator deprecated; restore feature calls WDK directly.
 - `mockAddressFromPhrase` may remain for display until address migration.
 
-### 7. Dependencies and native setup
+### 9. Dependencies and native setup
 
 **Seed phrase secure storage** (per [official configuration](https://docs.wdk.tether.io/tools/react-native-secure-storage/configuration/)) — install as **direct** app dependencies:
 
@@ -137,7 +161,7 @@ These back encrypted seed/entropy/key storage via `react-native-keychain`. `WdkA
 
 Current tree (transitive only today): secure-storage + keychain + expo-local-authentication + expo-crypto under core; mmkv under core separately. For production/dev builds, promote the four secure-storage packages to direct `dependencies` and run `pod install`.
 
-### 8. Error handling and loading UX
+### 10. Error handling and loading UX
 
 Wrap create/restore in MobX `Request` for consistent loading/error flags. Recovery phrase screen shows spinner during generation. Restore button shows loading during import. Surface WDK error messages user-safe (no stack traces).
 
@@ -161,28 +185,29 @@ Wrap create/restore in MobX `Request` for consistent loading/error flags. Recove
 
 ## Open Questions
 
-- Should cold-start `LOCKED` show a dedicated unlock screen or auto-prompt biometrics silently? (Defer unlock screen unless auto-unlock fails in testing.)
+- ~~Should cold-start `LOCKED` show a dedicated unlock screen or auto-prompt biometrics silently?~~ **Resolved:** `BiometricUnlockScreen` after boot when wallet exists; WDK unlock follows app biometry.
 - Should onboarding confirm use `createWallet` with a documented two-phase API once WDK supports persist-from-preview entropy? (Track upstream; use `restoreWallet` workaround for now.)
 
 ## Implementation progress
 
-_Appended during apply — does not change decisions above._
+_Appended during apply — reflects current code._
 
-| Capability                                   | Store / boot                       | User-visible UI                   |
-| -------------------------------------------- | ---------------------------------- | --------------------------------- |
-| Generate mnemonic (onboarding)               | Done                               | Done — recovery phrase screen     |
-| Persist wallet                               | Done                               | Done — confirm on recovery screen |
-| Restore / import                             | Done                               | Done — restore screen             |
-| Unlock (cold start)                          | Done — `WalletBootSync`, `WdkGate` | Spinner / retry only              |
-| Unlock (duplicate restore)                   | Done — `openExistingWallet`        | Done — "Open saved wallet"        |
-| READY → Home routing                         | Done — `WalletNavigationContainer` | Automatic                         |
-| Reveal persisted mnemonic (`getMnemonic`)    | Not bound in store                 | Not implemented                   |
-| Lock wallet                                  | `lockWallet()` in store            | Not implemented                   |
-| Delete wallet                                | `deleteWalletRequest` in store     | Not implemented                   |
-| Replace wallet (delete + restore)            | APIs exist                         | Not implemented                   |
-| NO_WALLET → Sign In after delete             | Not implemented                    | Not implemented                   |
-| Sign In "Open wallet" when device has wallet | Not implemented                    | Not implemented                   |
+| Capability                                   | Store / boot                                    | User-visible UI                         |
+| -------------------------------------------- | ----------------------------------------------- | --------------------------------------- |
+| Generate mnemonic (onboarding)               | Done                                            | Done — recovery phrase screen           |
+| Persist wallet                               | Done                                            | Done — confirm on recovery screen       |
+| Restore / import                             | Done                                            | Done — restore + Wallet Setup entry     |
+| Boot routing (auth + biometry + wallet)      | Done — `resolveBootRoute`                       | SignIn → EnableBiometric → Setup/Unlock |
+| Unlock (cold start / return from background) | Done — `BiometricUnlock` + `openExistingWallet` | BiometricUnlock screen                  |
+| Session lock (background)                    | Done — `WalletSessionLock`, `wdkSessionLock`    | Auto lock; unlock on foreground         |
+| READY → Home routing                         | Done — `WalletNavigationContainer`              | After unlock                            |
+| Reveal persisted mnemonic                    | Done — `revealMnemonicRequest`                  | Done — wallet settings                  |
+| Delete wallet                                | Done — `deleteWalletRequest`                    | Done — settings + sign-out → Sign In    |
+| Replace wallet (delete + restore)            | Done                                            | Done — restore duplicate path           |
+| Biometry before wallet ops                   | Done — `requireWalletBiometry`                  | Settings, restore, replace              |
+| Wallet Setup hub (no wallet)                 | Done                                            | Create or restore choice                |
+| Home settings entry                          | Done                                            | Header → WalletSettings                 |
 
-Additional code landed during apply but was not in the original task list: `WalletBootSync`, `WalletNavigationContainer`, restore duplicate-wallet handling. Tracked in `tasks.md` §5.4–5.5 and §4.6.
+**Removed during main merge / refactor:** `WalletBootSync` (auto-unlock on `NO_WALLET`), manual lock button in settings, "Open saved wallet" on Sign In (replaced by Wallet Setup + BiometricUnlock flow).
 
-Remaining work is tracked in `tasks.md` §7–§8. Do not archive this change until those sections are complete.
+Remaining work: device QA in `tasks.md` §6 and §8. Archive when verified.

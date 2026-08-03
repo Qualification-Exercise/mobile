@@ -137,7 +137,9 @@ export const RestoreWallet = observer(function RestoreWalletView({
               return;
             }
 
-            await walletSeedPhraseStore.deleteWalletRequest.fetch();
+            await walletSeedPhraseStore.deleteWalletRequest.fetch({
+              emitDeletedSignal: false,
+            });
             if (!walletSeedPhraseStore.deleteWalletRequest.error) {
               restoreWalletRequest.error = '';
               setWords(EMPTY_PHRASE);

@@ -1,11 +1,22 @@
 import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, View } from 'react-native';
-import { PressableButton, colors, radii, spacing } from '@shared/ui';
-import { useStore } from '@shared/store';
+import {
+  PressableButton,
+  SecondaryButton,
+  colors,
+  radii,
+  spacing,
+} from '@shared/ui';
 
-function SsoSignInView() {
-  const { authStore } = useStore();
+type WalletSetupProps = {
+  onCreateWallet: () => void;
+  onRestoreWallet: () => void;
+};
 
+function WalletSetupView({
+  onCreateWallet,
+  onRestoreWallet,
+}: WalletSetupProps) {
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -13,28 +24,28 @@ function SsoSignInView() {
           <Text style={styles.markGlyph}>W</Text>
         </View>
         <View style={styles.heroText}>
-          <Text style={styles.title}>WDK Wallet</Text>
+          <Text style={styles.title}>Set up your wallet</Text>
           <Text style={styles.tagline}>
-            Your keys, your crypto.{'\n'}A self-custodial wallet you fully
-            control.
+            Create a new wallet or restore one with your 12-word recovery
+            phrase.
           </Text>
         </View>
       </View>
       <View style={styles.actions}>
-        <PressableButton
-          title="Continue with Google"
-          busyTitle="Signing in…"
-          onPress={() => authStore.signInWithGoogle()}
+        <PressableButton title="Create new wallet" onPress={onCreateWallet} />
+        <SecondaryButton
+          title="Restore with recovery phrase"
+          onPress={onRestoreWallet}
         />
         <Text style={styles.footer}>
-          Secured by single sign-on.{'\n'}Powered by WDK.
+          Your recovery phrase is the only way to recover this wallet.
         </Text>
       </View>
     </View>
   );
 }
 
-export const SsoSignIn = observer(SsoSignInView);
+export const WalletSetup = observer(WalletSetupView);
 
 const styles = StyleSheet.create({
   container: {

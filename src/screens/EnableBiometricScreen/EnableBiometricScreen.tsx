@@ -9,9 +9,8 @@ export function EnableBiometricScreen() {
   return (
     <ScreenContainer>
       <EnableBiometric
-        // TODO: Decide where to navigate depends on seed phrase
         onContinue={() =>
-          navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+          navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] })
         }
       />
     </ScreenContainer>

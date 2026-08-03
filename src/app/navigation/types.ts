@@ -2,9 +2,10 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type RootStackParamList = {
   SignIn: undefined;
-  RestoreWallet: undefined;
   EnableBiometric: undefined;
-  BiometricUnlock: undefined;
+  WalletSetup: undefined;
+  BiometricUnlock: { autoPrompt?: boolean } | undefined;
+  RestoreWallet: undefined;
   RecoveryPhrase: undefined;
   Home: undefined;
   AssetDetail: { assetId: string };

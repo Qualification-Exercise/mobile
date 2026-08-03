@@ -15,7 +15,7 @@ export function SignInScreen() {
       () => authStore.isAuthenticated,
       isAuthenticated => {
         if (isAuthenticated) {
-          navigation.navigate('RecoveryPhrase');
+          navigation.reset({ index: 0, routes: [{ name: 'EnableBiometric' }] });
         }
       },
     );
@@ -24,7 +24,7 @@ export function SignInScreen() {
 
   return (
     <ScreenContainer>
-      <SsoSignIn onRestore={() => navigation.navigate('RestoreWallet')} />
+      <SsoSignIn />
     </ScreenContainer>
   );
 }

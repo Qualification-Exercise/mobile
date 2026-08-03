@@ -39,6 +39,24 @@ If either folder is missing, Metro fails when bundling the app (build-time error
 
 **Native prerequisites:** Android `minSdkVersion` is 29. After adding or updating WDK npm packages, run `bundle exec pod install` in `ios/` before building for iOS.
 
+### `@wdk-internal` path alias
+
+`@wdk-internal` is **not** an npm package. It is a local import alias (Babel `module-resolver` + `tsconfig.json` paths) that points at unpublished source inside `@tetherto/wdk-react-native-core`:
+
+- Babel: `babel.config.js` → `'@wdk-internal': './node_modules/@tetherto/wdk-react-native-core/src'`
+- TypeScript: `tsconfig.json` → `"@wdk-internal/*": ["./node_modules/@tetherto/wdk-react-native-core/src/*"]`
+
+Use it only when the public WDK API does not expose what the app needs. Today it is used for **wallet session lock** in `src/features/wallet-seed-phrase/wdkSessionLock.ts`:
+
+- `WorkletLifecycleService.reset()` — clear in-memory seed / worklet state
+- `getWalletStore()` / `updateWalletLoadingState()` — set `walletLoadingState` to `not_loaded` while keeping `activeWalletId`
+
+Public `useWalletManager().lock()` is for **logout** (clears `activeWalletId` and breaks `unlock()`). Session lock must not call it.
+
+**Caveat:** these modules are internal to WDK. They are not part of the supported API and may change between `@tetherto/wdk-react-native-core` versions. Prefer removing `@wdk-internal` once WDK ships a public session-lock API (or `clearSensitiveDataOnBackground` covers the use case).
+
+**AppState note:** background session lock lives in `WalletSessionLock.tsx`. Lock on `background` only, not `inactive` — iOS uses `inactive` for the system Face ID sheet during in-app biometry (e.g. view recovery phrase).
+
 ## Step 1: Start Metro
 
 First, you will need to run **Metro**, the JavaScript build tool for React Native.

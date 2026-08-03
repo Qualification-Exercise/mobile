@@ -5,10 +5,14 @@ import { useStore } from '@shared/store';
 import { PrimaryButton, colors, radii, spacing } from '@shared/ui';
 
 type UnlockBiometricProps = {
+  autoPrompt?: boolean;
   onUnlocked: () => void;
 };
 
-function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
+function UnlockBiometricView({
+  autoPrompt = false,
+  onUnlocked,
+}: UnlockBiometricProps) {
   const { biometryStore } = useStore();
 
   async function runUnlock() {
@@ -19,9 +23,6 @@ function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
         onUnlocked();
         return;
       case 'failed':
-        // Wrong face, cancel, or lockout — transient. Stay on this screen; the
-        // "Unlock with Face ID" button re-runs a fresh scan. No alert, and the
-        // user's enrollment is left intact.
         return;
       case 'permission-denied':
       case 'unavailable':
@@ -34,13 +35,11 @@ function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
   }
 
   useEffect(() => {
-    runUnlock();
+    if (autoPrompt) {
+      void runUnlock();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  function handlePrimaryPress() {
-    runUnlock();
-  }
+  }, [autoPrompt]);
 
   return (
     <View style={styles.container}>
@@ -55,10 +54,11 @@ function UnlockBiometricView({ onUnlocked }: UnlockBiometricProps) {
           </Text>
         </View>
       </View>
-      {/* TODO: Replace on PressableButton */}
       <PrimaryButton
-        title={'Unlock with Face ID'}
-        onPress={handlePrimaryPress}
+        title="Unlock with Face ID"
+        onPress={() => {
+          void runUnlock();
+        }}
       />
     </View>
   );
@@ -107,11 +107,5 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     lineHeight: 21,
-  },
-  signOut: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    paddingVertical: spacing.sm,
-    textAlign: 'center',
   },
 });

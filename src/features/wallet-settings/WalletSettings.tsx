@@ -12,8 +12,14 @@ import {
 } from '@shared/ui';
 import { SeedWordGrid } from '@widgets/seed-word-grid';
 
-export const WalletSettings = observer(function WalletSettingsView() {
-  const { biometryStore, walletSeedPhraseStore } = useStore();
+type WalletSettingsProps = {
+  onWalletDeleted?: () => void;
+};
+
+export const WalletSettings = observer(function WalletSettingsView({
+  onWalletDeleted,
+}: WalletSettingsProps) {
+  const { authStore, biometryStore, walletSeedPhraseStore } = useStore();
   const { revealMnemonicRequest, deleteWalletRequest } = walletSeedPhraseStore;
   const revealedWords =
     walletSeedPhraseStore.revealedMnemonic.length > 0
@@ -35,37 +41,13 @@ export const WalletSettings = observer(function WalletSettingsView() {
       return;
     }
 
-    void revealMnemonicRequest.fetch();
-  }
-
-  function handleLockWallet() {
-    Alert.alert(
-      'Lock wallet?',
-      'Your wallet will be locked until you authenticate again.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Lock',
-          onPress: async () => {
-            const verified = await requireWalletBiometry(
-              biometryStore,
-              'Lock wallet',
-            );
-            if (!verified) {
-              return;
-            }
-
-            walletSeedPhraseStore.lockWallet();
-          },
-        },
-      ],
-    );
+    await revealMnemonicRequest.fetch();
   }
 
   function handleDeleteWallet() {
     Alert.alert(
       'Delete wallet?',
-      'This removes your wallet from this device. You will need your recovery phrase to restore it.',
+      'This removes your wallet and signs you out on this device. You will need your recovery phrase to restore it.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -80,7 +62,9 @@ export const WalletSettings = observer(function WalletSettingsView() {
               return;
             }
 
-            void deleteWalletRequest.fetch();
+            await deleteWalletRequest.fetch();
+            await authStore.signOut();
+            onWalletDeleted?.();
           },
         },
       ],
@@ -92,7 +76,7 @@ export const WalletSettings = observer(function WalletSettingsView() {
       <Text style={styles.sectionTitle}>Security</Text>
       <View style={styles.section}>
         <Text style={styles.sectionDescription}>
-          View your recovery phrase or lock the wallet on this device.
+          View your recovery phrase on this device.
         </Text>
         <SecondaryButton
           title={
@@ -133,7 +117,6 @@ export const WalletSettings = observer(function WalletSettingsView() {
             <SeedWordGrid words={revealedWords} />
           </View>
         ) : null}
-        <SecondaryButton title="Lock wallet" onPress={handleLockWallet} />
       </View>
 
       <Text style={styles.sectionTitle}>Danger zone</Text>

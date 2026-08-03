@@ -3,13 +3,13 @@ import type { UseWalletManagerResult } from '@tetherto/wdk-react-native-core';
 import { validateMnemonic } from '@tetherto/wdk-react-native-core';
 import { Request } from '@shared/store/request';
 import { DEFAULT_WALLET_ID, MNEMONIC_WORD_COUNT } from './constants';
+import { lockWdkWalletSession } from './wdkSessionLock';
 
 type WalletManagerApi = Pick<
   UseWalletManagerResult,
   | 'generateMnemonic'
   | 'restoreWallet'
   | 'unlock'
-  | 'lock'
   | 'deleteWallet'
   | 'getMnemonic'
   | 'getSeedAndEntropyFromMnemonic'
@@ -33,8 +33,8 @@ export class WalletSeedPhraseStore {
   /** Mnemonic revealed from secure storage (settings only, cleared on leave). */
   revealedMnemonic: string[] = [];
 
-  /** Skip cold-start unlock probes after delete (or manual lock). */
-  skipBootUnlock = false;
+  /** Bumped after delete so navigation can react. */
+  walletDeletedSignal = 0;
 
   generateMnemonicRequest: Request<string[]>;
 
@@ -78,9 +78,6 @@ export class WalletSeedPhraseStore {
           throw new Error('Recovery phrase is not ready');
         }
         await this.requireApi().restoreWallet(mnemonic, DEFAULT_WALLET_ID);
-        runInAction(() => {
-          this.skipBootUnlock = false;
-        });
         return this.previewMnemonic;
       },
       {
@@ -96,7 +93,6 @@ export class WalletSeedPhraseStore {
         await this.requireApi().restoreWallet(mnemonic, DEFAULT_WALLET_ID);
         runInAction(() => {
           this.previewMnemonic = words;
-          this.skipBootUnlock = false;
         });
         return words;
       },
@@ -120,9 +116,9 @@ export class WalletSeedPhraseStore {
     );
 
     this.deleteWalletRequest = new Request(
-      async (walletId: string = DEFAULT_WALLET_ID) => {
+      async (options?: { emitDeletedSignal?: boolean; walletId?: string }) => {
+        const walletId = options?.walletId ?? DEFAULT_WALLET_ID;
         runInAction(() => {
-          this.skipBootUnlock = true;
           this.unlockWalletRequest.loading = false;
           this.unlockWalletRequest.error = '';
         });
@@ -130,6 +126,9 @@ export class WalletSeedPhraseStore {
         runInAction(() => {
           this.previewMnemonic = [];
           this.revealedMnemonic = [];
+          if (options?.emitDeletedSignal !== false) {
+            this.walletDeletedSignal += 1;
+          }
         });
         return [] as string[];
       },
@@ -236,13 +235,12 @@ export class WalletSeedPhraseStore {
     this.isValidating = false;
   }
 
-  lockWallet() {
+  lockWalletSession() {
     runInAction(() => {
-      this.skipBootUnlock = true;
       this.unlockWalletRequest.loading = false;
       this.unlockWalletRequest.error = '';
     });
-    this.api?.lock();
+    lockWdkWalletSession();
   }
 
   clearRevealedMnemonic() {
@@ -255,9 +253,6 @@ export class WalletSeedPhraseStore {
     this.restoreWalletRequest.error = '';
     this.unlockWalletRequest.error = '';
     await this.unlockWalletRequest.fetch(DEFAULT_WALLET_ID);
-    if (!this.unlockWalletRequest.error) {
-      this.skipBootUnlock = false;
-    }
     return !this.unlockWalletRequest.error;
   }
 
