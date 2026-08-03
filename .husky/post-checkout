@@ -1,0 +1,6 @@
+# Regenerate the WDK bundle when switching branches changed wdk.config.js
+# Args: $1 = prev HEAD, $2 = new HEAD, $3 = flag (1 = branch checkout)
+[ "$3" = "1" ] || exit 0
+if git diff --name-only "$1" "$2" | grep -q '^wdk\.config\.js$'; then
+  npm run wdk:bundle
+fi

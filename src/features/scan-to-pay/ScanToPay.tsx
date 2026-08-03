@@ -1,6 +1,6 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '@shared/store';
-import { colors, radii, spacing } from '@shared/ui';
+import { AppIcon, HeaderCloseButton, colors, radii, spacing } from '@shared/ui';
 import { QrPlaceholder } from '@widgets/qr-placeholder';
 
 const MERCHANT = {
@@ -31,9 +31,7 @@ export function ScanToPay({ onClose, onPaid }: ScanToPayProps) {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onClose}>
-          <Text style={styles.close}>✕</Text>
-        </TouchableOpacity>
+        <HeaderCloseButton onPress={onClose} />
         <Text style={styles.headerTitle}>Scan to pay</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -46,7 +44,11 @@ export function ScanToPay({ onClose, onPaid }: ScanToPayProps) {
       <View style={styles.summary}>
         <View style={styles.summaryRow}>
           <View style={styles.merchantIcon}>
-            <Text style={styles.merchantIconGlyph}>◧</Text>
+            <AppIcon
+              name="storefront-outline"
+              size={18}
+              color={colors.textPrimary}
+            />
           </View>
           <View style={styles.merchantInfo}>
             <Text style={styles.merchantName}>{MERCHANT.name}</Text>
@@ -81,17 +83,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
-  close: {
-    fontSize: 22,
-    color: colors.textPrimary,
-  },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   headerSpacer: {
-    width: 22,
+    width: 24,
   },
   viewfinderWrapper: {
     flex: 1,
@@ -129,10 +127,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  merchantIconGlyph: {
-    fontSize: 18,
-    color: colors.textPrimary,
   },
   merchantInfo: {
     flex: 1,

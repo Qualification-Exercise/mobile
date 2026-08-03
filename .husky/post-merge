@@ -1,0 +1,4 @@
+# Regenerate the WDK bundle when a merge/pull changed wdk.config.js
+if git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD | grep -q '^wdk\.config\.js$'; then
+  npm run wdk:bundle
+fi

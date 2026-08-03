@@ -1,6 +1,12 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { observer } from 'mobx-react-lite';
+import { useWalletManager } from '@tetherto/wdk-react-native-core';
+import { DEFAULT_WALLET_ID } from '@features/wallet-seed-phrase';
+import { useStore } from '@shared/store';
+import { requireWalletBiometry } from '@shared/lib';
 import { AssetDetailScreen } from '@screens/AssetDetailScreen';
 import { ApproveTransactionScreen } from '@screens/ApproveTransactionScreen';
+import { BiometricUnlockScreen } from '@screens/BiometricUnlockScreen';
 import { ClaimCouponScreen } from '@screens/ClaimCouponScreen';
 import { EnableBiometricScreen } from '@screens/EnableBiometricScreen';
 import { HomeScreen } from '@screens/HomeScreen';
@@ -12,25 +18,67 @@ import { RewardsScreen } from '@screens/RewardsScreen';
 import { ScanToPayScreen } from '@screens/ScanToPayScreen';
 import { SendScreen } from '@screens/SendScreen';
 import { SignInScreen } from '@screens/SignInScreen';
+import { WalletSettingsScreen } from '@screens/WalletSettingsScreen';
 import type { RootStackParamList } from './types';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
-export function RootNavigator() {
+type RootNavigatorProps = {
+  initialRouteName: keyof RootStackParamList;
+};
+
+function SignInRoute({
+  navigation,
+}: {
+  navigation: {
+    navigate: (name: 'EnableBiometric' | 'RestoreWallet') => void;
+    reset: (state: { index: number; routes: Array<{ name: 'Home' }> }) => void;
+  };
+}) {
+  const { biometryStore, walletSeedPhraseStore } = useStore();
+  const { wallets } = useWalletManager();
+  const hasSavedWallet = wallets.some(
+    wallet => wallet.identifier === DEFAULT_WALLET_ID && wallet.exists,
+  );
+
+  async function handleOpenWallet() {
+    const verified = await requireWalletBiometry(
+      biometryStore,
+      'Open saved wallet',
+    );
+    if (!verified) {
+      return;
+    }
+
+    const opened = await walletSeedPhraseStore.openExistingWallet();
+    if (opened) {
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    }
+  }
+
+  return (
+    <SignInScreen
+      onContinue={() => navigation.navigate('EnableBiometric')}
+      onRestore={() => navigation.navigate('RestoreWallet')}
+      onOpenWallet={hasSavedWallet ? handleOpenWallet : undefined}
+      openWalletError={walletSeedPhraseStore.unlockWalletRequest.error}
+      openWalletLoading={walletSeedPhraseStore.unlockWalletRequest.loading}
+    />
+  );
+}
+
+const ObservedSignInRoute = observer(SignInRoute);
+
+export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
   return (
     <Stack.Navigator
-      initialRouteName="SignIn"
+      initialRouteName={initialRouteName}
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="SignIn">
-        {({ navigation }) => (
-          <SignInScreen
-            onContinue={() => navigation.navigate('EnableBiometric')}
-            onRestore={() => navigation.navigate('RestoreWallet')}
-          />
-        )}
+        {({ navigation }) => <ObservedSignInRoute navigation={navigation} />}
       </Stack.Screen>
 
       <Stack.Screen name="RestoreWallet">
@@ -62,6 +110,16 @@ export function RootNavigator() {
         )}
       </Stack.Screen>
 
+      <Stack.Screen name="BiometricUnlock">
+        {({ navigation }) => (
+          <BiometricUnlockScreen
+            onUnlocked={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+            }
+          />
+        )}
+      </Stack.Screen>
+
       <Stack.Screen name="Home">
         {({ navigation }) => (
           <HomeScreen
@@ -74,7 +132,14 @@ export function RootNavigator() {
             onSelectAsset={assetId =>
               navigation.navigate('AssetDetail', { assetId })
             }
+            onSettings={() => navigation.navigate('WalletSettings')}
           />
+        )}
+      </Stack.Screen>
+
+      <Stack.Screen name="WalletSettings">
+        {({ navigation }) => (
+          <WalletSettingsScreen onBack={() => navigation.goBack()} />
         )}
       </Stack.Screen>
 

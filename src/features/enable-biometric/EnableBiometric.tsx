@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { observer } from 'mobx-react-lite';
+import { Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import { useStore } from '@shared/store';
 import { PrimaryButton, colors, radii, spacing } from '@shared/ui';
 
@@ -12,12 +13,36 @@ const FEATURES = [
   'Guard account setup',
 ];
 
-export function EnableBiometric({ onContinue }: EnableBiometricProps) {
-  const { walletStore } = useStore();
+function EnableBiometricView({ onContinue }: EnableBiometricProps) {
+  const { biometryStore } = useStore();
 
-  function handleEnable() {
-    walletStore.enableBiometrics();
-    onContinue();
+  async function handleEnable() {
+    const outcome = await biometryStore.enableBiometric(
+      'Enable biometric unlock',
+    );
+
+    switch (outcome) {
+      case 'unlocked':
+        onContinue();
+        return;
+      case 'permission-denied':
+        Alert.alert(
+          'Face ID is turned off for this app',
+          'Enable Face ID for this app in Settings, then come back and try again.',
+          [
+            { text: 'Not now', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Linking.openSettings() },
+          ],
+        );
+        return;
+      case 'unavailable':
+      case 'failed':
+        Alert.alert(
+          'Face ID unavailable',
+          'We could not verify your biometrics. Make sure Face ID is set up on this device, then try again.',
+        );
+        return;
+    }
   }
 
   return (
@@ -42,15 +67,12 @@ export function EnableBiometric({ onContinue }: EnableBiometricProps) {
           ))}
         </View>
       </View>
-      <View style={styles.actions}>
-        <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
-        <TouchableOpacity onPress={onContinue}>
-          <Text style={styles.skip}>Not now</Text>
-        </TouchableOpacity>
-      </View>
+      <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
     </View>
   );
 }
+
+export const EnableBiometric = observer(EnableBiometricView);
 
 const styles = StyleSheet.create({
   container: {
@@ -113,12 +135,10 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     color: colors.textPrimary,
   },
-  actions: {
-    gap: spacing.md,
-  },
-  skip: {
-    textAlign: 'center',
-    color: colors.textSecondary,
+  signOut: {
     fontSize: 14,
+    color: colors.textSecondary,
+    paddingVertical: spacing.sm,
+    textAlign: 'center',
   },
 });

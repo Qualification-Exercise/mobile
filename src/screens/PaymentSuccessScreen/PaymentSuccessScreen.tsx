@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { useStore } from '@shared/store';
 import {
+  AppIcon,
   PrimaryButton,
   ScreenContainer,
   colors,
@@ -35,7 +36,7 @@ export const PaymentSuccessScreen = observer(function PaymentSuccessScreenView({
     <ScreenContainer>
       <View style={styles.content}>
         <View style={styles.checkCircle}>
-          <Text style={styles.checkGlyph}>✓</Text>
+          <AppIcon name="checkmark" size={44} color={colors.background} />
         </View>
         <Text style={styles.title}>Payment sent</Text>
         <Text style={styles.subtitle}>
@@ -47,7 +48,11 @@ export const PaymentSuccessScreen = observer(function PaymentSuccessScreenView({
         <View style={styles.cashbackCard}>
           <View style={styles.cashbackHeader}>
             <View style={styles.cashbackIcon}>
-              <Text style={styles.cashbackIconGlyph}>◆</Text>
+              <AppIcon
+                name="gift-outline"
+                size={16}
+                color={colors.textPrimary}
+              />
             </View>
             <Text style={styles.cashbackLabel}>Cashback earned</Text>
           </View>
@@ -57,8 +62,16 @@ export const PaymentSuccessScreen = observer(function PaymentSuccessScreenView({
           </Text>
           <View style={styles.couponRow}>
             <Text style={styles.couponCode}>{coupon.code}</Text>
-            <TouchableOpacity onPress={() => Clipboard.setString(coupon.code)}>
-              <Text style={styles.couponCopy}>⧉ Copy</Text>
+            <TouchableOpacity
+              style={styles.couponCopyButton}
+              onPress={() => Clipboard.setString(coupon.code)}
+            >
+              <AppIcon
+                name="copy-outline"
+                size={14}
+                color={colors.accentBright}
+              />
+              <Text style={styles.couponCopy}>Copy</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -92,11 +105,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  checkGlyph: {
-    fontSize: 44,
-    fontWeight: '800',
-    color: colors.background,
   },
   title: {
     fontSize: 24,
@@ -137,11 +145,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  cashbackIconGlyph: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
   cashbackLabel: {
     fontSize: 13.5,
     fontWeight: '700',
@@ -176,6 +179,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 2,
     color: colors.textPrimary,
+  },
+  couponCopyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   couponCopy: {
     fontSize: 12,

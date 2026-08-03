@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { Coupon } from '@entities/coupon';
-import { colors, radii, spacing } from '@shared/ui';
+import { AppIcon, colors, radii, spacing } from '@shared/ui';
 
 type CouponRowProps = {
   coupon: Coupon;
@@ -13,7 +13,7 @@ export function CouponRow({ coupon }: CouponRowProps) {
   return (
     <View style={styles.row}>
       <View style={styles.icon}>
-        <Text style={styles.iconGlyph}>◆</Text>
+        <AppIcon name="gift-outline" size={18} color={colors.textPrimary} />
       </View>
       <View style={styles.info}>
         <Text style={styles.code}>{coupon.code}</Text>
@@ -45,10 +45,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B5CF6',
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconGlyph: {
-    fontSize: 16,
-    color: colors.textPrimary,
   },
   info: {
     flex: 1,

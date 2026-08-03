@@ -8,7 +8,6 @@ module.exports = {
         path: '.env',
         safe: false,
         allowUndefined: true,
-        allowlist: ['ANY_SECRET', 'TRON_API_KEY', 'TRON_API_SECRET'],
       },
     ],
     [

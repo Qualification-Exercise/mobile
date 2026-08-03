@@ -34,22 +34,7 @@ export class WalletStore {
     displayName: 'Main Wallet',
   };
 
-  seedPhrase: string[] = [
-    'ridge',
-    'salmon',
-    'velvet',
-    'orbit',
-    'cluster',
-    'amber',
-    'pigeon',
-    'trophy',
-    'decade',
-    'fabric',
-    'wisdom',
-    'glance',
-  ];
-
-  biometricsEnabled = false;
+  seedPhrase: string[] = [];
 
   assets: Asset[] = [
     {
@@ -170,11 +155,11 @@ export class WalletStore {
       .reduce((sum, coupon) => sum + coupon.amount, 0);
   }
 
-  enableBiometrics() {
-    this.biometricsEnabled = true;
+  restoreWallet(words: string[]) {
+    this.syncSeedPhraseDisplay(words);
   }
 
-  restoreWallet(words: string[]) {
+  syncSeedPhraseDisplay(words: string[]) {
     this.seedPhrase = words;
     this.wallet = {
       ...this.wallet,

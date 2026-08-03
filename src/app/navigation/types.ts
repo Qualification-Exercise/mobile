@@ -2,6 +2,7 @@ export type RootStackParamList = {
   SignIn: undefined;
   RestoreWallet: undefined;
   EnableBiometric: undefined;
+  BiometricUnlock: undefined;
   RecoveryPhrase: undefined;
   Home: undefined;
   AssetDetail: { assetId: string };
@@ -17,4 +18,5 @@ export type RootStackParamList = {
   PaymentSuccess: undefined;
   Rewards: undefined;
   ClaimCoupon: { couponCode?: string };
+  WalletSettings: undefined;
 };

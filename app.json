@@ -1,4 +1,5 @@
 {
   "name": "wdkqualification",
-  "displayName": "wdkqualification"
+  "displayName": "wdkqualification",
+  "plugins": ["expo-asset", "expo-font"]
 }

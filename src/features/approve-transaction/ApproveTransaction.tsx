@@ -1,4 +1,4 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useStore } from '@shared/store';
 import { colors, radii, spacing } from '@shared/ui';
 
@@ -9,7 +9,6 @@ type ApproveTransactionProps = {
   destination: string;
   network: string;
   fee?: string;
-  onConfirmed: () => void;
 };
 
 export function ApproveTransaction({
@@ -19,13 +18,25 @@ export function ApproveTransaction({
   destination,
   network,
   fee = '≈ $0.02',
-  onConfirmed,
 }: ApproveTransactionProps) {
-  const { walletStore } = useStore();
+  const { walletStore, biometryStore } = useStore();
 
-  function handleConfirm() {
-    walletStore.sendAsset(assetId, amount, destination);
-    onConfirmed();
+  async function verifyTransaction() {
+    const outcome = await biometryStore.verify('Confirm transaction');
+
+    switch (outcome) {
+      case 'unlocked':
+        walletStore.sendAsset(assetId, amount, destination);
+        return;
+      case 'permission-denied':
+      case 'unavailable':
+      case 'failed':
+        Alert.alert(
+          'Face ID unavailable',
+          'We could not verify your biometrics. Make sure Face ID is set up on this device, then try again.',
+        );
+        return;
+    }
   }
 
   return (
@@ -59,12 +70,12 @@ export function ApproveTransaction({
         <Text style={styles.biometricLabel}>Confirm with Face ID to sign</Text>
       </View>
       <TouchableOpacity
-        style={styles.confirmButton}
-        onLongPress={handleConfirm}
+        style={[styles.confirmButton]}
+        onLongPress={verifyTransaction}
         delayLongPress={600}
         activeOpacity={0.85}
       >
-        <Text style={styles.confirmLabel}>Hold to sign</Text>
+        <Text style={styles.confirmLabel}>Verify</Text>
       </TouchableOpacity>
     </View>
   );
@@ -157,6 +168,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  confirmButtonBusy: {
+    opacity: 0.6,
   },
   confirmLabel: {
     fontSize: 16,

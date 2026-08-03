@@ -1,11 +1,5 @@
 import { observer } from 'mobx-react-lite';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import {
   getAssetColor,
   getAssetGlyphColor,
@@ -13,6 +7,8 @@ import {
 } from '@entities/asset';
 import { useStore } from '@shared/store';
 import {
+  AppIcon,
+  HeaderBackButton,
   PrimaryButton,
   ScreenContainer,
   SecondaryButton,
@@ -47,11 +43,13 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView({
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={onBack} />
         <Text style={styles.headerTitle}>{asset.name}</Text>
-        <Text style={styles.headerMenu}>⋯</Text>
+        <AppIcon
+          name="ellipsis-horizontal"
+          size={22}
+          color={colors.textSecondary}
+        />
       </View>
       <View style={styles.summary}>
         <View style={[styles.icon, { backgroundColor: getAssetColor(asset) }]}>
@@ -68,12 +66,12 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView({
       </View>
       <View style={styles.actionsRow}>
         <PrimaryButton
-          title="↑ Send"
+          title="Send"
           onPress={() => onSend(assetId)}
           style={styles.actionButton}
         />
         <SecondaryButton
-          title="↓ Receive"
+          title="Receive"
           onPress={() => onReceive(assetId)}
           style={styles.actionButton}
         />
@@ -95,18 +93,10 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.xxl,
   },
-  back: {
-    fontSize: 22,
-    color: colors.textSecondary,
-  },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  headerMenu: {
-    fontSize: 20,
-    color: colors.textSecondary,
   },
   summary: {
     alignItems: 'center',

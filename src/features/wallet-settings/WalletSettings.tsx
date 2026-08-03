@@ -1,0 +1,214 @@
+import { useEffect } from 'react';
+import { observer } from 'mobx-react-lite';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { useStore } from '@shared/store';
+import { requireWalletBiometry } from '@shared/lib';
+import {
+  PrimaryButton,
+  SecondaryButton,
+  colors,
+  radii,
+  spacing,
+} from '@shared/ui';
+import { SeedWordGrid } from '@widgets/seed-word-grid';
+
+export const WalletSettings = observer(function WalletSettingsView() {
+  const { biometryStore, walletSeedPhraseStore } = useStore();
+  const { revealMnemonicRequest, deleteWalletRequest } = walletSeedPhraseStore;
+  const revealedWords =
+    walletSeedPhraseStore.revealedMnemonic.length > 0
+      ? walletSeedPhraseStore.revealedMnemonic
+      : revealMnemonicRequest.data;
+
+  useEffect(() => {
+    return () => {
+      walletSeedPhraseStore.clearRevealedMnemonic();
+    };
+  }, [walletSeedPhraseStore]);
+
+  async function handleRevealPhrase() {
+    const verified = await requireWalletBiometry(
+      biometryStore,
+      'View recovery phrase',
+    );
+    if (!verified) {
+      return;
+    }
+
+    void revealMnemonicRequest.fetch();
+  }
+
+  function handleLockWallet() {
+    Alert.alert(
+      'Lock wallet?',
+      'Your wallet will be locked until you authenticate again.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Lock',
+          onPress: async () => {
+            const verified = await requireWalletBiometry(
+              biometryStore,
+              'Lock wallet',
+            );
+            if (!verified) {
+              return;
+            }
+
+            walletSeedPhraseStore.lockWallet();
+          },
+        },
+      ],
+    );
+  }
+
+  function handleDeleteWallet() {
+    Alert.alert(
+      'Delete wallet?',
+      'This removes your wallet from this device. You will need your recovery phrase to restore it.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            const verified = await requireWalletBiometry(
+              biometryStore,
+              'Delete wallet',
+            );
+            if (!verified) {
+              return;
+            }
+
+            void deleteWalletRequest.fetch();
+          },
+        },
+      ],
+    );
+  }
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.sectionTitle}>Security</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionDescription}>
+          View your recovery phrase or lock the wallet on this device.
+        </Text>
+        <SecondaryButton
+          title={
+            revealMnemonicRequest.loading
+              ? 'Authenticating…'
+              : revealedWords.length === 12
+              ? 'Hide recovery phrase'
+              : 'View recovery phrase'
+          }
+          onPress={() => {
+            if (revealedWords.length === 12) {
+              walletSeedPhraseStore.clearRevealedMnemonic();
+              return;
+            }
+            void handleRevealPhrase();
+          }}
+          disabled={revealMnemonicRequest.loading}
+        />
+        {revealMnemonicRequest.loading ? (
+          <View style={styles.revealLoading}>
+            <ActivityIndicator size="small" color={colors.accentBright} />
+            <Text style={styles.revealLoadingText}>
+              Confirm with biometrics to view your phrase
+            </Text>
+          </View>
+        ) : null}
+        {revealMnemonicRequest.error ? (
+          <Text style={styles.errorText}>{revealMnemonicRequest.error}</Text>
+        ) : null}
+        {revealedWords.length === 12 ? (
+          <View style={styles.revealBlock}>
+            <View style={styles.warning}>
+              <Text style={styles.warningText}>
+                Never share your phrase. Anyone with these words can access your
+                funds.
+              </Text>
+            </View>
+            <SeedWordGrid words={revealedWords} />
+          </View>
+        ) : null}
+        <SecondaryButton title="Lock wallet" onPress={handleLockWallet} />
+      </View>
+
+      <Text style={styles.sectionTitle}>Danger zone</Text>
+      <View style={styles.section}>
+        <Text style={styles.sectionDescription}>
+          Permanently remove this wallet from secure storage on this device.
+        </Text>
+        <PrimaryButton
+          title={deleteWalletRequest.loading ? 'Deleting…' : 'Delete wallet'}
+          onPress={handleDeleteWallet}
+          disabled={deleteWalletRequest.loading}
+          style={styles.deleteButton}
+        />
+        {deleteWalletRequest.error ? (
+          <Text style={styles.errorText}>{deleteWalletRequest.error}</Text>
+        ) : null}
+      </View>
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    gap: spacing.lg,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+  section: {
+    gap: spacing.md,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.md,
+    padding: spacing.lg,
+  },
+  sectionDescription: {
+    fontSize: 13.5,
+    color: colors.textSecondary,
+    lineHeight: 20,
+  },
+  revealLoading: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  revealLoadingText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: colors.textSecondary,
+  },
+  revealBlock: {
+    gap: spacing.md,
+  },
+  warning: {
+    backgroundColor: 'rgba(224,113,90,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(224,113,90,0.25)',
+    borderRadius: radii.sm,
+    padding: spacing.md,
+  },
+  warningText: {
+    color: '#E0715A',
+    fontSize: 12.5,
+    lineHeight: 18,
+  },
+  errorText: {
+    fontSize: 12.5,
+    color: '#E0715A',
+    lineHeight: 18,
+  },
+  deleteButton: {
+    backgroundColor: '#8B2E2E',
+  },
+});

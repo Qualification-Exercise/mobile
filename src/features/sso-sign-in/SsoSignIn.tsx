@@ -1,18 +1,29 @@
+import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
-  LightButton,
+  PressableButton,
   SecondaryButton,
   colors,
   radii,
   spacing,
 } from '@shared/ui';
+import { useStore } from '@shared/store';
 
 type SsoSignInProps = {
-  onContinue: () => void;
   onRestore: () => void;
+  onOpenWallet?: () => void;
+  openWalletLoading?: boolean;
+  openWalletError?: string;
 };
 
-export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
+function SsoSignInView({
+  onRestore,
+  onOpenWallet,
+  openWalletLoading,
+  openWalletError,
+}: SsoSignInProps) {
+  const { authStore } = useStore();
+
   return (
     <View style={styles.container}>
       <View style={styles.hero}>
@@ -28,9 +39,25 @@ export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
         </View>
       </View>
       <View style={styles.actions}>
-        <LightButton title="Continue with Apple" onPress={onContinue} />
-        <SecondaryButton title="Continue with Google" onPress={onContinue} />
-        <SecondaryButton title="Continue with email" onPress={onContinue} />
+        <PressableButton
+          title="Continue with Google"
+          busyTitle="Signing in…"
+          onPress={() => authStore.signInWithGoogle()}
+        />
+        {onOpenWallet ? (
+          <>
+            <SecondaryButton
+              title={
+                openWalletLoading ? 'Opening wallet…' : 'Open saved wallet'
+              }
+              onPress={onOpenWallet}
+              disabled={openWalletLoading}
+            />
+            {openWalletError ? (
+              <Text style={styles.openWalletError}>{openWalletError}</Text>
+            ) : null}
+          </>
+        ) : null}
         <TouchableOpacity onPress={onRestore}>
           <Text style={styles.restore}>
             Already have a wallet?{' '}
@@ -44,6 +71,8 @@ export function SsoSignIn({ onContinue, onRestore }: SsoSignInProps) {
     </View>
   );
 }
+
+export const SsoSignIn = observer(SsoSignInView);
 
 const styles = StyleSheet.create({
   container: {
@@ -102,5 +131,11 @@ const styles = StyleSheet.create({
   restoreLink: {
     color: colors.accentBright,
     fontWeight: '700',
+  },
+  openWalletError: {
+    fontSize: 12.5,
+    color: '#E0715A',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

@@ -1,10 +1,11 @@
+import type { AppIconName } from '@shared/ui';
 import { colors } from '@shared/ui';
 import type { Transaction } from './Transaction';
 
-export function getTransactionIcon(
+export function getTransactionIconName(
   transaction: Pick<Transaction, 'direction'>,
-): string {
-  return transaction.direction === 'in' ? '↓' : '↑';
+): AppIconName {
+  return transaction.direction === 'in' ? 'arrow-down' : 'arrow-up';
 }
 
 export function getTransactionColor(

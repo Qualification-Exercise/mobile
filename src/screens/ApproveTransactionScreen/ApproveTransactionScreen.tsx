@@ -17,7 +17,7 @@ export const ApproveTransactionScreen = observer(
     amount,
     destination,
     network,
-    onConfirmed,
+    onConfirmed, // eslint-disable-line @typescript-eslint/no-unused-vars
   }: ApproveTransactionScreenProps) {
     const { walletStore } = useStore();
     const asset = walletStore.assets.find(a => a.id === assetId);
@@ -34,7 +34,7 @@ export const ApproveTransactionScreen = observer(
           amount={amount}
           destination={destination}
           network={network}
-          onConfirmed={onConfirmed}
+          // onConfirmed={onConfirmed}
         />
       </View>
     );
