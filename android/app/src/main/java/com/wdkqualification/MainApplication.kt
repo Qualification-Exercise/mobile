@@ -25,8 +25,29 @@ class MainApplication : Application(), ReactApplication {
 
   override fun onCreate() {
     super.onCreate()
+    preloadNativeHelperShim()
     loadReactNative(this)
     ApplicationLifecycleDispatcher.onApplicationCreate(this)
+  }
+
+  /**
+   * react-native-bare-kit's prebuilt libbare-kit.so hard-links libnativehelper.so
+   * for JNI_GetCreatedJavaVMs. Android 15 (API 35) no longer exposes that library to
+   * the app linker namespace, so loading libbare-kit.so — and with it libappmodules.so
+   * and every TurboModule, including PlatformConstants — fails with a startup red box.
+   *
+   * We ship a small stand-in libnativehelper.so (see jniLibs/stub-src) that provides
+   * only that symbol. Loading it here, before React Native initializes, both captures
+   * the JavaVM (via its JNI_OnLoad) and makes the library resident so the dynamic
+   * linker resolves libbare-kit.so's dependency.
+   */
+  private fun preloadNativeHelperShim() {
+    try {
+      System.loadLibrary("nativehelper")
+    } catch (e: UnsatisfiedLinkError) {
+      // Fall through: platforms that still provide the real libnativehelper.so
+      // (or a future bare-kit that drops the dependency) don't need the shim.
+    }
   }
 
   override fun onConfigurationChanged(newConfig: Configuration) {

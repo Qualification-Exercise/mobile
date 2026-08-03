@@ -1,14 +1,16 @@
+import { useNavigation } from '@react-navigation/native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { ScreenContainer } from '@shared/ui';
 import { RevealRecoveryPhrase } from '@features/reveal-recovery-phrase';
 
-type RecoveryPhraseScreenProps = {
-  onConfirm: () => void;
-};
+export function RecoveryPhraseScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
 
-export function RecoveryPhraseScreen({ onConfirm }: RecoveryPhraseScreenProps) {
   return (
     <ScreenContainer>
-      <RevealRecoveryPhrase onConfirm={onConfirm} />
+      <RevealRecoveryPhrase
+        onConfirm={() => navigation.navigate('EnableBiometric')}
+      />
     </ScreenContainer>
   );
 }

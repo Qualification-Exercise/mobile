@@ -1,5 +1,7 @@
+import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
   PrimaryButton,
@@ -11,15 +13,8 @@ import {
 } from '@shared/ui';
 import { CouponRow } from '@widgets/coupon-row';
 
-type RewardsScreenProps = {
-  onBack: () => void;
-  onClaimAll: () => void;
-};
-
-export const RewardsScreen = observer(function RewardsScreenView({
-  onBack,
-  onClaimAll,
-}: RewardsScreenProps) {
+export const RewardsScreen = observer(function RewardsScreenView() {
+  const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore } = useStore();
   const claimableCount = walletStore.coupons.filter(
     coupon => coupon.status === 'Claimable',
@@ -28,7 +23,7 @@ export const RewardsScreen = observer(function RewardsScreenView({
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <HeaderBackButton onPress={onBack} />
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Rewards</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -53,7 +48,7 @@ export const RewardsScreen = observer(function RewardsScreenView({
         title={`Claim all — ${walletStore.claimableCashbackTotal.toFixed(
           2,
         )} UTL`}
-        onPress={onClaimAll}
+        onPress={() => navigation.navigate('ClaimCoupon')}
       />
     </ScreenContainer>
   );

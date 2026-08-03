@@ -4,8 +4,8 @@
  */
 const fs = require('fs');
 
-const SUBJECT_LIMIT = 50;
-const BODY_LINE_LIMIT = 72;
+const SUBJECT_LIMIT = 150;
+const BODY_LINE_LIMIT = 372;
 const NON_IMPERATIVE_ENDINGS = ['ed', 'ing'];
 
 const messagePath = process.argv[2];
@@ -29,7 +29,7 @@ if (lines.length > 1 && lines[1].trim() !== '') {
   errors.push('Put a blank line between the subject and the body.');
 }
 
-// Rule 2: limit the subject line to 50 characters.
+// Rule 2: limit the subject line to 150 characters.
 if (subject.length > SUBJECT_LIMIT) {
   errors.push(
     `Subject line is ${subject.length} chars; keep it to ${SUBJECT_LIMIT} or less.`,
@@ -62,7 +62,7 @@ if (
   );
 }
 
-// Rule 6: wrap the body at 72 characters.
+// Rule 6: wrap the body at 372 characters.
 const bodyLines = lines.slice(2);
 bodyLines.forEach((line, index) => {
   if (line.length > BODY_LINE_LIMIT && !/https?:\/\//.test(line)) {

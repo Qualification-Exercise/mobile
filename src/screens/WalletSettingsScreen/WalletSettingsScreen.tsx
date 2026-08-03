@@ -1,16 +1,16 @@
+import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { WalletSettings } from '@features/wallet-settings';
 import { HeaderBackButton, ScreenContainer, colors, spacing } from '@shared/ui';
 
-type WalletSettingsScreenProps = {
-  onBack: () => void;
-};
+export function WalletSettingsScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
 
-export function WalletSettingsScreen({ onBack }: WalletSettingsScreenProps) {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <HeaderBackButton onPress={onBack} />
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Wallet settings</Text>
         <View style={styles.headerSpacer} />
       </View>

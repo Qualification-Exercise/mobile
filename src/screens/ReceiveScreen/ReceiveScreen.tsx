@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import {
   Clipboard,
@@ -6,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
   AppIcon,
@@ -18,23 +20,19 @@ import {
 } from '@shared/ui';
 import { QrPlaceholder } from '@widgets/qr-placeholder';
 
-type ReceiveScreenProps = {
-  assetId?: string;
-  onBack: () => void;
-};
+const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
-export const ReceiveScreen = observer(function ReceiveScreenView({
-  assetId = 'usdt-arbitrum',
-  onBack,
-}: ReceiveScreenProps) {
+export const ReceiveScreen = observer(function ReceiveScreenView() {
+  const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore } = useStore();
   const asset =
-    walletStore.assets.find(a => a.id === assetId) ?? walletStore.assets[0];
+    walletStore.assets.find(a => a.id === DEFAULT_ASSET_ID) ??
+    walletStore.assets[0];
 
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <HeaderBackButton onPress={onBack} />
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Receive</Text>
         <View style={styles.headerSpacer} />
       </View>

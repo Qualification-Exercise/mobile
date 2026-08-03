@@ -1,15 +1,17 @@
+import { useNavigation } from '@react-navigation/native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { ScreenContainer } from '@shared/ui';
 import { ScanToPay } from '@features/scan-to-pay';
 
-type ScanToPayScreenProps = {
-  onClose: () => void;
-  onPaid: () => void;
-};
+export function ScanToPayScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
 
-export function ScanToPayScreen({ onClose, onPaid }: ScanToPayScreenProps) {
   return (
     <ScreenContainer>
-      <ScanToPay onClose={onClose} onPaid={onPaid} />
+      <ScanToPay
+        onClose={() => navigation.goBack()}
+        onPaid={() => navigation.navigate('PaymentSuccess')}
+      />
     </ScreenContainer>
   );
 }

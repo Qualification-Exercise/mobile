@@ -1,25 +1,21 @@
+import {
+  type RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, View } from 'react-native';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { SendAsset } from '@features/send-asset';
 import { useStore } from '@shared/store';
 import { ScreenContainer, HeaderBackButton, colors, spacing } from '@shared/ui';
 
-type SendScreenProps = {
-  assetId: string;
-  onBack: () => void;
-  onReview: (params: {
-    assetId: string;
-    amount: number;
-    destination: string;
-    network: string;
-  }) => void;
-};
-
-export const SendScreen = observer(function SendScreenView({
-  assetId,
-  onBack,
-  onReview,
-}: SendScreenProps) {
+export const SendScreen = observer(function SendScreenView() {
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const { assetId } = useRoute<RouteProp<RootStackParamList, 'Send'>>().params;
   const { walletStore } = useStore();
   const asset = walletStore.assets.find(a => a.id === assetId);
 
@@ -30,14 +26,19 @@ export const SendScreen = observer(function SendScreenView({
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <HeaderBackButton onPress={onBack} />
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Send {asset.symbol}</Text>
         <View style={styles.headerSpacer} />
       </View>
       <SendAsset
         asset={asset}
         onReview={({ amount, destination }) =>
-          onReview({ assetId, amount, destination, network: asset.network })
+          navigation.navigate('ApproveTransaction', {
+            assetId,
+            amount,
+            destination,
+            network: asset.network,
+          })
         }
       />
     </ScreenContainer>
