@@ -1,26 +1,26 @@
+import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { RestoreWallet } from '@features/restore-wallet';
 import { ScreenContainer, colors, spacing } from '@shared/ui';
 
-type RestoreWalletScreenProps = {
-  onBack: () => void;
-  onRestore: () => void;
-};
+export function RestoreWalletScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
 
-export function RestoreWalletScreen({
-  onBack,
-  onRestore,
-}: RestoreWalletScreenProps) {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <TouchableOpacity onPress={onBack}>
+        <TouchableOpacity onPress={() => navigation.goBack()}>
           <Text style={styles.back}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Restore wallet</Text>
         <View style={styles.headerSpacer} />
       </View>
-      <RestoreWallet onRestore={onRestore} />
+      <RestoreWallet
+        onRestore={() =>
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+        }
+      />
     </ScreenContainer>
   );
 }

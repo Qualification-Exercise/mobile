@@ -1,3 +1,4 @@
+import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import {
   Clipboard,
@@ -6,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
   PrimaryButton,
@@ -15,69 +17,68 @@ import {
   spacing,
 } from '@shared/ui';
 
-type PaymentSuccessScreenProps = {
-  onClaimNow: (couponCode: string) => void;
-  onDone: () => void;
-};
+export const PaymentSuccessScreen = observer(
+  function PaymentSuccessScreenView() {
+    const navigation = useNavigation<RootStackNavigationProp>();
+    const { walletStore } = useStore();
+    const transaction = walletStore.transactions[0];
+    const coupon = walletStore.coupons[0];
+    const cashbackPercent = Math.round(
+      (coupon.amount / Math.abs(transaction.amount)) * 100,
+    );
 
-export const PaymentSuccessScreen = observer(function PaymentSuccessScreenView({
-  onClaimNow,
-  onDone,
-}: PaymentSuccessScreenProps) {
-  const { walletStore } = useStore();
-  const transaction = walletStore.transactions[0];
-  const coupon = walletStore.coupons[0];
-  const cashbackPercent = Math.round(
-    (coupon.amount / Math.abs(transaction.amount)) * 100,
-  );
-
-  return (
-    <ScreenContainer>
-      <View style={styles.content}>
-        <View style={styles.checkCircle}>
-          <Text style={styles.checkGlyph}>✓</Text>
-        </View>
-        <Text style={styles.title}>Payment sent</Text>
-        <Text style={styles.subtitle}>
-          {Math.abs(transaction.amount).toFixed(2)} USDt to{' '}
-          {transaction.counterparty}
-        </Text>
-        <Text style={styles.txHash}>tx 0x9f2a…d41c · Confirmed</Text>
-
-        <View style={styles.cashbackCard}>
-          <View style={styles.cashbackHeader}>
-            <View style={styles.cashbackIcon}>
-              <Text style={styles.cashbackIconGlyph}>◆</Text>
-            </View>
-            <Text style={styles.cashbackLabel}>Cashback earned</Text>
+    return (
+      <ScreenContainer>
+        <View style={styles.content}>
+          <View style={styles.checkCircle}>
+            <Text style={styles.checkGlyph}>✓</Text>
           </View>
-          <Text style={styles.cashbackPercent}>{cashbackPercent}% back</Text>
-          <Text style={styles.cashbackAmount}>
-            Coupon issued for {coupon.amount.toFixed(2)} UTL
+          <Text style={styles.title}>Payment sent</Text>
+          <Text style={styles.subtitle}>
+            {Math.abs(transaction.amount).toFixed(2)} USDt to{' '}
+            {transaction.counterparty}
           </Text>
-          <View style={styles.couponRow}>
-            <Text style={styles.couponCode}>{coupon.code}</Text>
-            <TouchableOpacity onPress={() => Clipboard.setString(coupon.code)}>
-              <Text style={styles.couponCopy}>⧉ Copy</Text>
+          <Text style={styles.txHash}>tx 0x9f2a…d41c · Confirmed</Text>
+
+          <View style={styles.cashbackCard}>
+            <View style={styles.cashbackHeader}>
+              <View style={styles.cashbackIcon}>
+                <Text style={styles.cashbackIconGlyph}>◆</Text>
+              </View>
+              <Text style={styles.cashbackLabel}>Cashback earned</Text>
+            </View>
+            <Text style={styles.cashbackPercent}>{cashbackPercent}% back</Text>
+            <Text style={styles.cashbackAmount}>
+              Coupon issued for {coupon.amount.toFixed(2)} UTL
+            </Text>
+            <View style={styles.couponRow}>
+              <Text style={styles.couponCode}>{coupon.code}</Text>
+              <TouchableOpacity
+                onPress={() => Clipboard.setString(coupon.code)}
+              >
+                <Text style={styles.couponCopy}>⧉ Copy</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.spacer} />
+
+          <View style={styles.actions}>
+            <PrimaryButton
+              title="Claim UTL now"
+              onPress={() =>
+                navigation.navigate('ClaimCoupon', { couponCode: coupon.code })
+              }
+            />
+            <TouchableOpacity onPress={() => navigation.popToTop()}>
+              <Text style={styles.done}>Done</Text>
             </TouchableOpacity>
           </View>
         </View>
-
-        <View style={styles.spacer} />
-
-        <View style={styles.actions}>
-          <PrimaryButton
-            title="Claim UTL now"
-            onPress={() => onClaimNow(coupon.code)}
-          />
-          <TouchableOpacity onPress={onDone}>
-            <Text style={styles.done}>Done</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </ScreenContainer>
-  );
-});
+      </ScreenContainer>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   content: {
