@@ -1,16 +1,9 @@
 import { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Alert, StyleSheet, Text, View } from 'react-native';
-import {
-  type RouteProp,
-  useNavigation,
-  useRoute,
-} from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import { useWdkApp, useWalletManager } from '@tetherto/wdk-react-native-core';
-import type {
-  RootStackNavigationProp,
-  RootStackParamList,
-} from '@app/navigation/types';
+import type { RootStackNavigationProp } from '@app/navigation/types';
 import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence';
 import {
   PrimaryButton,
@@ -23,12 +16,9 @@ import { useStore } from '@shared/store';
 
 export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { params } =
-    useRoute<RouteProp<RootStackParamList, 'BiometricUnlock'>>();
   const { state } = useWdkApp();
   const { wallets } = useWalletManager();
   const { walletSeedPhraseStore, biometryStore } = useStore();
-  const autoPrompt = params?.autoPrompt ?? true;
   const persistedWalletExists = hasPersistedWallet(wallets);
 
   async function runUnlock() {
@@ -62,11 +52,9 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
   }
 
   useEffect(() => {
-    if (autoPrompt) {
-      void runUnlock();
-    }
+    runUnlock();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoPrompt]);
+  }, []);
 
   return (
     <ScreenContainer>
@@ -85,7 +73,7 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
         <PrimaryButton
           title="Unlock with Face ID"
           onPress={() => {
-            void runUnlock();
+            runUnlock();
           }}
         />
       </View>

@@ -120,7 +120,7 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
       walletStore.syncSeedPhraseDisplay(result);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+        routes: [{ name: 'BiometricUnlock' }],
       });
     }
   }
@@ -138,7 +138,7 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
     if (opened) {
       navigation.reset({
         index: 0,
-        routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+        routes: [{ name: 'BiometricUnlock' }],
       });
     }
   }

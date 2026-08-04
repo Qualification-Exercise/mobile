@@ -4,7 +4,7 @@ export type RootStackParamList = {
   SignIn: undefined;
   EnableBiometric: undefined;
   WalletSetup: undefined;
-  BiometricUnlock: { autoPrompt?: boolean } | undefined;
+  BiometricUnlock: undefined;
   RestoreWallet: undefined;
   RecoveryPhrase: undefined;
   Home: undefined;

@@ -27,7 +27,7 @@ export function WalletSetupScreen() {
     redirectedRef.current = true;
     navigation.reset({
       index: 0,
-      routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+      routes: [{ name: 'BiometricUnlock' }],
     });
   }, [persistedWalletExists, navigation]);
 

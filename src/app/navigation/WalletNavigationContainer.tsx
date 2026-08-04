@@ -52,7 +52,7 @@ export const WalletNavigationContainer = observer(
       //
       // navigationRef.reset({
       //   index: 0,
-      //   routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+      //   routes: [{ name: 'BiometricUnlock' }],
       // });
     }, [navigationRef]);
 

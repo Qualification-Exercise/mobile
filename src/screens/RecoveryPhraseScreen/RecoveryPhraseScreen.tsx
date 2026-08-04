@@ -56,7 +56,7 @@ export const RecoveryPhraseScreen = observer(function RecoveryPhraseScreenView()
       walletStore.syncSeedPhraseDisplay(result);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+        routes: [{ name: 'BiometricUnlock' }],
       });
       walletSeedPhraseStore.clearPreviewMnemonic();
     }
