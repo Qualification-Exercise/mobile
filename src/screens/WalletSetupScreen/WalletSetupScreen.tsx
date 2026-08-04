@@ -1,9 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
-import { useWalletManager } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence';
+import { useWallet } from '@features/wallet-seed-phrase';
 import {
   PressableButton,
   ScreenContainer,
@@ -15,9 +14,9 @@ import {
 
 export function WalletSetupScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { wallets } = useWalletManager();
+  const { hasPersistedWallet } = useWallet();
   const redirectedRef = useRef(false);
-  const persistedWalletExists = hasPersistedWallet(wallets);
+  const persistedWalletExists = hasPersistedWallet();
 
   useEffect(() => {
     if (!persistedWalletExists || redirectedRef.current) {

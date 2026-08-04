@@ -7,13 +7,12 @@ import {
   View,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useWalletManager } from '@tetherto/wdk-react-native-core';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import {
-  DEFAULT_WALLET_ID,
   MNEMONIC_WORD_COUNT,
+  useWallet,
 } from '@features/wallet-seed-phrase';
 import {
   ScreenContainer,
@@ -37,7 +36,7 @@ function splitMnemonic(mnemonic: string): string[] {
 
 export function RecoveryPhraseScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { generateMnemonic, restoreWallet } = useWalletManager();
+  const { generateMnemonic, restoreWallet } = useWallet();
 
   const [words, setWords] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -50,7 +49,7 @@ export function RecoveryPhraseScreen() {
     setGenerating(true);
     setGenerateError('');
     try {
-      const mnemonic = await generateMnemonic(MNEMONIC_WORD_COUNT);
+      const mnemonic = await generateMnemonic();
       setWords(splitMnemonic(mnemonic));
     } catch (err) {
       setGenerateError(
@@ -93,7 +92,7 @@ export function RecoveryPhraseScreen() {
     setSaving(true);
     setSaveError('');
     try {
-      await restoreWallet(words.join(' '), DEFAULT_WALLET_ID);
+      await restoreWallet(words.join(' '));
       setConfirmed(true);
       navigation.reset({
         index: 0,

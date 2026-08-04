@@ -4,8 +4,7 @@ import {
   NavigationContainer,
   useNavigationContainerRef,
 } from '@react-navigation/native';
-import { useWalletManager, useWdkApp } from '@tetherto/wdk-react-native-core';
-import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence';
+import { useWdkApp } from '@tetherto/wdk-react-native-core';
 import { WalletSessionLock } from '@features/wallet-seed-phrase';
 import { useStore } from '@shared/store';
 import { RootNavigator } from './RootNavigator';

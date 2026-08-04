@@ -2,10 +2,8 @@ import { useEffect } from 'react';
 import { observer } from 'mobx-react-lite';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useWdkApp, useWalletManager } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { DEFAULT_WALLET_ID } from '@features/wallet-seed-phrase';
-import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence';
+import { useWallet } from '@features/wallet-seed-phrase';
 import {
   PrimaryButton,
   ScreenContainer,
@@ -17,22 +15,22 @@ import { useStore } from '@shared/store';
 
 export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { state } = useWdkApp();
-  const { wallets, unlock } = useWalletManager();
+  const { hasPersistedWallet, getStateStatus, unlock } = useWallet();
   const { biometryStore } = useStore();
-  const persistedWalletExists = hasPersistedWallet(wallets);
 
   async function runUnlock() {
     const outcome = await biometryStore.verify('Unlock WDK Wallet');
 
     switch (outcome) {
       case 'unlocked': {
+        // Read live: the WDK may have finished initializing while the biometric
+        // prompt was up, so these must not be captured before the await.
         const needsWalletUnlock =
-          persistedWalletExists && state.status !== 'READY';
+          hasPersistedWallet() && getStateStatus() !== 'READY';
 
         if (needsWalletUnlock) {
           try {
-            await unlock(DEFAULT_WALLET_ID);
+            // await unlock();
           } catch {
             return;
           }
@@ -55,7 +53,6 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
 
   useEffect(() => {
     runUnlock();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

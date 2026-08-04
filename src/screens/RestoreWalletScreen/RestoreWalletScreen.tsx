@@ -1,16 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Alert, Clipboard, StyleSheet, Text, View } from 'react-native';
-import {
-  useWalletManager,
-  validateMnemonic,
-} from '@tetherto/wdk-react-native-core';
+import { validateMnemonic } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { requireWalletBiometry } from '@shared/lib';
 import {
-  DEFAULT_WALLET_ID,
   isWalletAlreadyExistsError,
+  useWallet,
 } from '@features/wallet-seed-phrase';
 import {
   AppIcon,
@@ -57,7 +54,7 @@ export function RestoreWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { biometryStore } = useStore();
   const { restoreWallet, unlock, deleteWallet, getSeedAndEntropyFromMnemonic } =
-    useWalletManager();
+    useWallet();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
   const [isScanning, setIsScanning] = useState(false);
 
@@ -162,7 +159,7 @@ export function RestoreWalletScreen() {
     setRestoring(true);
     setRestoreError('');
     try {
-      await restoreWallet(words.join(' ').trim(), DEFAULT_WALLET_ID);
+      await restoreWallet(words.join(' ').trim());
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],
@@ -186,7 +183,7 @@ export function RestoreWalletScreen() {
     }
 
     try {
-      await unlock(DEFAULT_WALLET_ID);
+      await unlock();
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],
@@ -218,7 +215,7 @@ export function RestoreWalletScreen() {
 
             setDeleting(true);
             try {
-              await deleteWallet(DEFAULT_WALLET_ID);
+              await deleteWallet();
               setRestoreError('');
               setWords(EMPTY_PHRASE);
               resetValidation();

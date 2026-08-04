@@ -7,11 +7,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useWalletManager } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { requireWalletBiometry } from '@shared/lib';
-import { DEFAULT_WALLET_ID } from '@features/wallet-seed-phrase';
+import { useWallet } from '@features/wallet-seed-phrase';
 import {
   HeaderBackButton,
   PrimaryButton,
@@ -30,7 +29,7 @@ function splitMnemonic(mnemonic: string): string[] {
 export function WalletSettingsScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { authStore, biometryStore } = useStore();
-  const { getMnemonic, deleteWallet } = useWalletManager();
+  const { getMnemonic, deleteWallet } = useWallet();
 
   const [revealedWords, setRevealedWords] = useState<string[]>([]);
   const [revealing, setRevealing] = useState(false);
@@ -50,7 +49,7 @@ export function WalletSettingsScreen() {
     setRevealing(true);
     setRevealError('');
     try {
-      const mnemonic = await getMnemonic(DEFAULT_WALLET_ID);
+      const mnemonic = await getMnemonic();
       if (!mnemonic) {
         throw new Error('Could not read recovery phrase');
       }
@@ -86,7 +85,7 @@ export function WalletSettingsScreen() {
             setDeleting(true);
             setDeleteError('');
             try {
-              await deleteWallet(DEFAULT_WALLET_ID);
+              await deleteWallet();
               await authStore.signOut();
             } catch (err) {
               setDeleteError(

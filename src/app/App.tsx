@@ -9,29 +9,28 @@ import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@env';
 import {RootStoreContext, useStore} from '@shared/store';
 import { WalletNavigationContainer } from './navigation/WalletNavigationContainer';
 import {RootStore, useSyncAppState, useSyncWdkAppState} from './providers';
-import { WdkAppProvider, useWalletManager } from '@tetherto/wdk-react-native-core';
+import { WdkAppProvider } from '@tetherto/wdk-react-native-core';
 import { bundle } from '../../.wdk';
-import {DEFAULT_WALLET_ID} from '@features/wallet-seed-phrase';
+import {DEFAULT_WALLET_ID, useWallet} from '@features/wallet-seed-phrase';
 import {wdkConfigs} from '@shared/config';
-import {reaction} from 'mobx';
 
 
 const MENU_ITEM_TITLE = 'Clear all cached data';
 
 function DevMenu() {
   const { authStore, biometryStore } = useStore();
-  const { wallets, deleteWallet } = useWalletManager();
+  const { getWallets, deleteWallet } = useWallet();
 
   // Hold the latest wipe logic in a ref: `DevSettings.addMenuItem` registers a
   // handler once and cannot update it, so we must avoid capturing a stale
-  // closure over `wallets`/`deleteWallet`.
+  // closure over `getWallets`/`deleteWallet`.
   const clearRef = useRef<() => Promise<void>>(() => Promise.resolve());
   clearRef.current = async () => {
     // Delete every known wallet plus the default id, which may still hold
     // secure-storage material even when the in-memory wallet list is empty.
     const walletIds = new Set([
       DEFAULT_WALLET_ID,
-      ...wallets.map((wallet) => wallet.identifier),
+      ...getWallets().map((wallet) => wallet.identifier),
     ]);
 
     await Promise.allSettled([

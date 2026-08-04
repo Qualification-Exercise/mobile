@@ -1,9 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import { observer } from 'mobx-react-lite';
-import { useWalletManager, useWdkApp } from '@tetherto/wdk-react-native-core';
+import { useWdkApp } from '@tetherto/wdk-react-native-core';
 import { useStore } from '@shared/store';
-import { hasPersistedWallet } from './walletPresence';
+import { useWallet } from './useWallet';
 
 type WalletSessionLockProps = {
   onRequireUnlock: () => void;
@@ -15,11 +15,11 @@ type WalletSessionLockProps = {
 // for the system Face ID sheet during in-app biometry.
 function WalletSessionLockView({ onRequireUnlock }: WalletSessionLockProps) {
   const { state } = useWdkApp();
-  const { wallets } = useWalletManager();
+  const { hasPersistedWallet } = useWallet();
   const { authStore, biometryStore } = useStore();
   const pendingUnlockRef = useRef(false);
 
-  const persistedWalletExists = hasPersistedWallet(wallets);
+  const persistedWalletExists = hasPersistedWallet();
   const mayUseWallet =
     authStore.isAuthenticated &&
     biometryStore.isEnrolled &&
