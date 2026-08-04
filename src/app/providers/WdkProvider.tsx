@@ -11,6 +11,8 @@ import { useWdkApp, WdkAppProvider } from '@tetherto/wdk-react-native-core';
 import { WdkSeedPhraseBridge } from '@features/wallet-seed-phrase';
 import { wdkConfigs } from '@shared/config/wdk';
 import { bundle } from '../../../.wdk';
+import { useSyncAppState } from './useSyncAppState';
+import { useSyncWdkAppState } from './useSyncWdkAppState';
 
 type WdkProviderProps = {
   children: ReactNode;
@@ -18,6 +20,10 @@ type WdkProviderProps = {
 
 const WdkGate = observer(function WdkGateView({ children }: WdkProviderProps) {
   const { state, retry } = useWdkApp();
+
+  // FIXME: Move away
+  useSyncWdkAppState();
+  useSyncAppState();
 
   if (state.status === 'INITIALIZING' || state.status === 'REINITIALIZING') {
     return (
