@@ -9,7 +9,7 @@ import { WalletNavigationContainer } from './navigation/WalletNavigationContaine
 import {RootStore, useSyncAppState, useSyncWdkAppState} from './providers';
 import { WdkAppProvider, useWalletManager } from '@tetherto/wdk-react-native-core';
 import { bundle } from '../../.wdk';
-import {WdkSeedPhraseBridge, DEFAULT_WALLET_ID} from '@features/wallet-seed-phrase';
+import {DEFAULT_WALLET_ID} from '@features/wallet-seed-phrase';
 import {wdkConfigs} from '@shared/config';
 import {reaction} from 'mobx';
 
@@ -75,7 +75,6 @@ const App = observer(function App() {
 
   return <>
     <DevMenu />
-    <WdkSeedPhraseBridge />
     <WalletNavigationContainer />
   </>
 })

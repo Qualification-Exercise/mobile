@@ -1,11 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { observer } from 'mobx-react-lite';
 import { Alert, Clipboard, StyleSheet, Text, View } from 'react-native';
+import {
+  useWalletManager,
+  validateMnemonic,
+} from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { requireWalletBiometry } from '@shared/lib';
-import { isWalletAlreadyExistsError } from '@features/wallet-seed-phrase';
+import {
+  DEFAULT_WALLET_ID,
+  isWalletAlreadyExistsError,
+} from '@features/wallet-seed-phrase';
 import {
   AppIcon,
   HeaderBackButton,
@@ -43,44 +49,82 @@ function parsePhraseInput(text: string): string[] | null {
 const EMPTY_PHRASE = Array(12).fill('');
 const PHRASE_VALIDATION_DEBOUNCE_MS = 400;
 
-export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
+function isShapeValid(words: string[]): boolean {
+  return validateMnemonic(words.join(' ').trim());
+}
+
+export function RestoreWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { walletStore, biometryStore, walletSeedPhraseStore } = useStore();
-  const { restoreWalletRequest } = walletSeedPhraseStore;
+  const { walletStore, biometryStore } = useStore();
+  const { restoreWallet, unlock, deleteWallet, getSeedAndEntropyFromMnemonic } =
+    useWalletManager();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
   const [isScanning, setIsScanning] = useState(false);
 
+  // Async worklet validation state for the entered phrase.
+  const [isValidating, setIsValidating] = useState(false);
+  const [isWorkletValid, setIsWorkletValid] = useState<boolean | null>(null);
+  const validationSeq = useRef(0);
+
+  const [restoring, setRestoring] = useState(false);
+  const [restoreError, setRestoreError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
   const filledCount = words.filter(word => word.trim().length > 0).length;
   const isComplete = filledCount === 12;
-  const isShapeValid = isComplete && walletSeedPhraseStore.isShapeValid(words);
-  const isValid = isShapeValid && walletSeedPhraseStore.isWorkletValid === true;
+  const shapeValid = isComplete && isShapeValid(words);
+  const isValid = shapeValid && isWorkletValid === true;
   const isInvalid =
-    isComplete &&
-    (walletSeedPhraseStore.isWorkletValid === false ||
-      (!walletSeedPhraseStore.isShapeValid(words) &&
-        !walletSeedPhraseStore.isValidating));
+    isComplete && (isWorkletValid === false || (!shapeValid && !isValidating));
+
+  const resetValidation = useCallback(() => {
+    validationSeq.current += 1;
+    setIsWorkletValid(null);
+    setIsValidating(false);
+  }, []);
+
+  const validatePhrase = useCallback(
+    async (candidate: string[]) => {
+      const mnemonic = candidate.join(' ').trim();
+      const seq = ++validationSeq.current;
+
+      setIsValidating(true);
+      setIsWorkletValid(null);
+
+      try {
+        await getSeedAndEntropyFromMnemonic(mnemonic);
+        if (seq === validationSeq.current) {
+          setIsWorkletValid(true);
+        }
+      } catch {
+        if (seq === validationSeq.current) {
+          setIsWorkletValid(false);
+        }
+      } finally {
+        if (seq === validationSeq.current) {
+          setIsValidating(false);
+        }
+      }
+    },
+    [getSeedAndEntropyFromMnemonic],
+  );
 
   useEffect(() => {
-    if (!isComplete) {
-      walletSeedPhraseStore.resetValidation();
+    if (!isComplete || !isShapeValid(words)) {
+      resetValidation();
       return;
     }
 
-    if (!walletSeedPhraseStore.isShapeValid(words)) {
-      walletSeedPhraseStore.resetValidation();
-      return;
-    }
-
-    walletSeedPhraseStore.resetValidation();
+    resetValidation();
 
     const timeoutId = setTimeout(() => {
-      void walletSeedPhraseStore.validateMnemonicPhrase(words);
+      void validatePhrase(words);
     }, PHRASE_VALIDATION_DEBOUNCE_MS);
 
     return () => {
       clearTimeout(timeoutId);
     };
-  }, [words, isComplete, walletSeedPhraseStore]);
+  }, [words, isComplete, resetValidation, validatePhrase]);
 
   function handleChangeWord(index: number, value: string) {
     setWords(current => {
@@ -115,13 +159,21 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
       return;
     }
 
-    const result = await restoreWalletRequest.fetch(words);
-    if (result.length === 12) {
-      walletStore.syncSeedPhraseDisplay(result);
+    setRestoring(true);
+    setRestoreError('');
+    try {
+      await restoreWallet(words.join(' ').trim(), DEFAULT_WALLET_ID);
+      walletStore.syncSeedPhraseDisplay(words);
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],
       });
+    } catch (err) {
+      setRestoreError(
+        (err instanceof Error && err.message) || 'Could not restore wallet',
+      );
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -134,12 +186,16 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
       return;
     }
 
-    const opened = await walletSeedPhraseStore.openExistingWallet();
-    if (opened) {
+    try {
+      await unlock(DEFAULT_WALLET_ID);
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],
       });
+    } catch (err) {
+      setRestoreError(
+        (err instanceof Error && err.message) || 'Could not unlock wallet',
+      );
     }
   }
 
@@ -161,13 +217,19 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
               return;
             }
 
-            await walletSeedPhraseStore.deleteWalletRequest.fetch({
-              emitDeletedSignal: false,
-            });
-            if (!walletSeedPhraseStore.deleteWalletRequest.error) {
-              restoreWalletRequest.error = '';
+            setDeleting(true);
+            try {
+              await deleteWallet(DEFAULT_WALLET_ID);
+              setRestoreError('');
               setWords(EMPTY_PHRASE);
-              walletSeedPhraseStore.resetValidation();
+              resetValidation();
+            } catch (err) {
+              setRestoreError(
+                (err instanceof Error && err.message) ||
+                  'Could not delete wallet',
+              );
+            } finally {
+              setDeleting(false);
             }
           },
         },
@@ -175,7 +237,6 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
     );
   }
 
-  const restoreError = restoreWalletRequest.error;
   const walletAlreadyExists =
     !!restoreError && isWalletAlreadyExistsError(restoreError);
 
@@ -244,7 +305,7 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
                     : undefined),
               ]}
             >
-              {walletSeedPhraseStore.isValidating
+              {isValidating
                 ? `Validating phrase · ${filledCount} / 12 words`
                 : isComplete
                 ? isValid
@@ -271,12 +332,12 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
                   />
                   <SecondaryButton
                     title={
-                      walletSeedPhraseStore.deleteWalletRequest.loading
+                      deleting
                         ? 'Removing saved wallet…'
                         : 'Replace with new phrase'
                     }
                     onPress={handleReplaceWallet}
-                    disabled={walletSeedPhraseStore.deleteWalletRequest.loading}
+                    disabled={deleting}
                     style={styles.openExistingButton}
                   />
                 </>
@@ -285,17 +346,15 @@ export const RestoreWalletScreen = observer(function RestoreWalletScreenView() {
           ) : null}
           <View style={styles.spacer} />
           <PrimaryButton
-            title={
-              restoreWalletRequest.loading ? 'Restoring…' : 'Restore wallet'
-            }
+            title={restoring ? 'Restoring…' : 'Restore wallet'}
             onPress={handleRestore}
-            disabled={!isValid || restoreWalletRequest.loading}
+            disabled={!isValid || restoring}
           />
         </View>
       )}
     </ScreenContainer>
   );
-});
+}
 
 const styles = StyleSheet.create({
   header: {

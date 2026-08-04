@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { observer } from 'mobx-react-lite';
 import {
   ActivityIndicator,
   Alert,
@@ -8,9 +7,11 @@ import {
   Text,
   View,
 } from 'react-native';
+import { useWalletManager } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { requireWalletBiometry } from '@shared/lib';
+import { DEFAULT_WALLET_ID } from '@features/wallet-seed-phrase';
 import {
   HeaderBackButton,
   PrimaryButton,
@@ -22,20 +23,20 @@ import {
 } from '@shared/ui';
 import { SeedWordGrid } from '@widgets/seed-word-grid';
 
-export const WalletSettingsScreen = observer(function WalletSettingsScreenView() {
-  const navigation = useNavigation<RootStackNavigationProp>();
-  const { authStore, biometryStore, walletSeedPhraseStore } = useStore();
-  const { revealMnemonicRequest, deleteWalletRequest } = walletSeedPhraseStore;
-  const revealedWords =
-    walletSeedPhraseStore.revealedMnemonic.length > 0
-      ? walletSeedPhraseStore.revealedMnemonic
-      : revealMnemonicRequest.data;
+function splitMnemonic(mnemonic: string): string[] {
+  return mnemonic.trim().split(/\s+/);
+}
 
-  useEffect(() => {
-    return () => {
-      walletSeedPhraseStore.clearRevealedMnemonic();
-    };
-  }, [walletSeedPhraseStore]);
+export function WalletSettingsScreen() {
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const { authStore, biometryStore } = useStore();
+  const { getMnemonic, deleteWallet } = useWalletManager();
+
+  const [revealedWords, setRevealedWords] = useState<string[]>([]);
+  const [revealing, setRevealing] = useState(false);
+  const [revealError, setRevealError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   async function handleRevealPhrase() {
     const verified = await requireWalletBiometry(
@@ -46,7 +47,22 @@ export const WalletSettingsScreen = observer(function WalletSettingsScreenView()
       return;
     }
 
-    await revealMnemonicRequest.fetch();
+    setRevealing(true);
+    setRevealError('');
+    try {
+      const mnemonic = await getMnemonic(DEFAULT_WALLET_ID);
+      if (!mnemonic) {
+        throw new Error('Could not read recovery phrase');
+      }
+      setRevealedWords(splitMnemonic(mnemonic));
+    } catch (err) {
+      setRevealError(
+        (err instanceof Error && err.message) ||
+          'Could not reveal recovery phrase',
+      );
+    } finally {
+      setRevealing(false);
+    }
   }
 
   function handleDeleteWallet() {
@@ -67,8 +83,19 @@ export const WalletSettingsScreen = observer(function WalletSettingsScreenView()
               return;
             }
 
-            await deleteWalletRequest.fetch();
-            await authStore.signOut();
+            setDeleting(true);
+            setDeleteError('');
+            try {
+              await deleteWallet(DEFAULT_WALLET_ID);
+              await authStore.signOut();
+            } catch (err) {
+              setDeleteError(
+                (err instanceof Error && err.message) ||
+                  'Could not delete wallet',
+              );
+            } finally {
+              setDeleting(false);
+            }
           },
         },
       ],
@@ -90,7 +117,7 @@ export const WalletSettingsScreen = observer(function WalletSettingsScreenView()
           </Text>
           <SecondaryButton
             title={
-              revealMnemonicRequest.loading
+              revealing
                 ? 'Authenticating…'
                 : revealedWords.length === 12
                 ? 'Hide recovery phrase'
@@ -98,14 +125,14 @@ export const WalletSettingsScreen = observer(function WalletSettingsScreenView()
             }
             onPress={() => {
               if (revealedWords.length === 12) {
-                walletSeedPhraseStore.clearRevealedMnemonic();
+                setRevealedWords([]);
                 return;
               }
               void handleRevealPhrase();
             }}
-            disabled={revealMnemonicRequest.loading}
+            disabled={revealing}
           />
-          {revealMnemonicRequest.loading ? (
+          {revealing ? (
             <View style={styles.revealLoading}>
               <ActivityIndicator size="small" color={colors.accentBright} />
               <Text style={styles.revealLoadingText}>
@@ -113,8 +140,8 @@ export const WalletSettingsScreen = observer(function WalletSettingsScreenView()
               </Text>
             </View>
           ) : null}
-          {revealMnemonicRequest.error ? (
-            <Text style={styles.errorText}>{revealMnemonicRequest.error}</Text>
+          {revealError ? (
+            <Text style={styles.errorText}>{revealError}</Text>
           ) : null}
           {revealedWords.length === 12 ? (
             <View style={styles.revealBlock}>
@@ -135,19 +162,19 @@ export const WalletSettingsScreen = observer(function WalletSettingsScreenView()
             Permanently remove this wallet from secure storage on this device.
           </Text>
           <PrimaryButton
-            title={deleteWalletRequest.loading ? 'Deleting…' : 'Delete wallet'}
+            title={deleting ? 'Deleting…' : 'Delete wallet'}
             onPress={handleDeleteWallet}
-            disabled={deleteWalletRequest.loading}
+            disabled={deleting}
             style={styles.deleteButton}
           />
-          {deleteWalletRequest.error ? (
-            <Text style={styles.errorText}>{deleteWalletRequest.error}</Text>
+          {deleteError ? (
+            <Text style={styles.errorText}>{deleteError}</Text>
           ) : null}
         </View>
       </View>
     </ScreenContainer>
   );
-});
+}
 
 const styles = StyleSheet.create({
   header: {

@@ -18,12 +18,9 @@ export const WalletNavigationContainer = observer(
       // const { state, retry } = useWdkApp();
 
     // const { wallets } = useWalletManager();
-    const { navigationStore, walletSeedPhraseStore } = useStore();
+    const { navigationStore } = useStore();
     const navigationRef = useNavigationContainerRef<RootStackParamList>();
     // const previousStatusRef = useRef<WdkStatus | null>(null);
-    // const lastDeleteSignalRef = useRef(
-    //   walletSeedPhraseStore.walletDeletedSignal,
-    // );
     // const bootRouteRef = useRef<keyof RootStackParamList | null>(null);
 
 

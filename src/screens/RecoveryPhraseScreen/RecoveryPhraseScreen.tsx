@@ -1,9 +1,13 @@
-import { useEffect, useState } from 'react';
-import { observer } from 'mobx-react-lite';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useWalletManager } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
+import {
+  DEFAULT_WALLET_ID,
+  MNEMONIC_WORD_COUNT,
+} from '@features/wallet-seed-phrase';
 import {
   ScreenContainer,
   PrimaryButton,
@@ -20,66 +24,80 @@ const BACKUP_STATUSES = [
   { label: 'Backend', status: 'Synced' },
 ];
 
-export const RecoveryPhraseScreen = observer(function RecoveryPhraseScreenView() {
+function splitMnemonic(mnemonic: string): string[] {
+  return mnemonic.trim().split(/\s+/);
+}
+
+export function RecoveryPhraseScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { walletStore, walletSeedPhraseStore } = useStore();
-  const { generateMnemonicRequest, persistWalletRequest, previewMnemonic } =
-    walletSeedPhraseStore;
-  const [persistAttempted, setPersistAttempted] = useState(false);
-  const [confirmedWords, setConfirmedWords] = useState<string[] | null>(null);
+  const { walletStore } = useStore();
+  const { generateMnemonic, restoreWallet } = useWalletManager();
+
+  const [words, setWords] = useState<string[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [generateError, setGenerateError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
+  const [confirmed, setConfirmed] = useState(false);
+
+  const generate = useCallback(async () => {
+    setGenerating(true);
+    setGenerateError('');
+    try {
+      const mnemonic = await generateMnemonic(MNEMONIC_WORD_COUNT);
+      setWords(splitMnemonic(mnemonic));
+    } catch (err) {
+      setGenerateError(
+        (err instanceof Error && err.message) ||
+          'Could not generate recovery phrase',
+      );
+    } finally {
+      setGenerating(false);
+    }
+  }, [generateMnemonic]);
 
   useEffect(() => {
-    if (confirmedWords) {
-      return;
+    if (!confirmed && words.length === 0 && !generating && !generateError) {
+      void generate();
     }
-    if (walletSeedPhraseStore.api && !previewMnemonic.length) {
-      generateMnemonicRequest.fetch();
-    }
-  }, [
-    confirmedWords,
-    walletSeedPhraseStore.api,
-    previewMnemonic.length,
-    generateMnemonicRequest,
-  ]);
-
-  const words =
-    confirmedWords ??
-    (previewMnemonic.length > 0
-      ? previewMnemonic
-      : generateMnemonicRequest.data);
+  }, [confirmed, words.length, generating, generateError, generate]);
 
   async function handleConfirm() {
-    setPersistAttempted(true);
-    const result = await persistWalletRequest.fetch();
-    if (result.length === 12) {
-      setConfirmedWords(result);
-      walletStore.syncSeedPhraseDisplay(result);
+    if (words.length !== MNEMONIC_WORD_COUNT) {
+      return;
+    }
+
+    setSaving(true);
+    setSaveError('');
+    try {
+      await restoreWallet(words.join(' '), DEFAULT_WALLET_ID);
+      setConfirmed(true);
+      walletStore.syncSeedPhraseDisplay(words);
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],
       });
-      walletSeedPhraseStore.clearPreviewMnemonic();
+    } catch (err) {
+      setSaveError((err instanceof Error && err.message) || 'Could not save wallet');
+    } finally {
+      setSaving(false);
     }
   }
 
   return (
     <ScreenContainer>
-      {!walletSeedPhraseStore.api || generateMnemonicRequest.loading ? (
+      {generating ? (
         <View style={styles.centered}>
           <ActivityIndicator size="large" color={colors.accentBright} />
           <Text style={styles.loadingText}>Generating recovery phrase…</Text>
         </View>
-      ) : generateMnemonicRequest.error || words.length !== 12 ? (
+      ) : generateError || words.length !== MNEMONIC_WORD_COUNT ? (
         <View style={styles.centered}>
           <Text style={styles.errorTitle}>Could not generate phrase</Text>
           <Text style={styles.errorMessage}>
-            {generateMnemonicRequest.error ||
-              'Something went wrong. Please try again.'}
+            {generateError || 'Something went wrong. Please try again.'}
           </Text>
-          <PrimaryButton
-            title="Retry"
-            onPress={() => generateMnemonicRequest.fetch()}
-          />
+          <PrimaryButton title="Retry" onPress={() => generate()} />
         </View>
       ) : (
         <View style={styles.container}>
@@ -112,25 +130,19 @@ export const RecoveryPhraseScreen = observer(function RecoveryPhraseScreenView()
               </View>
             ))}
           </View>
-          {persistAttempted && persistWalletRequest.error ? (
-            <Text style={styles.persistError}>
-              {persistWalletRequest.error}
-            </Text>
+          {saveError ? (
+            <Text style={styles.persistError}>{saveError}</Text>
           ) : null}
           <PrimaryButton
-            title={
-              persistWalletRequest.loading
-                ? 'Saving wallet…'
-                : "I've saved it — Continue"
-            }
+            title={saving ? 'Saving wallet…' : "I've saved it — Continue"}
             onPress={handleConfirm}
-            disabled={persistWalletRequest.loading}
+            disabled={saving}
           />
         </View>
       )}
     </ScreenContainer>
   );
-});
+}
 
 const styles = StyleSheet.create({
   container: {

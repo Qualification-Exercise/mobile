@@ -16,7 +16,7 @@ type WalletSessionLockProps = {
 function WalletSessionLockView({ onRequireUnlock }: WalletSessionLockProps) {
   const { state } = useWdkApp();
   const { wallets } = useWalletManager();
-  const { authStore, biometryStore, walletSeedPhraseStore } = useStore();
+  const { authStore, biometryStore } = useStore();
   const pendingUnlockRef = useRef(false);
 
   const persistedWalletExists = hasPersistedWallet(wallets);
@@ -29,17 +29,13 @@ function WalletSessionLockView({ onRequireUnlock }: WalletSessionLockProps) {
     const subscription = AppState.addEventListener(
       'change',
       (nextState: AppStateStatus) => {
-        // if (
-        //   !mayUseWallet ||
-        //   !walletSeedPhraseStore.api ||
-        //   state.status === 'NO_WALLET'
-        // ) {
+        // if (!mayUseWallet || state.status === 'NO_WALLET') {
         //   return;
         // }
 
         // if (nextState === 'background') {
         //   if (state.status === 'READY') {
-        //     walletSeedPhraseStore.lockWalletSession();
+        //     lockWdkWalletSession();
         //     pendingUnlockRef.current = true;
         //   }
         //   return;
@@ -53,7 +49,7 @@ function WalletSessionLockView({ onRequireUnlock }: WalletSessionLockProps) {
     );
 
     return () => subscription.remove();
-  }, [mayUseWallet, walletSeedPhraseStore, state.status, onRequireUnlock]);
+  }, [mayUseWallet, state.status, onRequireUnlock]);
 
   return null;
 }

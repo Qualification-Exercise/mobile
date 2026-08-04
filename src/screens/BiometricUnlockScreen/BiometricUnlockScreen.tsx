@@ -4,6 +4,7 @@ import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useWdkApp, useWalletManager } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
+import { DEFAULT_WALLET_ID } from '@features/wallet-seed-phrase';
 import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence';
 import {
   PrimaryButton,
@@ -17,8 +18,8 @@ import { useStore } from '@shared/store';
 export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { state } = useWdkApp();
-  const { wallets } = useWalletManager();
-  const { walletSeedPhraseStore, biometryStore } = useStore();
+  const { wallets, unlock } = useWalletManager();
+  const { biometryStore } = useStore();
   const persistedWalletExists = hasPersistedWallet(wallets);
 
   async function runUnlock() {
@@ -30,8 +31,9 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
           persistedWalletExists && state.status !== 'READY';
 
         if (needsWalletUnlock) {
-          const opened = await walletSeedPhraseStore.openExistingWallet();
-          if (!opened) {
+          try {
+            await unlock(DEFAULT_WALLET_ID);
+          } catch {
             return;
           }
         }
