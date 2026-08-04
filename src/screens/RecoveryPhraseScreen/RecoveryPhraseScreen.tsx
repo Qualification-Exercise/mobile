@@ -97,7 +97,7 @@ export function RecoveryPhraseScreen() {
       setConfirmed(true);
       navigation.reset({
         index: 0,
-        routes: [{ name: 'BiometricUnlock' }],
+        routes: [{ name: 'Home' }],
       });
     } catch (err) {
       setSaveError(
