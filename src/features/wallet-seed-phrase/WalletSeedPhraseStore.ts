@@ -78,7 +78,7 @@ export class WalletSeedPhraseStore {
           throw new Error('Recovery phrase is not ready');
         }
         await this.requireApi().restoreWallet(mnemonic, DEFAULT_WALLET_ID);
-        return this.previewMnemonic;
+        return [...this.previewMnemonic];
       },
       {
         initialData: [] as string[],
@@ -91,9 +91,7 @@ export class WalletSeedPhraseStore {
       async (words: string[]) => {
         const mnemonic = words.join(' ').trim();
         await this.requireApi().restoreWallet(mnemonic, DEFAULT_WALLET_ID);
-        runInAction(() => {
-          this.previewMnemonic = words;
-        });
+        this.clearPreviewMnemonic();
         return words;
       },
       {
@@ -124,7 +122,7 @@ export class WalletSeedPhraseStore {
         });
         await this.requireApi().deleteWallet(walletId);
         runInAction(() => {
-          this.previewMnemonic = [];
+          this.clearPreviewMnemonic();
           this.revealedMnemonic = [];
           if (options?.emitDeletedSignal !== false) {
             this.walletDeletedSignal += 1;
@@ -247,6 +245,15 @@ export class WalletSeedPhraseStore {
     this.revealedMnemonic = [];
     this.revealMnemonicRequest.data = [];
     this.revealMnemonicRequest.error = '';
+  }
+
+  /** Wipe onboarding preview words from memory after persist or restore. */
+  clearPreviewMnemonic() {
+    this.previewMnemonic = [];
+    this.generateMnemonicRequest.data = [];
+    this.generateMnemonicRequest.error = '';
+    this.persistWalletRequest.data = [];
+    this.restoreWalletRequest.data = [];
   }
 
   async openExistingWallet(): Promise<boolean> {

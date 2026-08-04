@@ -22,26 +22,36 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
   const { generateMnemonicRequest, persistWalletRequest, previewMnemonic } =
     walletSeedPhraseStore;
   const [persistAttempted, setPersistAttempted] = useState(false);
+  const [confirmedWords, setConfirmedWords] = useState<string[] | null>(null);
 
   useEffect(() => {
+    if (confirmedWords) {
+      return;
+    }
     if (walletSeedPhraseStore.isBridgeReady && !previewMnemonic.length) {
       generateMnemonicRequest.fetch();
     }
   }, [
+    confirmedWords,
     walletSeedPhraseStore.isBridgeReady,
     previewMnemonic.length,
     generateMnemonicRequest,
   ]);
 
   const words =
-    previewMnemonic.length > 0 ? previewMnemonic : generateMnemonicRequest.data;
+    confirmedWords ??
+    (previewMnemonic.length > 0
+      ? previewMnemonic
+      : generateMnemonicRequest.data);
 
   async function handleConfirm() {
     setPersistAttempted(true);
     const result = await persistWalletRequest.fetch();
     if (result.length === 12) {
+      setConfirmedWords(result);
       walletStore.syncSeedPhraseDisplay(result);
       onConfirm();
+      walletSeedPhraseStore.clearPreviewMnemonic();
     }
   }
 
