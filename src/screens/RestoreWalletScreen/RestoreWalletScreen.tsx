@@ -55,7 +55,7 @@ function isShapeValid(words: string[]): boolean {
 
 export function RestoreWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { walletStore, biometryStore } = useStore();
+  const { biometryStore } = useStore();
   const { restoreWallet, unlock, deleteWallet, getSeedAndEntropyFromMnemonic } =
     useWalletManager();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
@@ -163,7 +163,6 @@ export function RestoreWalletScreen() {
     setRestoreError('');
     try {
       await restoreWallet(words.join(' ').trim(), DEFAULT_WALLET_ID);
-      walletStore.syncSeedPhraseDisplay(words);
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],

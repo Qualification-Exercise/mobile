@@ -11,7 +11,6 @@ import { useWalletManager } from '@tetherto/wdk-react-native-core';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { useStore } from '@shared/store';
 import {
   DEFAULT_WALLET_ID,
   MNEMONIC_WORD_COUNT,
@@ -38,7 +37,6 @@ function splitMnemonic(mnemonic: string): string[] {
 
 export function RecoveryPhraseScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { walletStore } = useStore();
   const { generateMnemonic, restoreWallet } = useWalletManager();
 
   const [words, setWords] = useState<string[]>([]);
@@ -97,13 +95,14 @@ export function RecoveryPhraseScreen() {
     try {
       await restoreWallet(words.join(' '), DEFAULT_WALLET_ID);
       setConfirmed(true);
-      walletStore.syncSeedPhraseDisplay(words);
       navigation.reset({
         index: 0,
         routes: [{ name: 'BiometricUnlock' }],
       });
     } catch (err) {
-      setSaveError((err instanceof Error && err.message) || 'Could not save wallet');
+      setSaveError(
+        (err instanceof Error && err.message) || 'Could not save wallet',
+      );
     } finally {
       setSaving(false);
     }
@@ -139,7 +138,11 @@ export function RecoveryPhraseScreen() {
             onPress={handleCopy}
             activeOpacity={0.7}
           >
-            <AppIcon name="copy-outline" size={16} color={colors.accentBright} />
+            <AppIcon
+              name="copy-outline"
+              size={16}
+              color={colors.accentBright}
+            />
             <Text style={styles.copyButtonText}>Copy to clipboard</Text>
           </TouchableOpacity>
           <View style={styles.warning}>
