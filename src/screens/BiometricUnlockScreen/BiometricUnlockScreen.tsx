@@ -27,8 +27,8 @@ export function BiometricUnlockScreen() {
     const needsWalletUnlock = persistedWalletExists && state.status !== 'READY';
 
     if (needsWalletUnlock) {
-      const opened = await walletSeedPhraseStore.openExistingWallet();
-      if (!opened) {
+      await walletSeedPhraseStore.openExistingWallet();
+      if (walletSeedPhraseStore.unlockWalletRequest.error) {
         return;
       }
     }

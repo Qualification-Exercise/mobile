@@ -97,9 +97,9 @@ export const RestoreWallet = observer(function RestoreWalletView({
       return;
     }
 
-    const result = await restoreWalletRequest.fetch(words);
-    if (result.length === 12) {
-      walletStore.syncSeedPhraseDisplay(result);
+    await walletSeedPhraseStore.restoreWallet(words);
+    if (!restoreWalletRequest.error) {
+      walletStore.syncSeedPhraseDisplay(words);
       onRestore();
     }
   }
@@ -113,8 +113,8 @@ export const RestoreWallet = observer(function RestoreWalletView({
       return;
     }
 
-    const opened = await walletSeedPhraseStore.openExistingWallet();
-    if (opened) {
+    await walletSeedPhraseStore.openExistingWallet();
+    if (!walletSeedPhraseStore.unlockWalletRequest.error) {
       onRestore();
     }
   }
@@ -137,7 +137,7 @@ export const RestoreWallet = observer(function RestoreWalletView({
               return;
             }
 
-            await walletSeedPhraseStore.deleteWalletRequest.fetch({
+            await walletSeedPhraseStore.deleteWallet({
               emitDeletedSignal: false,
             });
             if (!walletSeedPhraseStore.deleteWalletRequest.error) {

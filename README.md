@@ -1,4 +1,4 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+This is a new **[React Native](https://reactnative.dev)** project, bootstrapped using `[@react-native-community/cli](https://github.com/react-native-community/cli)`.
 
 # Getting Started
 
@@ -121,8 +121,8 @@ Open `App.tsx` in your text editor of choice and make some changes. When you sav
 
 When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+- **Android**: Press the R key twice or select **"Reload"** from the **Dev Menu**, accessed via Ctrl + M (Windows/Linux) or Cmd ⌘ + M (macOS).
+- **iOS**: Press R in iOS Simulator.
 
 ## Congratulations! :tada:
 
@@ -145,4 +145,4 @@ To learn more about React Native, take a look at the following resources:
 - [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- `[@facebook/react-native](https://github.com/facebook/react-native)` - the Open Source; GitHub **repository** for React Native.

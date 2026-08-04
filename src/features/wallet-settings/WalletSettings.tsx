@@ -21,10 +21,7 @@ export const WalletSettings = observer(function WalletSettingsView({
 }: WalletSettingsProps) {
   const { authStore, biometryStore, walletSeedPhraseStore } = useStore();
   const { revealMnemonicRequest, deleteWalletRequest } = walletSeedPhraseStore;
-  const revealedWords =
-    walletSeedPhraseStore.revealedMnemonic.length > 0
-      ? walletSeedPhraseStore.revealedMnemonic
-      : revealMnemonicRequest.data;
+  const revealedWords = walletSeedPhraseStore.revealedMnemonic;
 
   useEffect(() => {
     return () => {
@@ -41,7 +38,7 @@ export const WalletSettings = observer(function WalletSettingsView({
       return;
     }
 
-    await revealMnemonicRequest.fetch();
+    await walletSeedPhraseStore.revealMnemonic();
   }
 
   function handleDeleteWallet() {
@@ -62,7 +59,10 @@ export const WalletSettings = observer(function WalletSettingsView({
               return;
             }
 
-            await deleteWalletRequest.fetch();
+            await walletSeedPhraseStore.deleteWallet();
+            if (deleteWalletRequest.error) {
+              return;
+            }
             await authStore.signOut();
             onWalletDeleted?.();
           },

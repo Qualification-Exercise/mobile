@@ -19,7 +19,7 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
   onConfirm,
 }: RevealRecoveryPhraseProps) {
   const { walletStore, walletSeedPhraseStore } = useStore();
-  const { generateMnemonicRequest, persistWalletRequest, previewMnemonic } =
+  const { generateMnemonicRequest, restoreWalletRequest, previewMnemonic } =
     walletSeedPhraseStore;
   const [persistAttempted, setPersistAttempted] = useState(false);
   const [confirmedWords, setConfirmedWords] = useState<string[] | null>(null);
@@ -29,27 +29,24 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
       return;
     }
     if (walletSeedPhraseStore.api && !previewMnemonic.length) {
-      generateMnemonicRequest.fetch();
+      walletSeedPhraseStore.ensurePreviewMnemonic();
     }
   }, [
     confirmedWords,
+    walletSeedPhraseStore,
     walletSeedPhraseStore.api,
     previewMnemonic.length,
-    generateMnemonicRequest,
   ]);
 
-  const words =
-    confirmedWords ??
-    (previewMnemonic.length > 0
-      ? previewMnemonic
-      : generateMnemonicRequest.data);
+  const words = confirmedWords ?? previewMnemonic;
 
   async function handleConfirm() {
     setPersistAttempted(true);
-    const result = await persistWalletRequest.fetch();
-    if (result.length === 12) {
-      setConfirmedWords(result);
-      walletStore.syncSeedPhraseDisplay(result);
+    await walletSeedPhraseStore.persistWallet();
+    if (!restoreWalletRequest.error && previewMnemonic.length === 12) {
+      const words = [...previewMnemonic];
+      setConfirmedWords(words);
+      walletStore.syncSeedPhraseDisplay(words);
       onConfirm();
       walletSeedPhraseStore.clearPreviewMnemonic();
     }
@@ -74,7 +71,7 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
         </Text>
         <PrimaryButton
           title="Retry"
-          onPress={() => generateMnemonicRequest.fetch()}
+          onPress={() => void walletSeedPhraseStore.ensurePreviewMnemonic()}
         />
       </View>
     );
@@ -111,17 +108,17 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
           </View>
         ))}
       </View>
-      {persistAttempted && persistWalletRequest.error ? (
-        <Text style={styles.persistError}>{persistWalletRequest.error}</Text>
+      {persistAttempted && restoreWalletRequest.error ? (
+        <Text style={styles.persistError}>{restoreWalletRequest.error}</Text>
       ) : null}
       <PrimaryButton
         title={
-          persistWalletRequest.loading
+          restoreWalletRequest.loading
             ? 'Saving wallet…'
             : "I've saved it — Continue"
         }
         onPress={handleConfirm}
-        disabled={persistWalletRequest.loading}
+        disabled={restoreWalletRequest.loading}
       />
     </View>
   );

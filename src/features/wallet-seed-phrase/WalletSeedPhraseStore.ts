@@ -1,7 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { UseWalletManagerResult } from '@tetherto/wdk-react-native-core';
 import { validateMnemonic } from '@tetherto/wdk-react-native-core';
-import { Request } from '@shared/store/request';
+import { TypedRequest } from '@shared/store/typedRequest';
 import { DEFAULT_WALLET_ID, MNEMONIC_WORD_COUNT } from './constants';
 import { lockWdkWalletSession } from './wdkSessionLock';
 
@@ -14,6 +14,11 @@ type WalletManagerApi = Pick<
   | 'getMnemonic'
   | 'getSeedAndEntropyFromMnemonic'
 >;
+
+type DeleteWalletOptions = {
+  emitDeletedSignal?: boolean;
+  walletId?: string;
+};
 
 function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
@@ -34,121 +39,73 @@ export class WalletSeedPhraseStore {
   /** Bumped after delete so navigation can react. */
   walletDeletedSignal = 0;
 
-  generateMnemonicRequest: Request<string[]>;
+  generateMnemonicRequest: TypedRequest<string>;
 
-  persistWalletRequest: Request<string[]>;
+  restoreWalletRequest: TypedRequest<void>;
 
-  restoreWalletRequest: Request<string[]>;
+  unlockWalletRequest: TypedRequest<void>;
 
-  unlockWalletRequest: Request<string[]>;
+  deleteWalletRequest: TypedRequest<void>;
 
-  deleteWalletRequest: Request<string[]>;
-
-  revealMnemonicRequest: Request<string[]>;
+  revealMnemonicRequest: TypedRequest<string>;
 
   api: WalletManagerApi | null = null;
 
   private validationSeq = 0;
 
   constructor() {
-    this.generateMnemonicRequest = new Request(
-      async () => {
-        const mnemonic = await this.requireApi().generateMnemonic(
-          MNEMONIC_WORD_COUNT,
-        );
-        const words = splitMnemonic(mnemonic);
-        runInAction(() => {
-          this.previewMnemonic = words;
-        });
-        return words;
-      },
+    this.generateMnemonicRequest = new TypedRequest(
+      async () => this.requireApi().generateMnemonic(MNEMONIC_WORD_COUNT),
       {
-        initialData: [] as string[],
+        initialData: '',
         defaultError: 'Could not generate recovery phrase',
         loadingMessage: 'Generating recovery phrase…',
       },
     );
 
-    this.persistWalletRequest = new Request(
-      async () => {
-        const mnemonic = this.previewMnemonic.join(' ');
-        if (this.previewMnemonic.length !== MNEMONIC_WORD_COUNT) {
-          throw new Error('Recovery phrase is not ready');
-        }
-        await this.requireApi().restoreWallet(mnemonic, DEFAULT_WALLET_ID);
-        return [...this.previewMnemonic];
+    this.restoreWalletRequest = new TypedRequest(
+      async (mnemonic: string, walletId: string = DEFAULT_WALLET_ID) => {
+        await this.requireApi().restoreWallet(mnemonic, walletId);
       },
       {
-        initialData: [] as string[],
+        initialData: undefined as void,
         defaultError: 'Could not save wallet',
         loadingMessage: 'Saving wallet…',
       },
     );
 
-    this.restoreWalletRequest = new Request(
-      async (words: string[]) => {
-        const mnemonic = words.join(' ').trim();
-        await this.requireApi().restoreWallet(mnemonic, DEFAULT_WALLET_ID);
-        this.clearPreviewMnemonic();
-        return words;
-      },
-      {
-        initialData: [] as string[],
-        defaultError: 'Could not restore wallet',
-        loadingMessage: 'Restoring wallet…',
-      },
-    );
-
-    this.unlockWalletRequest = new Request(
+    this.unlockWalletRequest = new TypedRequest(
       async (walletId: string = DEFAULT_WALLET_ID) => {
         await this.requireApi().unlock(walletId);
-        return [] as string[];
       },
       {
-        initialData: [] as string[],
+        initialData: undefined as void,
         defaultError: 'Could not unlock wallet',
         loadingMessage: 'Unlocking wallet…',
       },
     );
 
-    this.deleteWalletRequest = new Request(
-      async (options?: { emitDeletedSignal?: boolean; walletId?: string }) => {
-        const walletId = options?.walletId ?? DEFAULT_WALLET_ID;
-        runInAction(() => {
-          this.unlockWalletRequest.loading = false;
-          this.unlockWalletRequest.error = '';
-        });
+    this.deleteWalletRequest = new TypedRequest(
+      async (walletId: string = DEFAULT_WALLET_ID) => {
         await this.requireApi().deleteWallet(walletId);
-        runInAction(() => {
-          this.clearPreviewMnemonic();
-          this.revealedMnemonic = [];
-          if (options?.emitDeletedSignal !== false) {
-            this.walletDeletedSignal += 1;
-          }
-        });
-        return [] as string[];
       },
       {
-        initialData: [] as string[],
+        initialData: undefined as void,
         defaultError: 'Could not delete wallet',
         loadingMessage: 'Deleting wallet…',
       },
     );
 
-    this.revealMnemonicRequest = new Request(
+    this.revealMnemonicRequest = new TypedRequest(
       async (walletId: string = DEFAULT_WALLET_ID) => {
         const mnemonic = await this.requireApi().getMnemonic(walletId);
         if (!mnemonic) {
           throw new Error('Could not read recovery phrase');
         }
-        const words = splitMnemonic(mnemonic);
-        runInAction(() => {
-          this.revealedMnemonic = words;
-        });
-        return words;
+        return mnemonic;
       },
       {
-        initialData: [] as string[],
+        initialData: '',
         defaultError: 'Could not reveal recovery phrase',
         loadingMessage: 'Authenticating…',
       },
@@ -163,6 +120,83 @@ export class WalletSeedPhraseStore {
 
   unbind() {
     this.api = null;
+  }
+
+  async ensurePreviewMnemonic(): Promise<void> {
+    if (this.previewMnemonic.length === MNEMONIC_WORD_COUNT) {
+      return;
+    }
+
+    await this.generateMnemonicRequest.fetch();
+    if (
+      this.generateMnemonicRequest.error ||
+      !this.generateMnemonicRequest.data
+    ) {
+      return;
+    }
+
+    runInAction(() => {
+      this.previewMnemonic = splitMnemonic(this.generateMnemonicRequest.data);
+    });
+  }
+
+  async persistWallet(): Promise<void> {
+    if (this.previewMnemonic.length !== MNEMONIC_WORD_COUNT) {
+      runInAction(() => {
+        this.restoreWalletRequest.error = 'Recovery phrase is not ready';
+      });
+      return;
+    }
+
+    const mnemonic = this.previewMnemonic.join(' ');
+    await this.restoreWalletRequest.fetch(mnemonic);
+  }
+
+  async restoreWallet(words: string[]): Promise<void> {
+    const mnemonic = words.join(' ').trim();
+    await this.restoreWalletRequest.fetch(mnemonic);
+    if (this.restoreWalletRequest.error) {
+      return;
+    }
+
+    this.clearPreviewMnemonic();
+  }
+
+  async unlockWallet(walletId: string = DEFAULT_WALLET_ID): Promise<void> {
+    await this.unlockWalletRequest.fetch(walletId);
+  }
+
+  async deleteWallet(options?: DeleteWalletOptions): Promise<void> {
+    const walletId = options?.walletId ?? DEFAULT_WALLET_ID;
+
+    runInAction(() => {
+      this.unlockWalletRequest.loading = false;
+      this.unlockWalletRequest.error = '';
+    });
+
+    await this.deleteWalletRequest.fetch(walletId);
+    if (this.deleteWalletRequest.error) {
+      return;
+    }
+
+    runInAction(() => {
+      this.clearPreviewMnemonic();
+      this.revealedMnemonic = [];
+      if (options?.emitDeletedSignal !== false) {
+        this.walletDeletedSignal += 1;
+      }
+    });
+  }
+
+  async revealMnemonic(walletId: string = DEFAULT_WALLET_ID): Promise<void> {
+    await this.revealMnemonicRequest.fetch(walletId);
+    if (this.revealMnemonicRequest.error || !this.revealMnemonicRequest.data) {
+      return;
+    }
+
+    runInAction(() => {
+      this.revealedMnemonic = splitMnemonic(this.revealMnemonicRequest.data);
+    });
   }
 
   isShapeValid(words: string[]): boolean {
@@ -239,24 +273,22 @@ export class WalletSeedPhraseStore {
 
   clearRevealedMnemonic() {
     this.revealedMnemonic = [];
-    this.revealMnemonicRequest.data = [];
+    this.revealMnemonicRequest.data = '';
     this.revealMnemonicRequest.error = '';
   }
 
   /** Wipe onboarding preview words from memory after persist or restore. */
   clearPreviewMnemonic() {
     this.previewMnemonic = [];
-    this.generateMnemonicRequest.data = [];
+    this.generateMnemonicRequest.data = '';
     this.generateMnemonicRequest.error = '';
-    this.persistWalletRequest.data = [];
-    this.restoreWalletRequest.data = [];
+    this.restoreWalletRequest.error = '';
   }
 
-  async openExistingWallet(): Promise<boolean> {
+  async openExistingWallet(): Promise<void> {
     this.restoreWalletRequest.error = '';
     this.unlockWalletRequest.error = '';
-    await this.unlockWalletRequest.fetch(DEFAULT_WALLET_ID);
-    return !this.unlockWalletRequest.error;
+    await this.unlockWallet();
   }
 
   private requireApi(): WalletManagerApi {
