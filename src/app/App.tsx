@@ -3,6 +3,8 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { observer } from 'mobx-react-lite';
 import { Alert, DevSettings, StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
+import { toastConfig } from '@shared/ui';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@env';
 import {RootStoreContext, useStore} from '@shared/store';
 import { WalletNavigationContainer } from './navigation/WalletNavigationContainer';
@@ -95,6 +97,7 @@ const AppRoot = observer(function AppRoot() {
           <App />
         </WdkAppProvider>
       </RootStoreContext.Provider>
+      <Toast config={toastConfig} />
     </SafeAreaProvider>
   );
 });

@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useWalletManager } from '@tetherto/wdk-react-native-core';
+import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
@@ -62,6 +70,23 @@ export function RecoveryPhraseScreen() {
     }
   }, [confirmed, words.length, generating, generateError, generate]);
 
+  async function handleCopy() {
+    try {
+      await Clipboard.setStringAsync(words.join(' '));
+      Toast.show({
+        type: 'success',
+        text1: 'Copied',
+        text2: 'Recovery phrase copied to clipboard',
+      });
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Copy failed',
+        text2: 'Could not copy recovery phrase',
+      });
+    }
+  }
+
   async function handleConfirm() {
     if (words.length !== MNEMONIC_WORD_COUNT) {
       return;
@@ -109,6 +134,14 @@ export function RecoveryPhraseScreen() {
           <View style={styles.gridWrapper}>
             <SeedWordGrid words={words} />
           </View>
+          <TouchableOpacity
+            style={styles.copyButton}
+            onPress={handleCopy}
+            activeOpacity={0.7}
+          >
+            <AppIcon name="copy-outline" size={16} color={colors.accentBright} />
+            <Text style={styles.copyButtonText}>Copy to clipboard</Text>
+          </TouchableOpacity>
           <View style={styles.warning}>
             <Text style={styles.warningText}>
               Never share your phrase. WDK cannot recover it for you.
@@ -182,6 +215,22 @@ const styles = StyleSheet.create({
   },
   gridWrapper: {
     marginTop: spacing.xl,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radii.sm,
+  },
+  copyButtonText: {
+    color: colors.accentBright,
+    fontSize: 14,
+    fontWeight: '600',
   },
   warning: {
     marginTop: spacing.lg,
