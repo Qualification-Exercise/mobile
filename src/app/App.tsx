@@ -10,6 +10,7 @@ import {RootStore, useSyncAppState, useSyncWdkAppState} from './providers';
 import { WdkAppProvider } from '@tetherto/wdk-react-native-core';
 import { bundle } from '../../.wdk';
 import {WdkSeedPhraseBridge} from '@features/wallet-seed-phrase';
+import {DevMenu} from '@features/dev-menu';
 import {wdkConfigs} from '@shared/config';
 import {reaction} from 'mobx';
 
@@ -30,6 +31,7 @@ const App = observer(function App() {
   useSyncWdkAppState();
 
   return <>
+    <DevMenu />
     <WdkSeedPhraseBridge />
     <WalletNavigationContainer />
   </>
