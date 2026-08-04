@@ -5,7 +5,6 @@ import {
   useNavigationContainerRef,
 } from '@react-navigation/native';
 import { useWdkApp } from '@tetherto/wdk-react-native-core';
-import { WalletSessionLock } from '@features/wallet-seed-phrase';
 import { useStore } from '@shared/store';
 import { RootNavigator } from './RootNavigator';
 import type { RootStackParamList } from './types';
@@ -41,16 +40,9 @@ export const WalletNavigationContainer = observer(
       // navigationRef.reset({ index: 0, routes: [{ name: 'Home' }] });
     }, [navigationRef]);
 
-    const goToBiometricUnlock = useCallback(() => {
-      // if (!navigationRef.isReady()) {
-      //   return;
-      // }
-      //
-      // navigationRef.reset({
-      //   index: 0,
-      //   routes: [{ name: 'BiometricUnlock' }],
-      // });
-    }, [navigationRef]);
+    useEffect(() => {
+      navigationStore.setNavigationRef(navigationRef);
+    }, [navigationStore, navigationRef]);
 
     // useEffect(() => {
     //   const previousStatus = previousStatusRef.current;
@@ -65,10 +57,8 @@ export const WalletNavigationContainer = observer(
     //   previousStatusRef.current = state.status;
     // }, [state.status, goHome]);
 
-
     return (
       <NavigationContainer ref={navigationRef}>
-        <WalletSessionLock onRequireUnlock={goToBiometricUnlock} />
         <RootNavigator initialRouteName={navigationStore.bootRoute} />
       </NavigationContainer>
     );

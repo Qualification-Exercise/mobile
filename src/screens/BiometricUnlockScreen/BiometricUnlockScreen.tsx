@@ -30,7 +30,7 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
 
         if (needsWalletUnlock) {
           try {
-            // await unlock();
+            await unlock();
           } catch {
             return;
           }

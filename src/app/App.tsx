@@ -11,9 +11,8 @@ import { WalletNavigationContainer } from './navigation/WalletNavigationContaine
 import {RootStore, useSyncAppState, useSyncWdkAppState} from './providers';
 import { WdkAppProvider } from '@tetherto/wdk-react-native-core';
 import { bundle } from '../../.wdk';
-import {DEFAULT_WALLET_ID, useWallet} from '@features/wallet-seed-phrase';
+import {DEFAULT_WALLET_ID, useWallet, useWalletSessionLock} from '@features/wallet-seed-phrase';
 import {wdkConfigs} from '@shared/config';
-
 
 const MENU_ITEM_TITLE = 'Clear all cached data';
 
@@ -73,6 +72,7 @@ const App = observer(function App() {
   // FIXME: Move to separate component to prevent extra reconciliation
   useSyncAppState();
   useSyncWdkAppState();
+  useWalletSessionLock();
 
   return <>
     <DevMenu />
