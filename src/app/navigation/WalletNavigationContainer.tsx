@@ -16,91 +16,67 @@ type WdkStatus = ReturnType<typeof useWdkApp>['state']['status'];
 
 export const WalletNavigationContainer = observer(
   function WalletNavigationContainerView() {
-    const { state } = useWdkApp();
+      // const { state, retry } = useWdkApp();
+
     const { wallets } = useWalletManager();
     const { authStore, biometryStore, walletSeedPhraseStore } = useStore();
     const navigationRef = useNavigationContainerRef<RootStackParamList>();
-    const previousStatusRef = useRef<WdkStatus | null>(null);
-    const lastDeleteSignalRef = useRef(
-      walletSeedPhraseStore.walletDeletedSignal,
-    );
-    const bootRouteRef = useRef<keyof RootStackParamList | null>(null);
+    // const previousStatusRef = useRef<WdkStatus | null>(null);
+    // const lastDeleteSignalRef = useRef(
+    //   walletSeedPhraseStore.walletDeletedSignal,
+    // );
+    // const bootRouteRef = useRef<keyof RootStackParamList | null>(null);
+
 
     const persistedWalletExists = hasPersistedWallet(wallets);
 
-    const bootRoute =
-      state.status === 'INITIALIZING' || state.status === 'REINITIALIZING'
-        ? null
-        : resolveBootRoute({
-            isAuthenticated: authStore.isAuthenticated,
-            isBiometryEnrolled: biometryStore.isEnrolled,
-            persistedWalletExists,
-          });
+      // FIXME: Add error screen
+    const initialRouteName = resolveBootRoute({
+        isAuthenticated: authStore.isAuthenticated,
+        isBiometryEnrolled: biometryStore.isEnrolled,
+    });
 
-    if (bootRouteRef.current === null && bootRoute !== null) {
-      bootRouteRef.current = bootRoute;
-    }
-
-    const initialRouteName = bootRouteRef.current ?? 'SignIn';
 
     const goToSignIn = useCallback(() => {
-      if (!navigationRef.isReady()) {
-        return;
-      }
-
-      navigationRef.reset({ index: 0, routes: [{ name: 'SignIn' }] });
+      // if (!navigationRef.isReady()) {
+      //   return;
+      // }
+      //
+      // navigationRef.reset({ index: 0, routes: [{ name: 'SignIn' }] });
     }, [navigationRef]);
 
     const goHome = useCallback(() => {
-      if (!navigationRef.isReady()) {
-        return;
-      }
-
-      navigationRef.reset({ index: 0, routes: [{ name: 'Home' }] });
+      // if (!navigationRef.isReady()) {
+      //   return;
+      // }
+      //
+      // navigationRef.reset({ index: 0, routes: [{ name: 'Home' }] });
     }, [navigationRef]);
 
     const goToBiometricUnlock = useCallback(() => {
-      if (!navigationRef.isReady()) {
-        return;
-      }
-
-      navigationRef.reset({
-        index: 0,
-        routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
-      });
+      // if (!navigationRef.isReady()) {
+      //   return;
+      // }
+      //
+      // navigationRef.reset({
+      //   index: 0,
+      //   routes: [{ name: 'BiometricUnlock', params: { autoPrompt: true } }],
+      // });
     }, [navigationRef]);
 
-    useEffect(() => {
-      const previousStatus = previousStatusRef.current;
+    // useEffect(() => {
+    //   const previousStatus = previousStatusRef.current;
+    //
+    //   if (
+    //     state.status === 'READY' &&
+    //     (previousStatus === 'LOCKED' || previousStatus === 'REINITIALIZING')
+    //   ) {
+    //     goHome();
+    //   }
+    //
+    //   previousStatusRef.current = state.status;
+    // }, [state.status, goHome]);
 
-      if (
-        state.status === 'READY' &&
-        (previousStatus === 'LOCKED' || previousStatus === 'REINITIALIZING')
-      ) {
-        goHome();
-      }
-
-      previousStatusRef.current = state.status;
-    }, [state.status, goHome]);
-
-    useEffect(() => {
-      if (
-        walletSeedPhraseStore.walletDeletedSignal ===
-        lastDeleteSignalRef.current
-      ) {
-        return;
-      }
-
-      lastDeleteSignalRef.current = walletSeedPhraseStore.walletDeletedSignal;
-
-      authStore.signOut().finally(() => {
-        goToSignIn();
-      });
-    }, [walletSeedPhraseStore.walletDeletedSignal, authStore, goToSignIn]);
-
-    if (bootRoute === null) {
-      return null;
-    }
 
     return (
       <NavigationContainer ref={navigationRef}>

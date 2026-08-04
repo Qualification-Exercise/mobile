@@ -10,6 +10,10 @@ export class WdkAppStore {
     makeAutoObservable(this);
   }
 
+  get isStartingRuntime() {
+    return this.state.status === 'INITIALIZING' || this.state.status === 'REINITIALIZING';
+  }
+
   setState(state: WdkAppState) {
     this.state = state;
   }
