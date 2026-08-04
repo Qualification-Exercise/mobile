@@ -31,7 +31,7 @@ function WalletSessionLockView({ onRequireUnlock }: WalletSessionLockProps) {
       (nextState: AppStateStatus) => {
         if (
           !mayUseWallet ||
-          !walletSeedPhraseStore.isBridgeReady ||
+          !walletSeedPhraseStore.api ||
           state.status === 'NO_WALLET'
         ) {
           return;

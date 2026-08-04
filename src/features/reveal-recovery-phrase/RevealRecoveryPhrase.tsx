@@ -28,12 +28,12 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
     if (confirmedWords) {
       return;
     }
-    if (walletSeedPhraseStore.isBridgeReady && !previewMnemonic.length) {
+    if (walletSeedPhraseStore.api && !previewMnemonic.length) {
       generateMnemonicRequest.fetch();
     }
   }, [
     confirmedWords,
-    walletSeedPhraseStore.isBridgeReady,
+    walletSeedPhraseStore.api,
     previewMnemonic.length,
     generateMnemonicRequest,
   ]);
@@ -55,7 +55,7 @@ export const RevealRecoveryPhrase = observer(function RevealRecoveryPhraseView({
     }
   }
 
-  if (!walletSeedPhraseStore.isBridgeReady || generateMnemonicRequest.loading) {
+  if (!walletSeedPhraseStore.api || generateMnemonicRequest.loading) {
     return (
       <View style={styles.centered}>
         <ActivityIndicator size="large" color={colors.accentBright} />

@@ -20,8 +20,6 @@ function splitMnemonic(mnemonic: string): string[] {
 }
 
 export class WalletSeedPhraseStore {
-  isBridgeReady = false;
-
   /** Mnemonic shown on recovery-phrase screen before persist (memory only). */
   previewMnemonic: string[] = [];
 
@@ -48,7 +46,7 @@ export class WalletSeedPhraseStore {
 
   revealMnemonicRequest: Request<string[]>;
 
-  private api: WalletManagerApi | null = null;
+  api: WalletManagerApi | null = null;
 
   private validationSeq = 0;
 
@@ -161,12 +159,10 @@ export class WalletSeedPhraseStore {
 
   bind(api: WalletManagerApi) {
     this.api = api;
-    this.isBridgeReady = true;
   }
 
   unbind() {
     this.api = null;
-    this.isBridgeReady = false;
   }
 
   isShapeValid(words: string[]): boolean {
