@@ -3,7 +3,14 @@ import type { WdkAppState } from '@tetherto/wdk-react-native-core';
 
 const INITIAL_STATE: WdkAppState = { status: 'INITIALIZING' };
 
+// 'INITIALIZING' Worklet is starting or wallet is loading
+// 'NO_WALLET'	Worklet is ready, no wallet has been created
+// 'LOCKED'	walletId: string	A wallet exists but is locked (requires biometric unlock)
+// 'READY'	walletId: string	Wallet is unlocked and ready for operations
+// 'ERROR'	error: Error	Initialization failed
 export class WdkAppStore {
+
+
   state: WdkAppState = INITIAL_STATE;
 
   constructor() {

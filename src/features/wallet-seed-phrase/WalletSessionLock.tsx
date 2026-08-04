@@ -29,26 +29,26 @@ function WalletSessionLockView({ onRequireUnlock }: WalletSessionLockProps) {
     const subscription = AppState.addEventListener(
       'change',
       (nextState: AppStateStatus) => {
-        if (
-          !mayUseWallet ||
-          !walletSeedPhraseStore.api ||
-          state.status === 'NO_WALLET'
-        ) {
-          return;
-        }
+        // if (
+        //   !mayUseWallet ||
+        //   !walletSeedPhraseStore.api ||
+        //   state.status === 'NO_WALLET'
+        // ) {
+        //   return;
+        // }
 
-        if (nextState === 'background') {
-          if (state.status === 'READY') {
-            walletSeedPhraseStore.lockWalletSession();
-            pendingUnlockRef.current = true;
-          }
-          return;
-        }
+        // if (nextState === 'background') {
+        //   if (state.status === 'READY') {
+        //     walletSeedPhraseStore.lockWalletSession();
+        //     pendingUnlockRef.current = true;
+        //   }
+        //   return;
+        // }
 
-        if (nextState === 'active' && pendingUnlockRef.current) {
-          pendingUnlockRef.current = false;
-          onRequireUnlock();
-        }
+        // if (nextState === 'active' && pendingUnlockRef.current) {
+        //   pendingUnlockRef.current = false;
+        //   onRequireUnlock();
+        // }
       },
     );
 

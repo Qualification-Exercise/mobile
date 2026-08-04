@@ -9,7 +9,6 @@ import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence'
 import { WalletSessionLock } from '@features/wallet-seed-phrase';
 import { useStore } from '@shared/store';
 import { RootNavigator } from './RootNavigator';
-import { resolveBootRoute } from './resolveBootRoute';
 import type { RootStackParamList } from './types';
 
 type WdkStatus = ReturnType<typeof useWdkApp>['state']['status'];
@@ -18,8 +17,8 @@ export const WalletNavigationContainer = observer(
   function WalletNavigationContainerView() {
       // const { state, retry } = useWdkApp();
 
-    const { wallets } = useWalletManager();
-    const { authStore, biometryStore, walletSeedPhraseStore } = useStore();
+    // const { wallets } = useWalletManager();
+    const { navigationStore, walletSeedPhraseStore } = useStore();
     const navigationRef = useNavigationContainerRef<RootStackParamList>();
     // const previousStatusRef = useRef<WdkStatus | null>(null);
     // const lastDeleteSignalRef = useRef(
@@ -28,14 +27,7 @@ export const WalletNavigationContainer = observer(
     // const bootRouteRef = useRef<keyof RootStackParamList | null>(null);
 
 
-    const persistedWalletExists = hasPersistedWallet(wallets);
-
-      // FIXME: Add error screen
-    const initialRouteName = resolveBootRoute({
-        isAuthenticated: authStore.isAuthenticated,
-        isBiometryEnrolled: biometryStore.isEnrolled,
-    });
-
+    // const persistedWalletExists = hasPersistedWallet(wallets);
 
     const goToSignIn = useCallback(() => {
       // if (!navigationRef.isReady()) {
@@ -81,7 +73,7 @@ export const WalletNavigationContainer = observer(
     return (
       <NavigationContainer ref={navigationRef}>
         <WalletSessionLock onRequireUnlock={goToBiometricUnlock} />
-        <RootNavigator initialRouteName={initialRouteName} />
+        <RootNavigator initialRouteName={navigationStore.bootRoute} />
       </NavigationContainer>
     );
   },
