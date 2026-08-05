@@ -5,12 +5,16 @@ import {
   Alert,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { useWallet } from '@features/wallet-seed-phrase';
 import {
+  AppIcon,
   HeaderBackButton,
   PrimaryButton,
   ScreenContainer,
@@ -57,6 +61,23 @@ export function WalletSettingsScreen() {
       );
     } finally {
       setRevealing(false);
+    }
+  }
+
+  async function handleCopy() {
+    try {
+      await Clipboard.setStringAsync(revealedWords.join(' '));
+      Toast.show({
+        type: 'success',
+        text1: 'Copied',
+        text2: 'Recovery phrase copied to clipboard',
+      });
+    } catch {
+      Toast.show({
+        type: 'error',
+        text1: 'Copy failed',
+        text2: 'Could not copy recovery phrase',
+      });
     }
   }
 
@@ -145,6 +166,18 @@ export function WalletSettingsScreen() {
                 </Text>
               </View>
               <SeedWordGrid words={revealedWords} />
+              <TouchableOpacity
+                style={styles.copyButton}
+                onPress={handleCopy}
+                activeOpacity={0.7}
+              >
+                <AppIcon
+                  name="copy-outline"
+                  size={16}
+                  color={colors.accentBright}
+                />
+                <Text style={styles.copyButtonText}>Copy to clipboard</Text>
+              </TouchableOpacity>
             </View>
           ) : null}
         </View>
@@ -218,6 +251,21 @@ const styles = StyleSheet.create({
   },
   revealBlock: {
     gap: spacing.md,
+  },
+  copyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radii.sm,
+  },
+  copyButtonText: {
+    color: colors.accentBright,
+    fontSize: 14,
+    fontWeight: '600',
   },
   warning: {
     backgroundColor: 'rgba(224,113,90,0.1)',

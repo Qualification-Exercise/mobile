@@ -34,7 +34,7 @@ function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
 }
 
-export function RecoveryPhraseScreen() {
+export function CreateWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { generateMnemonic, restoreWallet } = useWallet();
 

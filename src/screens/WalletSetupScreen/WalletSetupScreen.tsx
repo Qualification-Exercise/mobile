@@ -55,7 +55,7 @@ export function WalletSetupScreen() {
             onPress={() =>
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'RecoveryPhrase' }],
+                routes: [{ name: 'CreateWallet' }],
               })
             }
           />
