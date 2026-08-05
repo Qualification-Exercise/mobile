@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Alert, Clipboard, StyleSheet, Text, View } from 'react-native';
 import { validateMnemonic } from '@tetherto/wdk-react-native-core';
@@ -9,12 +9,10 @@ import {
   useWallet,
 } from '@features/wallet-seed-phrase';
 import {
-  AppIcon,
   HeaderBackButton,
   KeyboardAvoidingView,
   PrimaryButton,
   ScreenContainer,
-  SecondaryButton,
   colors,
   spacing,
 } from '@shared/ui';
@@ -26,7 +24,6 @@ function parsePhraseInput(text: string): string[] | null {
 }
 
 const EMPTY_PHRASE = Array(12).fill('');
-const PHRASE_VALIDATION_DEBOUNCE_MS = 400;
 
 function isShapeValid(words: string[]): boolean {
   return validateMnemonic(words.join(' ').trim());
@@ -35,74 +32,10 @@ function isShapeValid(words: string[]): boolean {
 export function RestoreWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { biometryStore } = useStore();
-  const { restoreWallet, unlock, deleteWallet, getSeedAndEntropyFromMnemonic } =
-    useWallet();
+  const { restoreWallet, unlock } = useWallet();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
-
-  // Async worklet validation state for the entered phrase.
-  const [isValidating, setIsValidating] = useState(false);
-  const [isWorkletValid, setIsWorkletValid] = useState<boolean | null>(null);
-  const validationSeq = useRef(0);
-
   const [restoring, setRestoring] = useState(false);
-  const [restoreError, setRestoreError] = useState('');
-  const [deleting, setDeleting] = useState(false);
-
   const filledCount = words.filter(word => word.trim().length > 0).length;
-  const isComplete = filledCount === 12;
-  const shapeValid = isComplete && isShapeValid(words);
-  const isValid = shapeValid && isWorkletValid === true;
-  const isInvalid =
-    isComplete && (isWorkletValid === false || (!shapeValid && !isValidating));
-
-  const resetValidation = useCallback(() => {
-    validationSeq.current += 1;
-    setIsWorkletValid(null);
-    setIsValidating(false);
-  }, []);
-
-  const validatePhrase = useCallback(
-    async (candidate: string[]) => {
-      const mnemonic = candidate.join(' ').trim();
-      const seq = ++validationSeq.current;
-
-      setIsValidating(true);
-      setIsWorkletValid(null);
-
-      try {
-        await getSeedAndEntropyFromMnemonic(mnemonic);
-        if (seq === validationSeq.current) {
-          setIsWorkletValid(true);
-        }
-      } catch {
-        if (seq === validationSeq.current) {
-          setIsWorkletValid(false);
-        }
-      } finally {
-        if (seq === validationSeq.current) {
-          setIsValidating(false);
-        }
-      }
-    },
-    [getSeedAndEntropyFromMnemonic],
-  );
-
-  useEffect(() => {
-    if (!isComplete || !isShapeValid(words)) {
-      resetValidation();
-      return;
-    }
-
-    resetValidation();
-
-    const timeoutId = setTimeout(() => {
-      void validatePhrase(words);
-    }, PHRASE_VALIDATION_DEBOUNCE_MS);
-
-    return () => {
-      clearTimeout(timeoutId);
-    };
-  }, [words, isComplete, resetValidation, validatePhrase]);
 
   function handleChangeWord(index: number, value: string) {
     setWords(current => {
@@ -121,84 +54,70 @@ export function RestoreWalletScreen() {
   }
 
   async function handleRestore() {
-    const outcome = await biometryStore.verify('Restore wallet');
-    if (outcome !== 'unlocked') {
-      return;
-    }
-
-    setRestoring(true);
-    setRestoreError('');
     try {
-      await restoreWallet(words.join(' ').trim());
+      const mnemonic = words.join(' ').trim();
+
+      // 1. Validate the 12-word BIP-39 phrase before doing anything else.
+      if (filledCount !== 12 || !isShapeValid(words)) {
+        Alert.alert(
+            'Invalid recovery phrase',
+            'Enter a valid 12-word recovery phrase and try again.',
+        );
+        return;
+      }
+
+      const outcome = await biometryStore.verify('Restore wallet');
+      if (outcome !== 'unlocked') {
+        return;
+      }
+
+      // 2. Attempt the restore; surface any failure below.
+      setRestoring(true);
+
+      await restoreWallet(mnemonic);
+
       navigation.reset({
         index: 0,
-        routes: [{ name: 'BiometricUnlock' }],
+        routes: [{ name: 'Home' }],
       });
     } catch (err) {
-      setRestoreError(
-        (err instanceof Error && err.message) || 'Could not restore wallet',
-      );
+      const message =
+        (err instanceof Error && err.message) || 'Could not restore wallet';
+
+      console.error(message);
+
+      // A wallet already lives in secure storage under this id (e.g. the
+      // Keychain entry survived an app reinstall while the cached wallet list
+      // did not). Never delete it — the phrase behind it may be the user's
+      // only copy. Offer to open the existing wallet instead of recreating it.
+      if (isWalletAlreadyExistsError(message)) {
+        try {
+          await openExistingWallet();
+          return;
+        } catch (err) {
+          console.error(
+              (err instanceof Error && err.message) || 'Could not open wallet',
+          );
+        }
+      }
+
+      Alert.alert('Something went wrong!', 'Could not restore wallet');
     } finally {
       setRestoring(false);
     }
   }
 
-  async function handleOpenExistingWallet() {
-    const outcome = await biometryStore.verify('Open saved wallet');
-    if (outcome !== 'unlocked') {
-      return;
-    }
-
+  // Load the wallet already stored in secure storage. Unlike restore, this
+  // needs no mnemonic and overwrites/deletes nothing — it just re-opens what
+  // is already on disk.
+  async function openExistingWallet() {
     try {
       await unlock();
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'BiometricUnlock' }],
-      });
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
     } catch (err) {
-      setRestoreError(
-        (err instanceof Error && err.message) || 'Could not unlock wallet',
-      );
+      throw err;
     }
   }
-
-  function handleReplaceWallet() {
-    Alert.alert(
-      'Replace saved wallet?',
-      'This deletes the wallet on this device so you can import a different recovery phrase.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete and continue',
-          style: 'destructive',
-          onPress: async () => {
-            const outcome = await biometryStore.verify('Delete wallet');
-            if (outcome !== 'unlocked') {
-              return;
-            }
-
-            setDeleting(true);
-            try {
-              await deleteWallet();
-              setRestoreError('');
-              setWords(EMPTY_PHRASE);
-              resetValidation();
-            } catch (err) {
-              setRestoreError(
-                (err instanceof Error && err.message) ||
-                  'Could not delete wallet',
-              );
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ],
-    );
-  }
-
-  const walletAlreadyExists =
-    !!restoreError && isWalletAlreadyExistsError(restoreError);
 
   return (
     <ScreenContainer>
@@ -224,68 +143,15 @@ export function RestoreWalletScreen() {
           <SeedWordInputGrid words={words} onChangeWord={handleChangeWord} />
         </View>
         <View style={styles.statusRow}>
-          {isComplete && isValid ? (
-            <AppIcon
-              name="checkmark-circle"
-              size={14}
-              color={colors.positive}
-            />
-          ) : null}
-          <Text
-            style={[
-              styles.status,
-              isComplete &&
-                (isValid
-                  ? styles.statusValid
-                  : isInvalid
-                  ? styles.statusInvalid
-                  : undefined),
-            ]}
-          >
-            {isValidating
-              ? `Validating phrase · ${filledCount} / 12 words`
-              : isComplete
-              ? isValid
-                ? `Valid BIP-39 phrase · ${filledCount} / 12 words`
-                : isInvalid
-                ? `Invalid phrase · ${filledCount} / 12 words`
-                : `${filledCount} / 12 words`
-              : `${filledCount} / 12 words`}
+          <Text style={styles.status}>
+            {`${filledCount} / 12 words`}
           </Text>
         </View>
-        {restoreError ? (
-          <View style={styles.errorBlock}>
-            <Text style={styles.restoreError}>
-              {walletAlreadyExists
-                ? 'A wallet is already saved on this device. Restore is only for importing a wallet that is not here yet.'
-                : restoreError}
-            </Text>
-            {walletAlreadyExists ? (
-              <>
-                <SecondaryButton
-                  title="Open saved wallet"
-                  onPress={handleOpenExistingWallet}
-                  style={styles.openExistingButton}
-                />
-                <SecondaryButton
-                  title={
-                    deleting
-                      ? 'Removing saved wallet…'
-                      : 'Replace with new phrase'
-                  }
-                  onPress={handleReplaceWallet}
-                  disabled={deleting}
-                  style={styles.openExistingButton}
-                />
-              </>
-            ) : null}
-          </View>
-        ) : null}
         <View style={styles.spacer} />
         <PrimaryButton
           title={restoring ? 'Restoring…' : 'Restore wallet'}
           onPress={handleRestore}
-          disabled={!isValid || restoring}
+          disabled={restoring}
         />
       </KeyboardAvoidingView>
     </ScreenContainer>
