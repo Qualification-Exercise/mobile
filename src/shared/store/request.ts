@@ -36,10 +36,12 @@ export class Request<R extends unknown[]> {
         this.data = data;
         this.loading = false;
       });
-    } catch {
+    } catch (err) {
       runInAction(() => {
         this.error =
-          this.defaultError || 'Something went wrong, try again later';
+          (err instanceof Error && err.message) ||
+          this.defaultError ||
+          'Something went wrong, try again later';
         this.loading = false;
       });
     }

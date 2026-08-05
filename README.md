@@ -1,4 +1,4 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+This is a new **[React Native](https://reactnative.dev)** project, bootstrapped using `[@react-native-community/cli](https://github.com/react-native-community/cli)`.
 
 # Getting Started
 
@@ -38,6 +38,24 @@ If either folder is missing, Metro fails when bundling the app (build-time error
 > **CI note:** `postinstall` runs the bundler on every install. To skip it (e.g. in CI where the bundle isn't needed), use `npm ci --ignore-scripts`.
 
 **Native prerequisites:** Android `minSdkVersion` is 29. After adding or updating WDK npm packages, run `bundle exec pod install` in `ios/` before building for iOS.
+
+### `@wdk-internal` path alias
+
+`@wdk-internal` is **not** an npm package. It is a local import alias (Babel `module-resolver` + `tsconfig.json` paths) that points at unpublished source inside `@tetherto/wdk-react-native-core`:
+
+- Babel: `babel.config.js` → `'@wdk-internal': './node_modules/@tetherto/wdk-react-native-core/src'`
+- TypeScript: `tsconfig.json` → `"@wdk-internal/*": ["./node_modules/@tetherto/wdk-react-native-core/src/*"]`
+
+Use it only when the public WDK API does not expose what the app needs. Today it is used for **wallet session lock** in `src/features/wallet-seed-phrase/wdkSessionLock.ts`:
+
+- `WorkletLifecycleService.reset()` — clear in-memory seed / worklet state
+- `getWalletStore()` / `updateWalletLoadingState()` — set `walletLoadingState` to `not_loaded` while keeping `activeWalletId`
+
+Public `useWalletManager().lock()` is for **logout** (clears `activeWalletId` and breaks `unlock()`). Session lock must not call it.
+
+**Caveat:** these modules are internal to WDK. They are not part of the supported API and may change between `@tetherto/wdk-react-native-core` versions. Prefer removing `@wdk-internal` once WDK ships a public session-lock API (or `clearSensitiveDataOnBackground` covers the use case).
+
+**AppState note:** background session lock lives in `WalletSessionLock.tsx`. Lock on `background` only, not `inactive` — iOS uses `inactive` for the system Face ID sheet during in-app biometry (e.g. view recovery phrase).
 
 ## Step 1: Start Metro
 
@@ -103,8 +121,8 @@ Open `App.tsx` in your text editor of choice and make some changes. When you sav
 
 When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+- **Android**: Press the R key twice or select **"Reload"** from the **Dev Menu**, accessed via Ctrl + M (Windows/Linux) or Cmd ⌘ + M (macOS).
+- **iOS**: Press R in iOS Simulator.
 
 ## Congratulations! :tada:
 
@@ -127,4 +145,4 @@ To learn more about React Native, take a look at the following resources:
 - [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
 - [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
 - [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+- `[@facebook/react-native](https://github.com/facebook/react-native)` - the Open Source; GitHub **repository** for React Native.

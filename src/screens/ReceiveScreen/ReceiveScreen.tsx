@@ -10,9 +10,10 @@ import {
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
+  AppIcon,
+  HeaderBackButton,
   PrimaryButton,
   ScreenContainer,
-  SecondaryButton,
   colors,
   radii,
   spacing,
@@ -31,9 +32,7 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Receive</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -42,7 +41,14 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
           <View style={styles.selectorPill}>
             <Text style={styles.selectorPillLabel}>{asset.symbol}</Text>
           </View>
-          <Text style={styles.selectorNetwork}>{asset.network} ▾</Text>
+          <View style={styles.selectorNetwork}>
+            <Text style={styles.selectorNetworkLabel}>{asset.network}</Text>
+            <AppIcon
+              name="chevron-down"
+              size={14}
+              color={colors.textSecondary}
+            />
+          </View>
         </View>
         <QrPlaceholder size={236} />
         <View style={styles.addressBlock}>
@@ -51,11 +57,13 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
         </View>
       </View>
       <View style={styles.actionsRow}>
-        <SecondaryButton
-          title="⧉ Copy"
+        <TouchableOpacity
+          style={styles.copyButton}
           onPress={() => Clipboard.setString(walletStore.wallet.address)}
-          style={styles.actionButton}
-        />
+        >
+          <AppIcon name="copy-outline" size={18} color={colors.accentBright} />
+          <Text style={styles.copyLabel}>Copy</Text>
+        </TouchableOpacity>
         <PrimaryButton
           title="Share"
           onPress={() => {}}
@@ -73,17 +81,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.sm,
   },
-  back: {
-    fontSize: 22,
-    color: colors.textSecondary,
-  },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   headerSpacer: {
-    width: 22,
+    width: 24,
   },
   body: {
     flex: 1,
@@ -111,9 +115,14 @@ const styles = StyleSheet.create({
     color: colors.background,
   },
   selectorNetwork: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 14,
+  },
+  selectorNetworkLabel: {
     fontSize: 12.5,
     color: colors.textSecondary,
-    paddingHorizontal: 14,
   },
   addressBlock: {
     alignItems: 'center',
@@ -135,6 +144,22 @@ const styles = StyleSheet.create({
   actionsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  copyButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: radii.xl,
+    paddingVertical: spacing.lg,
+  },
+  copyLabel: {
+    color: colors.accentBright,
+    fontSize: 16,
+    fontWeight: '600',
   },
   actionButton: {
     flex: 1,

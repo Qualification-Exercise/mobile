@@ -15,7 +15,10 @@
       "@entities": ["./src/entities"],
       "@entities/*": ["./src/entities/*"],
       "@shared": ["./src/shared"],
-      "@shared/*": ["./src/shared/*"]
+      "@shared/*": ["./src/shared/*"],
+      "@wdk-internal/*": [
+        "./node_modules/@tetherto/wdk-react-native-core/src/*"
+      ]
     }
   },
   "include": ["**/*.ts", "**/*.tsx"],

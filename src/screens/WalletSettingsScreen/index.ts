@@ -1,0 +1,1 @@
+export { WalletSettingsScreen } from './WalletSettingsScreen';

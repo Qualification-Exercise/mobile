@@ -53,6 +53,13 @@ export class BiometryStore {
     return this.authenticate(prompt);
   }
 
+  async reset() {
+    await saveBiometryEnabled(false);
+    runInAction(() => {
+      this.isEnrolled = false;
+    });
+  }
+
   // Shared prompt logic. Resolves the OS error code into an outcome but does not
   // persist anything — callers decide what to do with the result.
   private async authenticate(prompt: string): Promise<BiometryOutcome> {

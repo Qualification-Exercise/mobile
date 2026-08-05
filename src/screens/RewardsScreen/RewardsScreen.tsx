@@ -1,17 +1,12 @@
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
   PrimaryButton,
   ScreenContainer,
+  HeaderBackButton,
   colors,
   radii,
   spacing,
@@ -28,9 +23,7 @@ export const RewardsScreen = observer(function RewardsScreenView() {
   return (
     <ScreenContainer>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>←</Text>
-        </TouchableOpacity>
+        <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Rewards</Text>
         <View style={styles.headerSpacer} />
       </View>
@@ -68,17 +61,13 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: spacing.lg,
   },
-  back: {
-    fontSize: 22,
-    color: colors.textSecondary,
-  },
   headerTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   headerSpacer: {
-    width: 22,
+    width: 24,
   },
   totalCard: {
     backgroundColor: colors.surfaceAlt,

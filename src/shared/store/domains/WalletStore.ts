@@ -19,35 +19,11 @@ function generateCouponCode(): string {
   return `WDK-${randomSegment(4)}-${randomSegment(2)}`;
 }
 
-function mockAddressFromPhrase(words: string[]): string {
-  let hash = 0;
-  for (const char of words.join(' ')) {
-    hash = (hash * 31 + char.charCodeAt(0)) % 0xffffffff;
-  }
-  const hex = hash.toString(16).padStart(8, '0');
-  return `0x${hex.slice(0, 4)}…${hex.slice(4, 8)}`;
-}
-
 export class WalletStore {
   wallet: Wallet = {
     address: '0xA4f2…c9c2E',
     displayName: 'Main Wallet',
   };
-
-  seedPhrase: string[] = [
-    'ridge',
-    'salmon',
-    'velvet',
-    'orbit',
-    'cluster',
-    'amber',
-    'pigeon',
-    'trophy',
-    'decade',
-    'fabric',
-    'wisdom',
-    'glance',
-  ];
 
   assets: Asset[] = [
     {
@@ -166,14 +142,6 @@ export class WalletStore {
     return this.coupons
       .filter(coupon => coupon.status === 'Claimable')
       .reduce((sum, coupon) => sum + coupon.amount, 0);
-  }
-
-  restoreWallet(words: string[]) {
-    this.seedPhrase = words;
-    this.wallet = {
-      ...this.wallet,
-      address: mockAddressFromPhrase(words),
-    };
   }
 
   sendAsset(assetId: string, amount: number, destination: string) {

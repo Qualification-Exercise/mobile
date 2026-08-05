@@ -1,61 +1,104 @@
-import { NavigationContainer } from '@react-navigation/native';
+import {useEffect, useRef, useState} from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { observer } from 'mobx-react-lite';
-import { StatusBar, useColorScheme } from 'react-native';
+import { Alert, DevSettings, StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import Toast from 'react-native-toast-message';
+import { toastConfig } from '@shared/ui';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@env';
-import { RootStoreContext } from '@shared/store';
-import { RootNavigator } from './navigation';
-import { RootStore, WdkProvider } from './providers';
+import {RootStoreContext, useStore} from '@shared/store';
+import { WalletNavigationContainer } from './navigation/WalletNavigationContainer';
+import {RootStore, useSyncAppState, useSyncWdkAppState} from './providers';
+import { WdkAppProvider } from '@tetherto/wdk-react-native-core';
+import { bundle } from '../../.wdk';
+import {DEFAULT_WALLET_ID, useWallet, useWalletSessionLock} from '@features/wallet-seed-phrase';
+import {wdkConfigs} from '@shared/config';
+
+const MENU_ITEM_TITLE = 'Clear all cached data';
+
+function DevMenu() {
+  const { authStore, biometryStore } = useStore();
+  const { getWallets, deleteWallet } = useWallet();
+
+  // Hold the latest wipe logic in a ref: `DevSettings.addMenuItem` registers a
+  // handler once and cannot update it, so we must avoid capturing a stale
+  // closure over `getWallets`/`deleteWallet`.
+  const clearRef = useRef<() => Promise<void>>(() => Promise.resolve());
+  clearRef.current = async () => {
+    // Delete every known wallet plus the default id, which may still hold
+    // secure-storage material even when the in-memory wallet list is empty.
+    const walletIds = new Set([
+      DEFAULT_WALLET_ID,
+      ...getWallets().map((wallet) => wallet.identifier),
+    ]);
+
+    await Promise.allSettled([
+      authStore.signOut(),
+      biometryStore.reset(),
+      ...[...walletIds].map((walletId) => deleteWallet(walletId)),
+    ]);
+  };
+
+  useEffect(() => {
+    if (!__DEV__) {
+      return;
+    }
+
+    DevSettings.addMenuItem(MENU_ITEM_TITLE, () => {
+      clearRef
+        .current()
+        .then(() => DevSettings.reload())
+        .catch((error) => {
+          Alert.alert('Clear cached data failed', String(error));
+        });
+    });
+  }, []);
+
+  return null;
+}
+
 
 const rootStore = new RootStore();
 
-// Configure Google Sign-In once, before any sign-in attempt is made.
 GoogleSignin.configure({
   webClientId: GOOGLE_WEB_CLIENT_ID,
   iosClientId: GOOGLE_IOS_CLIENT_ID,
 });
 
-// Restore any persisted session + biometry preference from the keychain on
-// startup. Fire-and-forget: the UI reacts once both hydrations resolve.
 rootStore.authStore.hydrate();
 rootStore.biometryStore.hydrate();
 
 const App = observer(function App() {
+  // FIXME: Move to separate component to prevent extra reconciliation
+  useSyncAppState();
+  useSyncWdkAppState();
+  useWalletSessionLock();
+
+  return <>
+    <DevMenu />
+    <WalletNavigationContainer />
+  </>
+})
+
+const AppRoot = observer(function AppRoot() {
   const isDarkMode = useColorScheme() === 'dark';
   const { authStore, biometryStore } = rootStore;
 
-  // Wait for the keychain reads before mounting the navigator so the initial
-  // route reflects the restored session and biometry state.
   if (!authStore.isHydrated || !biometryStore.isHydrated) {
     return null;
   }
 
-  let initialRouteName:
-    | 'SignIn'
-    | 'EnableBiometric'
-    | 'BiometricUnlock'
-    | 'Home';
-  if (!authStore.isAuthenticated) {
-    initialRouteName = 'SignIn';
-  } else if (!biometryStore.isEnrolled) {
-    initialRouteName = 'EnableBiometric';
-  } else {
-    initialRouteName = 'BiometricUnlock';
-  }
-
   return (
     <SafeAreaProvider>
-      <WdkProvider>
-        <RootStoreContext.Provider value={rootStore}>
-          <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-          <NavigationContainer>
-            <RootNavigator initialRouteName={initialRouteName} />
-          </NavigationContainer>
-        </RootStoreContext.Provider>
-      </WdkProvider>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <RootStoreContext.Provider value={rootStore}>
+        <WdkAppProvider bundle={{ bundle }} wdkConfigs={wdkConfigs}>
+          <App />
+        </WdkAppProvider>
+      </RootStoreContext.Provider>
+      <Toast config={toastConfig} />
     </SafeAreaProvider>
   );
 });
 
-export default App;
+export default AppRoot;

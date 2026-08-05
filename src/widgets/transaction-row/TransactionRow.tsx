@@ -1,11 +1,11 @@
 import { StyleSheet, Text, View } from 'react-native';
 import {
   getTransactionColor,
-  getTransactionIcon,
+  getTransactionIconName,
   getTransactionTitle,
 } from '@entities/transaction';
 import type { Transaction } from '@entities/transaction';
-import { colors, radii, spacing } from '@shared/ui';
+import { AppIcon, colors, radii, spacing } from '@shared/ui';
 
 type TransactionRowProps = {
   transaction: Transaction;
@@ -18,9 +18,11 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
   return (
     <View style={styles.row}>
       <View style={styles.icon}>
-        <Text style={[styles.iconGlyph, { color }]}>
-          {getTransactionIcon(transaction)}
-        </Text>
+        <AppIcon
+          name={getTransactionIconName(transaction)}
+          size={18}
+          color={color}
+        />
       </View>
       <View style={styles.info}>
         <Text style={styles.title}>{getTransactionTitle(transaction)}</Text>
@@ -53,9 +55,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceAlt,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  iconGlyph: {
-    fontSize: 16,
   },
   info: {
     flex: 1,

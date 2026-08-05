@@ -7,12 +7,14 @@ import { EnableBiometricScreen } from '@screens/EnableBiometricScreen';
 import { HomeScreen } from '@screens/HomeScreen';
 import { PaymentSuccessScreen } from '@screens/PaymentSuccessScreen';
 import { ReceiveScreen } from '@screens/ReceiveScreen';
-import { RecoveryPhraseScreen } from '@screens/RecoveryPhraseScreen';
+import { CreateWalletScreen } from '@screens/CreateWalletScreen';
 import { RestoreWalletScreen } from '@screens/RestoreWalletScreen';
 import { RewardsScreen } from '@screens/RewardsScreen';
 import { ScanToPayScreen } from '@screens/ScanToPayScreen';
 import { SendScreen } from '@screens/SendScreen';
 import { SignInScreen } from '@screens/SignInScreen';
+import { WalletSettingsScreen } from '@screens/WalletSettingsScreen';
+import { WalletSetupScreen } from '@screens/WalletSetupScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -28,11 +30,13 @@ export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="SignIn" component={SignInScreen} />
-      <Stack.Screen name="RestoreWallet" component={RestoreWalletScreen} />
-      <Stack.Screen name="RecoveryPhrase" component={RecoveryPhraseScreen} />
       <Stack.Screen name="EnableBiometric" component={EnableBiometricScreen} />
+      <Stack.Screen name="WalletSetup" component={WalletSetupScreen} />
       <Stack.Screen name="BiometricUnlock" component={BiometricUnlockScreen} />
+      <Stack.Screen name="RestoreWallet" component={RestoreWalletScreen} />
+      <Stack.Screen name="CreateWallet" component={CreateWalletScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
+      <Stack.Screen name="WalletSettings" component={WalletSettingsScreen} />
       <Stack.Screen name="AssetDetail" component={AssetDetailScreen} />
       <Stack.Screen name="Receive" component={ReceiveScreen} />
       <Stack.Screen name="Send" component={SendScreen} />

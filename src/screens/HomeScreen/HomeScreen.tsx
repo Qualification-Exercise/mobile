@@ -1,5 +1,7 @@
+import { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
+import { useWdkApp } from '@tetherto/wdk-react-native-core';
 import {
   ScrollView,
   StyleSheet,
@@ -8,20 +10,28 @@ import {
   View,
 } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
+import { useWallet } from '@features/wallet-seed-phrase';
 import { useStore } from '@shared/store';
-import { ScreenContainer, colors, radii, spacing } from '@shared/ui';
+import { AppIcon, ScreenContainer, colors, radii, spacing } from '@shared/ui';
 import { AssetRow } from '@widgets/asset-row';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
+type IconName = Parameters<typeof AppIcon>[0]['name'];
+
 type QuickActionProps = {
   label: string;
-  glyph: string;
+  iconName: IconName;
   onPress: () => void;
   highlighted?: boolean;
 };
 
-function QuickAction({ label, glyph, onPress, highlighted }: QuickActionProps) {
+function QuickAction({
+  label,
+  iconName,
+  onPress,
+  highlighted,
+}: QuickActionProps) {
   return (
     <TouchableOpacity
       style={styles.quickAction}
@@ -34,14 +44,11 @@ function QuickAction({ label, glyph, onPress, highlighted }: QuickActionProps) {
           highlighted && styles.quickActionIconHighlighted,
         ]}
       >
-        <Text
-          style={[
-            styles.quickActionGlyph,
-            highlighted && styles.quickActionGlyphHighlighted,
-          ]}
-        >
-          {glyph}
-        </Text>
+        <AppIcon
+          name={iconName}
+          size={22}
+          color={highlighted ? colors.background : colors.textPrimary}
+        />
       </View>
       <Text style={styles.quickActionLabel}>{label}</Text>
     </TouchableOpacity>
@@ -50,7 +57,21 @@ function QuickAction({ label, glyph, onPress, highlighted }: QuickActionProps) {
 
 export const HomeScreen = observer(function HomeScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
+  const { state } = useWdkApp();
+  const { hasPersistedWallet } = useWallet();
   const { walletStore } = useStore();
+  const hasWallet = hasPersistedWallet() || state.status === 'READY';
+
+  useEffect(() => {
+    if (!hasWallet) {
+      navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] });
+    }
+  }, [hasWallet, navigation]);
+
+  if (!hasWallet) {
+    return null;
+  }
+
   const [wholePart, decimalPart] = walletStore.totalFiatBalance
     .toFixed(2)
     .split('.');
@@ -61,11 +82,15 @@ export const HomeScreen = observer(function HomeScreenView() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.header}
+          onPress={() => navigation.navigate('WalletSettings')}
+          activeOpacity={0.85}
+        >
           <View style={styles.avatar}>
             <Text style={styles.avatarLabel}>MJ</Text>
           </View>
-          <View>
+          <View style={styles.headerText}>
             <Text style={styles.walletName}>
               {walletStore.wallet.displayName}
             </Text>
@@ -73,7 +98,12 @@ export const HomeScreen = observer(function HomeScreenView() {
               {walletStore.wallet.address}
             </Text>
           </View>
-        </View>
+          <AppIcon
+            name="settings-outline"
+            size={22}
+            color={colors.textSecondary}
+          />
+        </TouchableOpacity>
 
         <View style={styles.balanceBlock}>
           <Text style={styles.balanceLabel}>Total balance</Text>
@@ -82,14 +112,15 @@ export const HomeScreen = observer(function HomeScreenView() {
             <Text style={styles.balanceDecimal}>.{decimalPart}</Text>
           </Text>
           <View style={styles.deltaBadge}>
-            <Text style={styles.deltaLabel}>▲ 2.4% today</Text>
+            <AppIcon name="caret-up" size={12} color={colors.positive} />
+            <Text style={styles.deltaLabel}>2.4% today</Text>
           </View>
         </View>
 
         <View style={styles.actionsRow}>
           <QuickAction
             label="Send"
-            glyph="↑"
+            iconName="arrow-up"
             onPress={() =>
               navigation.navigate('Send', { assetId: DEFAULT_ASSET_ID })
             }
@@ -97,17 +128,17 @@ export const HomeScreen = observer(function HomeScreenView() {
           />
           <QuickAction
             label="Receive"
-            glyph="↓"
+            iconName="arrow-down"
             onPress={() => navigation.navigate('Receive')}
           />
           <QuickAction
             label="Scan"
-            glyph="⛶"
+            iconName="qr-code-outline"
             onPress={() => navigation.navigate('ScanToPay')}
           />
           <QuickAction
             label="Rewards"
-            glyph="◆"
+            iconName="gift-outline"
             onPress={() => navigation.navigate('Rewards')}
           />
         </View>
@@ -140,6 +171,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+  },
+  headerText: {
+    flex: 1,
   },
   avatar: {
     width: 38,
@@ -182,6 +216,9 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
   },
   deltaBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     marginTop: spacing.sm,
     backgroundColor: 'rgba(45,190,140,0.12)',
     borderRadius: 20,
@@ -213,14 +250,6 @@ const styles = StyleSheet.create({
   },
   quickActionIconHighlighted: {
     backgroundColor: colors.accent,
-  },
-  quickActionGlyph: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  quickActionGlyphHighlighted: {
-    color: colors.background,
   },
   quickActionLabel: {
     fontSize: 12,

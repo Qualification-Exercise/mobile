@@ -32,8 +32,16 @@ module.exports = {
           '@features': './src/features',
           '@entities': './src/entities',
           '@shared': './src/shared',
+          '@wdk-internal': './node_modules/@tetherto/wdk-react-native-core/src',
         },
       },
     ],
   ],
+  env: {
+    production: {
+      plugins: [
+        'transform-remove-console',
+      ],
+    },
+  },
 };

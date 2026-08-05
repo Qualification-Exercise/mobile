@@ -54,11 +54,11 @@ export class AuthStore {
   // Clear the in-memory account and remove it from the keychain.
   async signOut() {
     await clearGoogleAccount();
-    runInAction(() => {
-      this.account = null;
-    });
+    this.account = null;
   }
 
+  // Prompt the Google sign-in flow. Resolves with `true` when a session was
+  // established, or `false` if the user cancelled or the flow errored.
   async signInWithGoogle() {
     try {
       // Ensure Play Services are available (Android)
@@ -79,12 +79,16 @@ export class AuthStore {
         runInAction(() => {
           this.setGoogleAccount(account);
         });
+
+        return account.logged;
       }
       // Otherwise the user dismissed or cancelled the sign-in flow.
+      return false;
     } catch (error) {
       if (isErrorWithCode(error)) {
         console.error('Google Sign-In Error:', error.code, error.message);
       }
+      return false;
     }
   }
 }
