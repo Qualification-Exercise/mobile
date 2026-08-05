@@ -11,32 +11,14 @@ import {
 import {
   AppIcon,
   HeaderBackButton,
-  HeaderCloseButton,
   KeyboardAvoidingView,
   PrimaryButton,
   ScreenContainer,
   SecondaryButton,
   colors,
-  radii,
   spacing,
 } from '@shared/ui';
-import { QrPlaceholder } from '@widgets/qr-placeholder';
 import { SeedWordInputGrid } from '@widgets/seed-word-input-grid';
-
-const MOCK_SCANNED_PHRASE = [
-  'ridge',
-  'salmon',
-  'velvet',
-  'orbit',
-  'cluster',
-  'amber',
-  'pigeon',
-  'trophy',
-  'decade',
-  'fabric',
-  'wisdom',
-  'glance',
-];
 
 function parsePhraseInput(text: string): string[] | null {
   const words = text.trim().split(/\s+/).filter(Boolean);
@@ -56,7 +38,6 @@ export function RestoreWalletScreen() {
   const { restoreWallet, unlock, deleteWallet, getSeedAndEntropyFromMnemonic } =
     useWallet();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
-  const [isScanning, setIsScanning] = useState(false);
 
   // Async worklet validation state for the entered phrase.
   const [isValidating, setIsValidating] = useState(false);
@@ -137,14 +118,6 @@ export function RestoreWalletScreen() {
     if (parsed) {
       setWords(parsed);
     }
-  }
-
-  function handleScanComplete() {
-    const parsed = parsePhraseInput(MOCK_SCANNED_PHRASE.join(' '));
-    if (parsed) {
-      setWords(parsed);
-    }
-    setIsScanning(false);
   }
 
   async function handleRestore() {
@@ -234,111 +207,87 @@ export function RestoreWalletScreen() {
         <Text style={styles.headerTitle}>Restore wallet</Text>
         <View style={styles.headerSpacer} />
       </View>
-      {isScanning ? (
-        <View style={styles.scanContainer}>
-          <View style={styles.scanHeader}>
-            <HeaderCloseButton onPress={() => setIsScanning(false)} />
-            <Text style={styles.scanTitle}>Scan recovery phrase</Text>
-            <View style={styles.scanHeaderSpacer} />
-          </View>
-          <View style={styles.scanBody}>
-            <Text style={styles.scanHint}>
-              Point at your recovery phrase QR code
-            </Text>
-            <View style={styles.viewfinder}>
-              <QrPlaceholder size={182} />
-            </View>
-          </View>
-          <PrimaryButton title="Use this code" onPress={handleScanComplete} />
-        </View>
-      ) : (
-        <KeyboardAvoidingView style={styles.container}>
-          <Text style={styles.title}>Enter recovery phrase</Text>
-          <Text style={styles.description}>
-            Type your 12-word phrase in order to restore your wallet on this
-            device.
-          </Text>
-          <View style={styles.actionsRow}>
-            <PrimaryButton
-              title="Paste"
-              onPress={handlePaste}
-              style={styles.actionButton}
-            />
-            <SecondaryButton
-              title="Scan QR"
-              onPress={() => setIsScanning(true)}
-              style={styles.actionButton}
-            />
-          </View>
-          <View style={styles.gridWrapper}>
-            <SeedWordInputGrid words={words} onChangeWord={handleChangeWord} />
-          </View>
-          <View style={styles.statusRow}>
-            {isComplete && isValid ? (
-              <AppIcon
-                name="checkmark-circle"
-                size={14}
-                color={colors.positive}
-              />
-            ) : null}
-            <Text
-              style={[
-                styles.status,
-                isComplete &&
-                  (isValid
-                    ? styles.statusValid
-                    : isInvalid
-                    ? styles.statusInvalid
-                    : undefined),
-              ]}
-            >
-              {isValidating
-                ? `Validating phrase · ${filledCount} / 12 words`
-                : isComplete
-                ? isValid
-                  ? `Valid BIP-39 phrase · ${filledCount} / 12 words`
-                  : isInvalid
-                  ? `Invalid phrase · ${filledCount} / 12 words`
-                  : `${filledCount} / 12 words`
-                : `${filledCount} / 12 words`}
-            </Text>
-          </View>
-          {restoreError ? (
-            <View style={styles.errorBlock}>
-              <Text style={styles.restoreError}>
-                {walletAlreadyExists
-                  ? 'A wallet is already saved on this device. Restore is only for importing a wallet that is not here yet.'
-                  : restoreError}
-              </Text>
-              {walletAlreadyExists ? (
-                <>
-                  <SecondaryButton
-                    title="Open saved wallet"
-                    onPress={handleOpenExistingWallet}
-                    style={styles.openExistingButton}
-                  />
-                  <SecondaryButton
-                    title={
-                      deleting
-                        ? 'Removing saved wallet…'
-                        : 'Replace with new phrase'
-                    }
-                    onPress={handleReplaceWallet}
-                    disabled={deleting}
-                    style={styles.openExistingButton}
-                  />
-                </>
-              ) : null}
-            </View>
-          ) : null}
-          <View style={styles.spacer} />
+      <KeyboardAvoidingView style={styles.container}>
+        <Text style={styles.title}>Enter recovery phrase</Text>
+        <Text style={styles.description}>
+          Type your 12-word phrase in order to restore your wallet on this
+          device.
+        </Text>
+        <View style={styles.actionsRow}>
           <PrimaryButton
-            title={restoring ? 'Restoring…' : 'Restore wallet'}
-            onPress={handleRestore}
-            disabled={!isValid || restoring}
+            title="Paste"
+            onPress={handlePaste}
+            style={styles.actionButton}
           />
-        </KeyboardAvoidingView>
-      )}
+        </View>
+        <View style={styles.gridWrapper}>
+          <SeedWordInputGrid words={words} onChangeWord={handleChangeWord} />
+        </View>
+        <View style={styles.statusRow}>
+          {isComplete && isValid ? (
+            <AppIcon
+              name="checkmark-circle"
+              size={14}
+              color={colors.positive}
+            />
+          ) : null}
+          <Text
+            style={[
+              styles.status,
+              isComplete &&
+                (isValid
+                  ? styles.statusValid
+                  : isInvalid
+                  ? styles.statusInvalid
+                  : undefined),
+            ]}
+          >
+            {isValidating
+              ? `Validating phrase · ${filledCount} / 12 words`
+              : isComplete
+              ? isValid
+                ? `Valid BIP-39 phrase · ${filledCount} / 12 words`
+                : isInvalid
+                ? `Invalid phrase · ${filledCount} / 12 words`
+                : `${filledCount} / 12 words`
+              : `${filledCount} / 12 words`}
+          </Text>
+        </View>
+        {restoreError ? (
+          <View style={styles.errorBlock}>
+            <Text style={styles.restoreError}>
+              {walletAlreadyExists
+                ? 'A wallet is already saved on this device. Restore is only for importing a wallet that is not here yet.'
+                : restoreError}
+            </Text>
+            {walletAlreadyExists ? (
+              <>
+                <SecondaryButton
+                  title="Open saved wallet"
+                  onPress={handleOpenExistingWallet}
+                  style={styles.openExistingButton}
+                />
+                <SecondaryButton
+                  title={
+                    deleting
+                      ? 'Removing saved wallet…'
+                      : 'Replace with new phrase'
+                  }
+                  onPress={handleReplaceWallet}
+                  disabled={deleting}
+                  style={styles.openExistingButton}
+                />
+              </>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={styles.spacer} />
+        <PrimaryButton
+          title={restoring ? 'Restoring…' : 'Restore wallet'}
+          onPress={handleRestore}
+          disabled={!isValid || restoring}
+        />
+      </KeyboardAvoidingView>
     </ScreenContainer>
   );
 }
@@ -414,39 +363,5 @@ const styles = StyleSheet.create({
   },
   spacer: {
     flex: 1,
-  },
-  scanContainer: {
-    flex: 1,
-  },
-  scanHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-  },
-  scanTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  scanHeaderSpacer: {
-    width: 22,
-  },
-  scanBody: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xxl,
-  },
-  scanHint: {
-    color: colors.textPrimary,
-    fontSize: 13.5,
-    textAlign: 'center',
-  },
-  viewfinder: {
-    borderWidth: 4,
-    borderColor: colors.accentBright,
-    borderRadius: radii.sm,
-    padding: 12,
   },
 });

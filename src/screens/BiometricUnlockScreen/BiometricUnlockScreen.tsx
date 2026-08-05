@@ -37,7 +37,7 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
 
           navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
         } else {
-          navigation.reset({ index: 0, routes: [{ name: 'CreateWallet' }] });
+          navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] });
         }
 
         return;

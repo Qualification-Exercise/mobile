@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { useWallet } from '@features/wallet-seed-phrase';
 import {
   PressableButton,
   ScreenContainer,
@@ -14,25 +13,6 @@ import {
 
 export function WalletSetupScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { hasPersistedWallet } = useWallet();
-  const redirectedRef = useRef(false);
-  const persistedWalletExists = hasPersistedWallet();
-
-  useEffect(() => {
-    if (!persistedWalletExists || redirectedRef.current) {
-      return;
-    }
-
-    redirectedRef.current = true;
-    navigation.reset({
-      index: 0,
-      routes: [{ name: 'BiometricUnlock' }],
-    });
-  }, [persistedWalletExists, navigation]);
-
-  if (persistedWalletExists) {
-    return null;
-  }
 
   return (
     <ScreenContainer>
@@ -53,10 +33,7 @@ export function WalletSetupScreen() {
           <PressableButton
             title="Create new wallet"
             onPress={() =>
-              navigation.reset({
-                index: 0,
-                routes: [{ name: 'CreateWallet' }],
-              })
+              navigation.navigate('CreateWallet')
             }
           />
           <SecondaryButton
