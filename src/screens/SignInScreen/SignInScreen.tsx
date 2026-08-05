@@ -1,6 +1,5 @@
-import { useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { reaction } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
@@ -17,16 +16,11 @@ export const SignInScreen = observer(function SignInScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { authStore } = useStore();
 
-  useEffect(() => {
-    const dispose = reaction(
-      () => authStore.isAuthenticated,
-      isAuthenticated => {
-        if (isAuthenticated) {
-          navigation.reset({ index: 0, routes: [{ name: 'EnableBiometric' }] });
-        }
-      },
-    );
-    return dispose;
+  const handleSignIn = useCallback(async () => {
+    const isAuthenticated = await authStore.signInWithGoogle();
+    if (isAuthenticated) {
+      navigation.reset({ index: 0, routes: [{ name: 'EnableBiometric' }] });
+    }
   }, [authStore, navigation]);
 
   return (
@@ -48,7 +42,7 @@ export const SignInScreen = observer(function SignInScreenView() {
           <PressableButton
             title="Continue with Google"
             busyTitle="Signing in…"
-            onPress={() => authStore.signInWithGoogle()}
+            onPress={handleSignIn}
           />
           <Text style={styles.footer}>
             Secured by single sign-on.{'\n'}Powered by WDK.

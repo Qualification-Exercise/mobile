@@ -87,6 +87,7 @@ export function WalletSettingsScreen() {
             try {
               await deleteWallet();
               await authStore.signOut();
+              navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
             } catch (err) {
               setDeleteError(
                 (err instanceof Error && err.message) ||
