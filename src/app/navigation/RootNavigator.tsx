@@ -7,7 +7,7 @@ import { EnableBiometricScreen } from '@screens/EnableBiometricScreen';
 import { HomeScreen } from '@screens/HomeScreen';
 import { PaymentSuccessScreen } from '@screens/PaymentSuccessScreen';
 import { ReceiveScreen } from '@screens/ReceiveScreen';
-import { RecoveryPhraseScreen } from '@screens/RecoveryPhraseScreen';
+import { CreateWalletScreen } from '@screens/CreateWalletScreen';
 import { RestoreWalletScreen } from '@screens/RestoreWalletScreen';
 import { RewardsScreen } from '@screens/RewardsScreen';
 import { ScanToPayScreen } from '@screens/ScanToPayScreen';
@@ -34,7 +34,7 @@ export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
       <Stack.Screen name="WalletSetup" component={WalletSetupScreen} />
       <Stack.Screen name="BiometricUnlock" component={BiometricUnlockScreen} />
       <Stack.Screen name="RestoreWallet" component={RestoreWalletScreen} />
-      <Stack.Screen name="RecoveryPhrase" component={RecoveryPhraseScreen} />
+      <Stack.Screen name="CreateWallet" component={CreateWalletScreen} />
       <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="WalletSettings" component={WalletSettingsScreen} />
       <Stack.Screen name="AssetDetail" component={AssetDetailScreen} />

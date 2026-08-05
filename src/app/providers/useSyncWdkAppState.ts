@@ -8,5 +8,6 @@ export function useSyncWdkAppState() {
 
   useEffect(() => {
     wdkAppStore.setState(state);
+    console.log('WDK State', state);
   }, [state, wdkAppStore]);
 }

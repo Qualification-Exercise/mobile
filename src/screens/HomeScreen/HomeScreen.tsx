@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import { useWdkApp, useWalletManager } from '@tetherto/wdk-react-native-core';
+import { useWdkApp } from '@tetherto/wdk-react-native-core';
 import {
   ScrollView,
   StyleSheet,
@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { hasPersistedWallet } from '@features/wallet-seed-phrase/walletPresence';
+import { useWallet } from '@features/wallet-seed-phrase';
 import { useStore } from '@shared/store';
 import { AppIcon, ScreenContainer, colors, radii, spacing } from '@shared/ui';
 import { AssetRow } from '@widgets/asset-row';
@@ -58,10 +58,9 @@ function QuickAction({
 export const HomeScreen = observer(function HomeScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { state } = useWdkApp();
-  const { wallets } = useWalletManager();
+  const { hasPersistedWallet } = useWallet();
   const { walletStore } = useStore();
-  const persistedWalletExists = hasPersistedWallet(wallets);
-  const hasWallet = persistedWalletExists || state.status === 'READY';
+  const hasWallet = hasPersistedWallet() || state.status === 'READY';
 
   useEffect(() => {
     if (!hasWallet) {
