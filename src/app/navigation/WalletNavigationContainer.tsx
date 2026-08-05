@@ -17,6 +17,14 @@ export const WalletNavigationContainer = observer(
       navigationStore.setNavigationRef(navigationRef);
     }, [navigationStore, navigationRef]);
 
+    const handleStateChange = useCallback(() => {
+      const routeName = navigationRef.getCurrentRoute()?.name as
+        | keyof RootStackParamList
+        | undefined;
+
+      navigationStore.setActiveRouteName(routeName);
+    }, [navigationStore, navigationRef]);
+
     // useEffect(() => {
     //   const previousStatus = previousStatusRef.current;
     //
@@ -31,7 +39,11 @@ export const WalletNavigationContainer = observer(
     // }, [state.status, goHome]);
 
     return (
-      <NavigationContainer ref={navigationRef}>
+      <NavigationContainer
+        ref={navigationRef}
+        onReady={handleStateChange}
+        onStateChange={handleStateChange}
+      >
         <RootNavigator initialRouteName={navigationStore.bootRoute} />
       </NavigationContainer>
     );
