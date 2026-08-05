@@ -23,20 +23,23 @@ export const BiometricUnlockScreen = observer(function BiometricUnlockScreenView
 
     switch (outcome) {
       case 'unlocked': {
-        // Read live: the WDK may have finished initializing while the biometric
-        // prompt was up, so these must not be captured before the await.
-        const needsWalletUnlock =
-          hasPersistedWallet() && getStateStatus() !== 'READY';
 
-        if (needsWalletUnlock) {
-          try {
-            await unlock();
-          } catch {
-            return;
+        if (hasPersistedWallet()) {
+          if (getStateStatus() === 'LOCKED') {
+            try {
+              console.log("Unlocking wallet");
+              await unlock();
+            } catch (err) {
+              console.log( (err instanceof Error && err.message) || "Unlock failed");
+              return;
+            }
           }
+
+          navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+        } else {
+          navigation.reset({ index: 0, routes: [{ name: 'RecoveryPhrase' }] });
         }
 
-        navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
         return;
       }
       case 'failed':
