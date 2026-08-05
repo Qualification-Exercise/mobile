@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -11,9 +12,21 @@ import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import {
-  MNEMONIC_WORD_COUNT,
-  useWallet,
-} from '@features/wallet-seed-phrase';
+  BackupOptionToggles,
+  BackupPassphraseSheet,
+  BACKUP_ADDRESS_NETWORKS,
+  uploadBackendBackup,
+  validatePassphrase,
+  logBackupError,
+  logBackupStart,
+  logBackupStep,
+  logBackupSuccess,
+  summarizeAddressResults,
+  toUserFacingBackupError,
+  type BackupOptionState,
+} from '@features/wallet-backup';
+import { MNEMONIC_WORD_COUNT, useWallet } from '@features/wallet-seed-phrase';
+import { getBackendConfig } from '@shared/api';
 import {
   ScreenContainer,
   PrimaryButton,
@@ -25,11 +38,20 @@ import {
 } from '@shared/ui';
 import { SeedWordGrid } from '@widgets/seed-word-grid';
 
-const BACKUP_STATUSES = [
-  { label: 'Device', status: 'Encrypted' },
-  { label: 'iCloud', status: 'Backed up' },
-  { label: 'Backend', status: 'Synced' },
-];
+const INITIAL_DEVICE_STATE: BackupOptionState = {
+  enabled: true,
+  status: 'idle',
+};
+
+const INITIAL_ICLOUD_STATE: BackupOptionState = {
+  enabled: false,
+  status: 'idle',
+};
+
+const INITIAL_BACKEND_STATE: BackupOptionState = {
+  enabled: false,
+  status: 'idle',
+};
 
 function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
@@ -37,7 +59,14 @@ function splitMnemonic(mnemonic: string): string[] {
 
 export function CreateWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { generateMnemonic, restoreWallet } = useWallet();
+  const {
+    generateMnemonic,
+    restoreWallet,
+    getEncryptionKey,
+    getEncryptedEntropy,
+    getEncryptedSeed,
+    loadAddresses,
+  } = useWallet();
 
   const [words, setWords] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -45,6 +74,20 @@ export function CreateWalletScreen() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [backendEnabled, setBackendEnabled] = useState(false);
+  const [passphrase, setPassphrase] = useState('');
+  const [confirmPassphrase, setConfirmPassphrase] = useState('');
+  const [passphraseError, setPassphraseError] = useState('');
+  const [passphraseSheetVisible, setPassphraseSheetVisible] = useState(false);
+  const [deviceBackup, setDeviceBackup] =
+    useState<BackupOptionState>(INITIAL_DEVICE_STATE);
+  // TODO: remove this once we have a working iCloud backup
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [icloudBackup, setIcloudBackup] =
+    useState<BackupOptionState>(INITIAL_ICLOUD_STATE);
+  const [backendBackup, setBackendBackup] = useState<BackupOptionState>(
+    INITIAL_BACKEND_STATE,
+  );
 
   const generate = useCallback(async () => {
     setGenerating(true);
@@ -68,6 +111,37 @@ export function CreateWalletScreen() {
     }
   }, [confirmed, words.length, generating, generateError, generate]);
 
+  useEffect(() => {
+    setBackendBackup(current => ({
+      ...current,
+      enabled: backendEnabled,
+      status: backendEnabled ? current.status : 'idle',
+      error: backendEnabled ? current.error : undefined,
+    }));
+  }, [backendEnabled]);
+
+  const backendPassphraseReady =
+    passphrase.length > 0 && passphrase === confirmPassphrase;
+
+  function handleBackendEnabledChange(enabled: boolean) {
+    setBackendEnabled(enabled);
+    setPassphraseError('');
+    if (enabled) {
+      setPassphraseSheetVisible(true);
+      return;
+    }
+    setPassphraseSheetVisible(false);
+    setPassphrase('');
+    setConfirmPassphrase('');
+  }
+
+  function handlePassphraseSave(nextPassphrase: string, nextConfirm: string) {
+    setPassphrase(nextPassphrase);
+    setConfirmPassphrase(nextConfirm);
+    setPassphraseError('');
+    setPassphraseSheetVisible(false);
+  }
+
   async function handleCopy() {
     try {
       await Clipboard.setStringAsync(words.join(' '));
@@ -90,26 +164,137 @@ export function CreateWalletScreen() {
       return;
     }
 
+    if (backendEnabled && !backendPassphraseReady) {
+      setPassphraseError('Set a backup passphrase before continuing');
+      setPassphraseSheetVisible(true);
+      return;
+    }
+
     setSaving(true);
     setSaveError('');
+    setPassphraseError('');
+    setDeviceBackup({ enabled: true, status: 'in_progress' });
+    setBackendBackup(current => ({
+      ...current,
+      enabled: backendEnabled,
+      status: backendEnabled ? 'pending' : 'idle',
+      error: undefined,
+    }));
+
+    let deviceSaved = false;
+
     try {
+      if (backendEnabled) {
+        logBackupStart('CreateWalletScreen confirm');
+        const config = await getBackendConfig();
+        logBackupSuccess('prefetch config for passphrase rules');
+        const validation = validatePassphrase(
+          passphrase,
+          confirmPassphrase,
+          config.secretsKdfFloor,
+        );
+        if (!validation.valid) {
+          logBackupStep('blocked before device save', {
+            reason: validation.message,
+          });
+          setPassphraseError(validation.message);
+          setPassphraseSheetVisible(true);
+          setDeviceBackup({ enabled: true, status: 'idle' });
+          setBackendBackup({
+            enabled: true,
+            status: 'failed',
+            error: validation.message,
+          });
+          return;
+        }
+      }
+
       await restoreWallet(words.join(' '));
+      deviceSaved = true;
+      setDeviceBackup({ enabled: true, status: 'completed' });
+      logBackupSuccess('device wallet saved to keychain');
+
+      if (backendEnabled) {
+        setBackendBackup({ enabled: true, status: 'in_progress' });
+        logBackupStep('loading credentials and addresses', {
+          networks: BACKUP_ADDRESS_NETWORKS,
+        });
+
+        const [encryptionKey, encryptedEntropy, encryptedSeed, addresses] =
+          await Promise.all([
+            getEncryptionKey(),
+            getEncryptedEntropy(),
+            getEncryptedSeed(),
+            loadAddresses([0], BACKUP_ADDRESS_NETWORKS),
+          ]);
+
+        logBackupStep('credentials and addresses loaded', {
+          hasEncryptionKey: Boolean(encryptionKey),
+          hasEncryptedEntropy: Boolean(encryptedEntropy),
+          hasEncryptedSeed: Boolean(encryptedSeed),
+          addresses: summarizeAddressResults(addresses),
+        });
+
+        if (!encryptionKey || !encryptedEntropy || !encryptedSeed) {
+          throw new Error('Wallet credentials are unavailable after save');
+        }
+
+        await uploadBackendBackup({
+          passphrase,
+          confirmPassphrase,
+          material: {
+            encryptionKey,
+            encryptedEntropy,
+            encryptedSeed,
+            wordCount: MNEMONIC_WORD_COUNT,
+          },
+          addresses,
+        });
+
+        setBackendBackup({ enabled: true, status: 'completed' });
+      }
+
       setConfirmed(true);
       navigation.reset({
         index: 0,
         routes: [{ name: 'Home' }],
       });
     } catch (err) {
-      setSaveError(
-        (err instanceof Error && err.message) || 'Could not save wallet',
-      );
+      const message =
+        (err instanceof Error && err.message) || 'Could not save wallet';
+
+      if (!deviceSaved) {
+        logBackupError('wallet save failed (device)', err);
+        setDeviceBackup({ enabled: true, status: 'failed', error: message });
+        setSaveError(message);
+      } else if (backendEnabled) {
+        logBackupError('backend backup failed after device save', err);
+        const userMessage = toUserFacingBackupError(err);
+        setBackendBackup({
+          enabled: true,
+          status: 'failed',
+          error: userMessage,
+        });
+        Toast.show({
+          type: 'error',
+          text1: 'Backend backup failed',
+          text2: userMessage,
+        });
+        setConfirmed(true);
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Home' }],
+        });
+      } else {
+        setSaveError(message);
+      }
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <ScreenContainer>
+    <ScreenContainer style={styles.screen}>
       <View style={styles.header}>
         <HeaderBackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Create wallet</Text>
@@ -129,63 +314,84 @@ export function CreateWalletScreen() {
           <PrimaryButton title="Retry" onPress={() => generate()} />
         </View>
       ) : (
-        <View style={styles.container}>
-          <Text style={styles.title}>Your recovery phrase</Text>
-          <Text style={styles.description}>
-            Write these 12 words down in order. This is the only way to recover
-            your wallet.
-          </Text>
-          <View style={styles.gridWrapper}>
-            <SeedWordGrid words={words} />
-          </View>
-          <TouchableOpacity
-            style={styles.copyButton}
-            onPress={handleCopy}
-            activeOpacity={0.7}
+        <View style={styles.body}>
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
-            <AppIcon
-              name="copy-outline"
-              size={16}
-              color={colors.accentBright}
-            />
-            <Text style={styles.copyButtonText}>Copy to clipboard</Text>
-          </TouchableOpacity>
-          <View style={styles.warning}>
-            <Text style={styles.warningText}>
-              Never share your phrase. WDK cannot recover it for you.
+            <Text style={styles.title}>Your recovery phrase</Text>
+            <Text style={styles.description}>
+              Write these 12 words down in order. This is the only way to
+              recover your wallet.
             </Text>
+            <View style={styles.gridWrapper}>
+              <SeedWordGrid words={words} />
+            </View>
+            <TouchableOpacity
+              style={styles.copyButton}
+              onPress={handleCopy}
+              activeOpacity={0.7}
+            >
+              <AppIcon
+                name="copy-outline"
+                size={16}
+                color={colors.accentBright}
+              />
+              <Text style={styles.copyButtonText}>Copy to clipboard</Text>
+            </TouchableOpacity>
+            <View style={styles.warning}>
+              <Text style={styles.warningText}>
+                Never share your phrase. WDK cannot recover it for you.
+              </Text>
+            </View>
+            <View style={styles.backupSection}>
+              <BackupOptionToggles
+                device={deviceBackup}
+                icloud={icloudBackup}
+                backend={backendBackup}
+                backendEnabled={backendEnabled}
+                backendPassphraseReady={backendPassphraseReady}
+                onBackendEnabledChange={handleBackendEnabledChange}
+                onBackendConfigure={() => setPassphraseSheetVisible(true)}
+              />
+            </View>
+          </ScrollView>
+          <View style={styles.footer}>
+            {saveError ? (
+              <Text style={styles.persistError}>{saveError}</Text>
+            ) : null}
+            <PrimaryButton
+              title={
+                saving
+                  ? backendEnabled
+                    ? 'Saving wallet and backup…'
+                    : 'Saving wallet…'
+                  : "I've saved it — Continue"
+              }
+              onPress={handleConfirm}
+              disabled={saving}
+            />
           </View>
-          <View style={styles.spacer} />
-          <View style={styles.statusRow}>
-            {BACKUP_STATUSES.map(({ label, status }) => (
-              <View key={label} style={styles.statusCard}>
-                <Text style={styles.statusLabel}>{label}</Text>
-                <View style={styles.statusValueRow}>
-                  <Text style={styles.statusValue}>{status}</Text>
-                  <AppIcon
-                    name="checkmark-circle"
-                    size={12}
-                    color={colors.accentBright}
-                  />
-                </View>
-              </View>
-            ))}
-          </View>
-          {saveError ? (
-            <Text style={styles.persistError}>{saveError}</Text>
-          ) : null}
-          <PrimaryButton
-            title={saving ? 'Saving wallet…' : "I've saved it — Continue"}
-            onPress={handleConfirm}
-            disabled={saving}
-          />
         </View>
       )}
+      <BackupPassphraseSheet
+        visible={passphraseSheetVisible}
+        initialPassphrase={passphrase}
+        initialConfirmPassphrase={confirmPassphrase}
+        error={passphraseError}
+        onClose={() => setPassphraseSheetVisible(false)}
+        onSave={handlePassphraseSave}
+      />
     </ScreenContainer>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -200,8 +406,20 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 24,
   },
-  container: {
+  body: {
     flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: spacing.md,
+  },
+  footer: {
+    paddingTop: spacing.md,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.background,
   },
   centered: {
     flex: 1,
@@ -267,35 +485,8 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     lineHeight: 18,
   },
-  spacer: {
-    flex: 1,
-  },
-  statusRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  statusCard: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.sm,
-    padding: 11,
-  },
-  statusLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  statusValue: {
-    fontSize: 10,
-    color: colors.accentBright,
-  },
-  statusValueRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
+  backupSection: {
+    marginTop: spacing.xl,
   },
   persistError: {
     color: '#E0715A',

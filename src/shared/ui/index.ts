@@ -9,4 +9,5 @@ export * from './LightButton';
 export * from './Card';
 export * from './ScreenContainer';
 export * from './KeyboardAvoidingContainer';
+export * from './BottomSheet';
 export * from './toastConfig';

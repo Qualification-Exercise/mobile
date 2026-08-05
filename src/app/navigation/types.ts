@@ -6,6 +6,7 @@ export type RootStackParamList = {
   WalletSetup: undefined;
   BiometricUnlock: undefined;
   RestoreWallet: undefined;
+  RestoreFromBackup: undefined;
   CreateWallet: undefined;
   Home: undefined;
   AssetDetail: { assetId: string };

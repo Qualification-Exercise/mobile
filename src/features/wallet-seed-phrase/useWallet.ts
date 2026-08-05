@@ -1,8 +1,10 @@
 import { useCallback, useMemo, useRef } from 'react';
 import { Alert } from 'react-native';
 import {
+  useAddresses,
   useWalletManager,
   useWdkApp,
+  type AddressInfoResult,
   type UseWalletManagerResult,
   type WalletInfo,
   type WdkAppState,
@@ -145,6 +147,27 @@ export interface UseWalletResult {
    * @throws If the mnemonic cannot be processed by the worklet.
    */
   getSeedAndEntropyFromMnemonic: UseWalletManagerResult['getSeedAndEntropyFromMnemonic'];
+
+  /** Read the default wallet encryption key from secure storage. */
+  getEncryptionKey: () => Promise<string | null>;
+
+  /** Read the default wallet encrypted entropy blob from secure storage. */
+  getEncryptedEntropy: () => Promise<string | null>;
+
+  /** Read the default wallet encrypted seed blob from secure storage. */
+  getEncryptedSeed: () => Promise<string | null>;
+
+  /** Load derived addresses for the active wallet across configured networks. */
+  loadAddresses: (
+    accountIndices?: number[],
+    networks?: string[],
+  ) => Promise<AddressInfoResult[]>;
+
+  /** Decrypt encrypted entropy to a mnemonic using the wallet encryption key. */
+  getMnemonicFromEntropy: (
+    encryptedEntropy: string,
+    encryptionKey: string,
+  ) => Promise<string>;
 }
 
 /**
@@ -159,8 +182,13 @@ export function useWallet(): UseWalletResult {
     deleteWallet: deleteWalletRaw,
     getMnemonic: getMnemonicRaw,
     getSeedAndEntropyFromMnemonic: getSeedAndEntropyFromMnemonicRaw,
+    getEncryptionKey: getEncryptionKeyRaw,
+    getEncryptedEntropy: getEncryptedEntropyRaw,
+    getEncryptedSeed: getEncryptedSeedRaw,
+    getMnemonicFromEntropy: getMnemonicFromEntropyRaw,
     status: managerStatus,
   } = useWalletManager();
+  const { loadAddresses: loadAddressesRaw } = useAddresses();
   const { state, retry } = useWdkApp();
 
   // Mirror the latest reactive values into refs so the getters and guard below
@@ -254,6 +282,41 @@ export function useWallet(): UseWalletResult {
     [ensureWdkReady, getSeedAndEntropyFromMnemonicRaw],
   );
 
+  const getEncryptionKey = useCallback(async () => {
+    ensureWdkReady();
+    return getEncryptionKeyRaw(DEFAULT_WALLET_ID);
+  }, [ensureWdkReady, getEncryptionKeyRaw]);
+
+  const getEncryptedEntropy = useCallback(async () => {
+    ensureWdkReady();
+    return getEncryptedEntropyRaw(DEFAULT_WALLET_ID);
+  }, [ensureWdkReady, getEncryptedEntropyRaw]);
+
+  const getEncryptedSeed = useCallback(async () => {
+    ensureWdkReady();
+    return getEncryptedSeedRaw(DEFAULT_WALLET_ID);
+  }, [ensureWdkReady, getEncryptedSeedRaw]);
+
+  const loadAddresses = useCallback(
+    (accountIndices: number[] = [0], networks?: string[]) => {
+      ensureWdkReady();
+      return loadAddressesRaw(accountIndices, networks);
+    },
+    [ensureWdkReady, loadAddressesRaw],
+  );
+
+  const getMnemonicFromEntropy = useCallback(
+    async (encryptedEntropy: string, encryptionKey: string) => {
+      ensureWdkReady();
+      const { mnemonic } = await getMnemonicFromEntropyRaw(
+        encryptedEntropy,
+        encryptionKey,
+      );
+      return mnemonic;
+    },
+    [ensureWdkReady, getMnemonicFromEntropyRaw],
+  );
+
   return useMemo(
     () => ({
       wallets,
@@ -266,6 +329,11 @@ export function useWallet(): UseWalletResult {
       deleteWallet,
       getMnemonic,
       getSeedAndEntropyFromMnemonic,
+      getEncryptionKey,
+      getEncryptedEntropy,
+      getEncryptedSeed,
+      loadAddresses,
+      getMnemonicFromEntropy,
     }),
     [
       wallets,
@@ -278,6 +346,11 @@ export function useWallet(): UseWalletResult {
       deleteWallet,
       getMnemonic,
       getSeedAndEntropyFromMnemonic,
+      getEncryptionKey,
+      getEncryptedEntropy,
+      getEncryptedSeed,
+      loadAddresses,
+      getMnemonicFromEntropy,
     ],
   );
 }

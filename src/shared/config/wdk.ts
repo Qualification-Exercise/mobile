@@ -5,6 +5,7 @@ const erc4337Defaults = {
   paymasterAddress: '0x8b1f6cb5d062aa2ce8d581942bbb960420d875ba',
   entrypointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
   transferMaxFee: 5000000,
+  safeModulesVersion: '0.3.0',
 };
 
 const tronConfig: Record<string, unknown> = {
@@ -61,7 +62,6 @@ export const wdkConfigs: WdkConfigs = {
         bundlerUrl: 'https://api.candide.dev/public/v3/polygon',
         paymasterUrl: 'https://api.candide.dev/public/v3/polygon',
         ...erc4337Defaults,
-        safeModulesVersion: '0.3.0',
         paymasterToken: {
           address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
         },

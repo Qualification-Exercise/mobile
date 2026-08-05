@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
@@ -24,21 +23,23 @@ export function WalletSetupScreen() {
           <View style={styles.heroText}>
             <Text style={styles.title}>Set up your wallet</Text>
             <Text style={styles.tagline}>
-              Create a new wallet or restore one with your 12-word recovery
-              phrase.
+              Create a new wallet, restore with your 12-word phrase, or fetch a
+              backup from the server.
             </Text>
           </View>
         </View>
         <View style={styles.actions}>
           <PressableButton
             title="Create new wallet"
-            onPress={() =>
-              navigation.navigate('CreateWallet')
-            }
+            onPress={() => navigation.navigate('CreateWallet')}
           />
           <SecondaryButton
             title="Restore with recovery phrase"
             onPress={() => navigation.navigate('RestoreWallet')}
+          />
+          <SecondaryButton
+            title="Restore from backup"
+            onPress={() => navigation.navigate('RestoreFromBackup')}
           />
           <Text style={styles.footer}>
             Your recovery phrase is the only way to recover this wallet.

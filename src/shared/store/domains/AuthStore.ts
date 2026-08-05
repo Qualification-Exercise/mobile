@@ -9,6 +9,7 @@ import {
   loadGoogleAccount,
   saveGoogleAccount,
 } from '../../lib/authStorage';
+import { clearBackendSession } from '../../lib/backendAuthStorage';
 
 export type GoogleAccount = {
   email: string;
@@ -53,7 +54,7 @@ export class AuthStore {
 
   // Clear the in-memory account and remove it from the keychain.
   async signOut() {
-    await clearGoogleAccount();
+    await Promise.all([clearGoogleAccount(), clearBackendSession()]);
     this.account = null;
   }
 
