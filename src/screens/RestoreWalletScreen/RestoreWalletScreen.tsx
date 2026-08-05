@@ -4,7 +4,6 @@ import { Alert, Clipboard, StyleSheet, Text, View } from 'react-native';
 import { validateMnemonic } from '@tetherto/wdk-react-native-core';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
-import { requireWalletBiometry } from '@shared/lib';
 import {
   isWalletAlreadyExistsError,
   useWallet,
@@ -148,11 +147,8 @@ export function RestoreWalletScreen() {
   }
 
   async function handleRestore() {
-    const verified = await requireWalletBiometry(
-      biometryStore,
-      'Restore wallet',
-    );
-    if (!verified) {
+    const outcome = await biometryStore.verify('Restore wallet');
+    if (outcome !== 'unlocked') {
       return;
     }
 
@@ -174,11 +170,8 @@ export function RestoreWalletScreen() {
   }
 
   async function handleOpenExistingWallet() {
-    const verified = await requireWalletBiometry(
-      biometryStore,
-      'Open saved wallet',
-    );
-    if (!verified) {
+    const outcome = await biometryStore.verify('Open saved wallet');
+    if (outcome !== 'unlocked') {
       return;
     }
 
@@ -205,11 +198,8 @@ export function RestoreWalletScreen() {
           text: 'Delete and continue',
           style: 'destructive',
           onPress: async () => {
-            const verified = await requireWalletBiometry(
-              biometryStore,
-              'Delete wallet',
-            );
-            if (!verified) {
+            const outcome = await biometryStore.verify('Delete wallet');
+            if (outcome !== 'unlocked') {
               return;
             }
 

@@ -9,7 +9,6 @@ import {
 } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
-import { requireWalletBiometry } from '@shared/lib';
 import { useWallet } from '@features/wallet-seed-phrase';
 import {
   HeaderBackButton,
@@ -38,11 +37,8 @@ export function WalletSettingsScreen() {
   const [deleteError, setDeleteError] = useState('');
 
   async function handleRevealPhrase() {
-    const verified = await requireWalletBiometry(
-      biometryStore,
-      'View recovery phrase',
-    );
-    if (!verified) {
+    const outcome = await biometryStore.verify('View recovery phrase');
+    if (outcome !== 'unlocked') {
       return;
     }
 
@@ -74,11 +70,8 @@ export function WalletSettingsScreen() {
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
-            const verified = await requireWalletBiometry(
-              biometryStore,
-              'Delete wallet',
-            );
-            if (!verified) {
+            const outcome = await biometryStore.verify('Delete wallet');
+            if (outcome !== 'unlocked') {
               return;
             }
 
