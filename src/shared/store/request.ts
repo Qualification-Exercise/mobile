@@ -1,17 +1,17 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 
-export class TypedRequest<R> {
+export class Request<R extends unknown[]> {
   public loading = false;
   public loadingMessage = '';
 
   public error = '';
   private defaultError = '';
 
-  public data: R;
-  private request: (...args: any[]) => Promise<R>;
+  public data;
+  private request;
 
   constructor(
-    request: (...args: any[]) => Promise<R>,
+    request: (...args: any) => Promise<R>,
     options: {
       initialData: R;
       defaultError: string;
@@ -25,7 +25,7 @@ export class TypedRequest<R> {
     makeAutoObservable(this);
   }
 
-  public async fetch(...args: any[]) {
+  public async fetch(...args: Parameters<typeof this.request>) {
     try {
       this.loading = true;
       this.error = '';
@@ -49,9 +49,6 @@ export class TypedRequest<R> {
   }
 
   public get hasData() {
-    if (Array.isArray(this.data)) {
-      return this.data.length > 0 && !this.loading;
-    }
-    return this.data != null && this.data !== '' && !this.loading;
+    return this.data.length > 0 && !this.loading;
   }
 }
