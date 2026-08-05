@@ -25,19 +25,6 @@ export const WalletNavigationContainer = observer(
       navigationStore.setActiveRouteName(routeName);
     }, [navigationStore, navigationRef]);
 
-    // useEffect(() => {
-    //   const previousStatus = previousStatusRef.current;
-    //
-    //   if (
-    //     state.status === 'READY' &&
-    //     (previousStatus === 'LOCKED' || previousStatus === 'REINITIALIZING')
-    //   ) {
-    //     goHome();
-    //   }
-    //
-    //   previousStatusRef.current = state.status;
-    // }, [state.status, goHome]);
-
     return (
       <NavigationContainer
         ref={navigationRef}

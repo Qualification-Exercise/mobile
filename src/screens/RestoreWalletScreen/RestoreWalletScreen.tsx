@@ -12,6 +12,7 @@ import {
   AppIcon,
   HeaderBackButton,
   HeaderCloseButton,
+  KeyboardAvoidingView,
   PrimaryButton,
   ScreenContainer,
   SecondaryButton,
@@ -251,7 +252,7 @@ export function RestoreWalletScreen() {
           <PrimaryButton title="Use this code" onPress={handleScanComplete} />
         </View>
       ) : (
-        <View style={styles.container}>
+        <KeyboardAvoidingView style={styles.container}>
           <Text style={styles.title}>Enter recovery phrase</Text>
           <Text style={styles.description}>
             Type your 12-word phrase in order to restore your wallet on this
@@ -336,7 +337,7 @@ export function RestoreWalletScreen() {
             onPress={handleRestore}
             disabled={!isValid || restoring}
           />
-        </View>
+        </KeyboardAvoidingView>
       )}
     </ScreenContainer>
   );
