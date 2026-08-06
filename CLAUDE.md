@@ -16,3 +16,10 @@ When I see an `AI-REVIEW:` comment I must:
    is already correct, defend the choice honestly and note it's fine as-is.
 5. Do not remove the original `AI-REVIEW:` comment — leave it above my
    `AI-ANSWER:`.
+
+## State & eventing: prefer MobX over custom pub/sub
+
+Use a MobX store for reactive state and cross-component eventing — observable
+state, actions, and `observer` components. Do **not** hand-roll pub/sub
+solutions (listener `Set`s, subscribe/publish functions, event emitters) when a
+store can do the job.

@@ -1,10 +1,10 @@
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useRef} from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { observer } from 'mobx-react-lite';
 import { Alert, DevSettings, StatusBar, useColorScheme } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
-import { toastConfig } from '@shared/ui';
+import { RootErrorBoundary, toastConfig } from '@shared/ui';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@env';
 import {RootStoreContext, useStore} from '@shared/store';
 import { WalletNavigationContainer } from './navigation/WalletNavigationContainer';
@@ -15,9 +15,10 @@ import {DEFAULT_WALLET_ID, useWallet, useWalletSessionLock} from '@features/wall
 import {wdkConfigs} from '@shared/config';
 
 const MENU_ITEM_TITLE = 'Clear all cached data';
+const DEV_MENU_ITEM_TITLE = 'Dev Menu';
 
 function DevMenu() {
-  const { authStore, biometryStore } = useStore();
+  const { authStore, biometryStore, navigationStore } = useStore();
   const { getWallets, deleteWallet } = useWallet();
 
   // Hold the latest wipe logic in a ref: `DevSettings.addMenuItem` registers a
@@ -52,7 +53,11 @@ function DevMenu() {
           Alert.alert('Clear cached data failed', String(error));
         });
     });
-  }, []);
+
+    DevSettings.addMenuItem(DEV_MENU_ITEM_TITLE, () =>
+      navigationStore.goToDevMenu(),
+    );
+  }, [navigationStore]);
 
   return null;
 }
@@ -69,7 +74,6 @@ rootStore.authStore.hydrate();
 rootStore.biometryStore.hydrate();
 
 const App = observer(function App() {
-  // FIXME: Move to separate component to prevent extra reconciliation
   useSyncAppState();
   useSyncWdkAppState();
   useWalletSessionLock();
@@ -92,9 +96,11 @@ const AppRoot = observer(function AppRoot() {
     <SafeAreaProvider>
       <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
       <RootStoreContext.Provider value={rootStore}>
-        <WdkAppProvider bundle={{ bundle }} wdkConfigs={wdkConfigs}>
-          <App />
-        </WdkAppProvider>
+        <RootErrorBoundary>
+          <WdkAppProvider bundle={{ bundle }} wdkConfigs={wdkConfigs}>
+            <App />
+          </WdkAppProvider>
+        </RootErrorBoundary>
       </RootStoreContext.Provider>
       <Toast config={toastConfig} />
     </SafeAreaProvider>

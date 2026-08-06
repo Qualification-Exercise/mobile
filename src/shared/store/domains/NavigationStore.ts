@@ -53,4 +53,16 @@ export class NavigationStore {
       routes: [{ name: 'BiometricUnlock' }],
     });
   }
+
+  goToDevMenu(): void {
+    if (!this.navigationRef?.isReady()) {
+      return;
+    }
+
+    if (this.activeRouteName === 'DevMenu') {
+      return;
+    }
+
+    this.navigationRef.navigate('DevMenu');
+  }
 }
