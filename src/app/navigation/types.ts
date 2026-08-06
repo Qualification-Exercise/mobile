@@ -22,6 +22,7 @@ export type RootStackParamList = {
   Rewards: undefined;
   ClaimCoupon: { couponCode?: string } | undefined;
   WalletSettings: undefined;
+  DevMenu: undefined;
 };
 
 // Native-stack navigation prop typed with the app's param list. Pass to
