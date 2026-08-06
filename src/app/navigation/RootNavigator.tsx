@@ -15,6 +15,7 @@ import { SendScreen } from '@screens/SendScreen';
 import { SignInScreen } from '@screens/SignInScreen';
 import { WalletSettingsScreen } from '@screens/WalletSettingsScreen';
 import { WalletSetupScreen } from '@screens/WalletSetupScreen';
+import { DevMenuScreen } from '@screens/DevMenuScreen';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -53,6 +54,13 @@ export function RootNavigator({ initialRouteName }: RootNavigatorProps) {
       <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
       <Stack.Screen name="Rewards" component={RewardsScreen} />
       <Stack.Screen name="ClaimCoupon" component={ClaimCouponScreen} />
+      {__DEV__ ? (
+        <Stack.Screen
+          name="DevMenu"
+          component={DevMenuScreen}
+          options={{ presentation: 'modal' }}
+        />
+      ) : null}
     </Stack.Navigator>
   );
 }

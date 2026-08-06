@@ -43,6 +43,9 @@ export const toastConfig: ToastConfig = {
       style={[cardStyle, { borderLeftColor: '#E0715A' }]}
       text1Style={text1Style}
       text2Style={text2Style}
+      // Error messages (plus the dev-only source tag) routinely run past the
+      // library's default single line, so allow the card to grow.
+      text2NumberOfLines={3}
     />
   ),
 };
