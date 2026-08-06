@@ -6,6 +6,15 @@ import { showErrorToast } from './showErrorToast';
 // export, so we describe it for TypeScript rather than import it.
 declare const ErrorUtils: ErrorUtilsInterface;
 
+// Hermes exposes promise-rejection tracking on this runtime global. It is only
+// present on Hermes; on JSC it is `undefined`, which is how we pick the tracker.
+declare const HermesInternal:
+  | {
+      hasPromise?: () => boolean;
+      enablePromiseRejectionTracker?: (options: RejectionTrackingOptions) => void;
+    }
+  | undefined;
+
 type RejectionTrackingOptions = {
   allRejections: boolean;
   onUnhandled: (id: number, error: unknown) => void;
@@ -54,21 +63,7 @@ function installUncaughtErrorHandler(): void {
 }
 
 function installUnhandledRejectionHandler(): void {
-  // React Native polyfills `global.Promise` with the `promise` package and
-  // exposes rejection tracking through this internal entrypoint. Both requires
-  // are guarded so a future runtime change (e.g. native promises) degrades to
-  // "no promise toast" instead of crashing at startup.
-  let tracking: { enable: (options: RejectionTrackingOptions) => void };
-  try {
-    tracking = require('promise/setimmediate/rejection-tracking');
-  } catch {
-    return;
-  }
-
-  // Enabling tracking replaces React Native's own handler (which logs
-  // unhandled rejections to the dev redbox), so we re-add a dev-only console
-  // warning to keep that diagnostic signal alongside the toast.
-  tracking.enable({
+  const options: RejectionTrackingOptions = {
     allRejections: true,
     onUnhandled: (id, rejection) => {
       const error = toError(rejection);
@@ -81,5 +76,30 @@ function installUnhandledRejectionHandler(): void {
     // A rejection that gets a late `.catch` is no longer a problem — nothing to
     // report, but the callback must exist for the tracker to stay balanced.
     onHandled: () => {},
-  });
+  };
+
+  // On Hermes (React Native's default engine) `global.Promise` is Hermes's
+  // native promise, NOT the `promise` npm package — so the package's
+  // rejection tracker never sees any rejection. Hermes surfaces the same
+  // tracking API through this runtime global; use it when available.
+  if (typeof HermesInternal !== 'undefined' && HermesInternal?.hasPromise?.()) {
+    HermesInternal.enablePromiseRejectionTracker?.(options);
+    return;
+  }
+
+  // JSC fallback: React Native polyfills `global.Promise` with the `promise`
+  // package, whose rejection tracking lives at this internal entrypoint. The
+  // require is guarded so an unexpected runtime shape degrades to "no promise
+  // toast" instead of crashing at startup.
+  let tracking: { enable: (options: RejectionTrackingOptions) => void };
+  try {
+    tracking = require('promise/setimmediate/rejection-tracking');
+  } catch {
+    return;
+  }
+
+  // Enabling tracking replaces React Native's own handler (which logs
+  // unhandled rejections to the dev redbox), so the dev-only console warning
+  // above keeps that diagnostic signal alongside the toast.
+  tracking.enable(options);
 }
