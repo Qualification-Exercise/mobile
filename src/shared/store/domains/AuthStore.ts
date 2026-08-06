@@ -1,94 +1,126 @@
-import { makeAutoObservable, runInAction } from 'mobx';
+import { makeAutoObservable } from 'mobx';
+import { Platform } from 'react-native';
 import {
   GoogleSignin,
   isErrorWithCode,
   isSuccessResponse,
 } from '@react-native-google-signin/google-signin';
+import { authApi, configureAuth } from '@shared/api';
+import type { AuthTokens, AuthUser, EClientType } from '@shared/api';
 import {
-  clearGoogleAccount,
-  loadGoogleAccount,
-  saveGoogleAccount,
+  clearSession,
+  loadSession,
+  saveSession,
+  type Session,
 } from '../../lib/authStorage';
 
-export type GoogleAccount = {
-  email: string;
-  logged: boolean;
-};
+function clientType(): EClientType {
+  return Platform.OS === 'ios' ? 'ios' : 'android';
+}
 
 export class AuthStore {
-  account: GoogleAccount | null = null;
-  // Flips to `true` once the startup keychain read has completed (whether or
-  // not a session was found). Navigation waits on this before mounting.
+  session: Session | null = null;
   isHydrated = false;
 
   constructor() {
     makeAutoObservable(this);
+
+    configureAuth({
+      getAccessToken: () => this.session?.accessToken ?? null,
+      refreshTokens: () => this.refresh(),
+      onTokensRefreshed: tokens => this.setSession(tokens),
+      onAuthFailure: () => {
+        void this.signOut();
+      },
+    });
   }
 
-  get isAuthenticated() {
-    return this.account?.logged === true;
+  get isAuthenticated(): boolean {
+    return Boolean(this.session?.accessToken);
   }
 
-  setGoogleAccount(account: GoogleAccount) {
-    this.account = account;
+  get user(): AuthUser | null {
+    return this.session?.user ?? null;
   }
 
-  // Restore a previously persisted Google account from the keychain. Call this
-  // once on app startup to keep the user signed in across launches. Always
-  // resolves with `isHydrated` set so the UI can stop waiting on it.
-  async hydrate() {
+  private async persistSession(session: Session): Promise<void> {
+    await saveSession(session);
+    this.session = session;
+  }
+
+  setSession(session: Session): void {
+    this.session = session;
+  }
+
+  async hydrate(): Promise<void> {
     try {
-      const account = await loadGoogleAccount();
-      if (account) {
-        runInAction(() => {
-          this.account = account;
-        });
+      const session = await loadSession();
+      if (session) {
+        this.session = session;
       }
     } finally {
-      runInAction(() => {
-        this.isHydrated = true;
-      });
+      this.isHydrated = true;
     }
   }
 
-  // Clear the in-memory account and remove it from the keychain.
-  async signOut() {
-    await clearGoogleAccount();
-    this.account = null;
+  async signOut(): Promise<void> {
+    await clearSession();
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      // Failed Google sign-out must not block local teardown.
+    }
+    this.session = null;
   }
 
-  // Prompt the Google sign-in flow. Resolves with `true` when a session was
-  // established, or `false` if the user cancelled or the flow errored.
-  async signInWithGoogle() {
+  async signInWithGoogle(): Promise<boolean> {
     try {
       // Ensure Play Services are available (Android)
       await GoogleSignin.hasPlayServices();
       // Prompt user sign in
       const response = await GoogleSignin.signIn();
 
-      if (isSuccessResponse(response)) {
-        const account: GoogleAccount = {
-          email: response.data.user.email,
-          logged: Boolean(response.data.idToken),
-        };
-
-        // Securely persist the account before storing it in memory so a
-        // relaunch can rehydrate it via `hydrate()`.
-        await saveGoogleAccount(account);
-
-        runInAction(() => {
-          this.setGoogleAccount(account);
-        });
-
-        return account.logged;
+      if (!isSuccessResponse(response)) {
+        // The user dismissed or cancelled the sign-in flow.
+        return false;
       }
-      // Otherwise the user dismissed or cancelled the sign-in flow.
-      return false;
+
+      let idToken = response.data.idToken;
+      if (!idToken) {
+        // Android edge case: `signIn()` can return a null idToken. Fall back to
+        // the explicit token fetch.
+        const tokens = await GoogleSignin.getTokens();
+        idToken = tokens.idToken;
+      }
+
+      if (!idToken) {
+        console.error('Google Sign-In Error: missing idToken');
+        return false;
+      }
+
+      const session = await authApi.google(idToken, clientType());
+
+      await this.persistSession(session);
+
+      return true;
     } catch (error) {
       if (isErrorWithCode(error)) {
         console.error('Google Sign-In Error:', error.code, error.message);
+      } else {
+        console.error('Google Sign-In Error:', error);
       }
       return false;
     }
+  }
+
+  async refresh(): Promise<AuthTokens> {
+    const refreshToken = this.session?.refreshToken;
+    if (!refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const tokens = await authApi.refresh(refreshToken);
+    await this.persistSession(tokens);
+    return tokens;
   }
 }
