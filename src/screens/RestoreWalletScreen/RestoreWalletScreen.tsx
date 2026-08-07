@@ -7,7 +7,7 @@ import { useStore } from '@shared/store';
 import {
   isWalletAlreadyExistsError,
   useWallet,
-} from '@features/wallet-seed-phrase';
+} from '@shared/lib/hooks/wallet';
 import {
   HeaderBackButton,
   KeyboardAvoidingView,
