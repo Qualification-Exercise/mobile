@@ -56,3 +56,36 @@ export type GetEntropyResponse = {
 export type GetSeedResponse = {
   seeds: SecretItem[];
 };
+
+// Body for `POST /api/transactions`. `amount`/`fee` are base-unit integer
+// strings (`^\d{1,78}$`); `srcChainId` is the EVM chain id (omitted for
+// non-EVM chains, which the backend ingests but does not yet confirm).
+export type CreateTransactionDTO = {
+  chain: string;
+  srcChainId?: number;
+  txHash: string;
+  type: 'TRANSFER';
+  direction: 'out';
+  token: string;
+  amount: string;
+  from: string;
+  to: string;
+  fee?: string;
+  broadcastAt?: string;
+};
+
+// A single derived address linked to the user's account via `POST /api/wallets`.
+export type LinkedWalletDTO = {
+  chain: string;
+  srcChainId?: number;
+  address: string;
+  path?: string;
+};
+
+export type LinkWalletsRequest = {
+  wallets: LinkedWalletDTO[];
+};
+
+export type ListWalletsResponse = {
+  wallets: LinkedWalletDTO[];
+};

@@ -1,11 +1,37 @@
-import { makeAutoObservable } from 'mobx';
+import { makeAutoObservable, runInAction } from 'mobx';
 import type { NetworkName } from '../../../../.wdk';
+import { SUPPORTED_ASSETS } from '@shared/config';
+import { transactionsApi, type CreateTransactionDTO } from '@shared/api';
 import type { Asset } from '../models/asset';
 import type { Coupon } from '../models/coupon';
 import type { Transaction } from '../models/transaction';
 import type { Wallet } from '../models/wallet';
 
 const CASHBACK_RATE = 0.05;
+
+// UTL is the cashback payout token (Ethereum). Kept as a named const so the
+// coupon flow references the registry id rather than a magic string.
+const UTL_ASSET_ID = 'utl-ethereum';
+
+// Build the wallet's asset list from the asset registry so token metadata has
+// a single source of truth. Balances are intentionally left at zero here:
+// they are read from `useAssetBalances()` in components, not owned by the
+// store. Fiat pricing has no oracle configured, so `fiatValue` stays a
+// placeholder (see `totalFiatBalance`).
+function buildAssetsFromRegistry(): Asset[] {
+  return SUPPORTED_ASSETS.map(config => ({
+    id: config.id,
+    symbol: config.symbol,
+    name: config.name,
+    network: config.network,
+    decimals: config.decimals,
+    isNative: config.isNative,
+    contractAddress: config.address ?? undefined,
+    balanceBaseUnits: undefined,
+    balance: 0,
+    fiatValue: 0,
+  }));
+}
 
 function randomSegment(length: number): string {
   return Math.random()
@@ -26,48 +52,9 @@ export class WalletStore {
     displayName: 'Main Wallet',
   };
 
-  assets: Asset[] = [
-    {
-      id: 'btc',
-      symbol: 'BTC',
-      name: 'Bitcoin',
-      network: 'spark',
-      decimals: 8,
-      isNative: true,
-      balance: 0.0312,
-      fiatValue: 2047.1,
-    },
-    {
-      id: 'usdt-arbitrum',
-      symbol: 'USDt',
-      name: 'Tether USDt',
-      network: 'arbitrum',
-      decimals: 6,
-      isNative: false,
-      balance: 1540.0,
-      fiatValue: 1540.0,
-    },
-    {
-      id: 'usdt-tron',
-      symbol: 'USDt',
-      name: 'Tether USDt',
-      network: 'tron',
-      decimals: 6,
-      isNative: false,
-      balance: 480.0,
-      fiatValue: 480.0,
-    },
-    {
-      id: 'utl',
-      symbol: 'UTL',
-      name: 'Utility Token',
-      network: 'ethereum',
-      decimals: 18,
-      isNative: false,
-      balance: 115.45,
-      fiatValue: 115.45,
-    },
-  ];
+  // Static token metadata sourced from the asset registry. Live balances come
+  // from `useAssetBalances()` in components, not from these objects.
+  assets: Asset[] = buildAssetsFromRegistry();
 
   transactions: Transaction[] = [
     {
@@ -139,10 +126,26 @@ export class WalletStore {
     },
   ];
 
+  // Whether this session has already linked the wallet's derived addresses to
+  // the backend, so linking isn't re-posted on every READY transition.
+  addressesLinked = false;
+
+  // Best-effort backend-report queue: broadcasts whose `POST /transactions`
+  // failed. Retried on a later deferred pass. In-memory only — persistence
+  // across a full reload is a follow-up.
+  pendingReports: CreateTransactionDTO[] = [];
+
   constructor() {
     makeAutoObservable(this);
   }
 
+  markAddressesLinked() {
+    this.addressesLinked = true;
+  }
+
+  // Fiat pricing is out of scope: no price oracle is configured, so per-asset
+  // `fiatValue` is a placeholder (0) and this total is not a real figure.
+  // Components should treat fiat as unavailable until an oracle is wired in.
   get totalFiatBalance(): number {
     return this.assets.reduce((sum, asset) => sum + asset.fiatValue, 0);
   }
@@ -191,6 +194,36 @@ export class WalletStore {
     });
   }
 
+  // Report a broadcast to the backend for confirmation tracking. Best-effort:
+  // the funds already moved, so a failure never surfaces to the user — the
+  // report is queued and retried later. The `txHash` is the idempotency key,
+  // so retries replay safely.
+  async reportSend(dto: CreateTransactionDTO) {
+    try {
+      await transactionsApi.report(dto, dto.txHash);
+    } catch (error) {
+      console.warn('Transaction report failed; queued for retry', error);
+      runInAction(() => {
+        this.pendingReports.push(dto);
+      });
+    }
+  }
+
+  // Re-attempt any queued reports (e.g. on the next wallet-ready pass). Each
+  // still-failing report is re-queued by `reportSend`.
+  async flushPendingReports() {
+    if (this.pendingReports.length === 0) {
+      return;
+    }
+    const queued = this.pendingReports.slice();
+    runInAction(() => {
+      this.pendingReports = [];
+    });
+    for (const dto of queued) {
+      await this.reportSend(dto);
+    }
+  }
+
   recordScanToPayment(merchant: string, amount: number, assetId: string) {
     this.transactions.unshift({
       id: `txn-${this.transactions.length + 1}`,
@@ -217,7 +250,7 @@ export class WalletStore {
 
     coupon.status = 'Claimed';
 
-    const utl = this.assets.find(asset => asset.id === 'utl');
+    const utl = this.assets.find(asset => asset.id === UTL_ASSET_ID);
     if (utl) {
       utl.balance += coupon.amount;
       utl.fiatValue += coupon.amount;

@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { useWallet } from '@shared/lib/hooks/wallet';
+import { useAssetBalances, useWallet } from '@shared/lib/hooks/wallet';
 import { useStore } from '@shared/store';
 import { AppIcon, ScreenContainer, colors, radii, spacing } from '@shared/ui';
 import { AssetRow } from './AssetRow';
@@ -60,6 +60,7 @@ export const HomeScreen = observer(function HomeScreenView() {
   const { state } = useWdkApp();
   const { hasPersistedWallet } = useWallet();
   const { walletStore } = useStore();
+  const { balances } = useAssetBalances();
   const hasWallet = hasPersistedWallet() || state.status === 'READY';
 
   useEffect(() => {
@@ -71,10 +72,6 @@ export const HomeScreen = observer(function HomeScreenView() {
   if (!hasWallet) {
     return null;
   }
-
-  const [wholePart, decimalPart] = walletStore.totalFiatBalance
-    .toFixed(2)
-    .split('.');
 
   return (
     <ScreenContainer>
@@ -107,14 +104,9 @@ export const HomeScreen = observer(function HomeScreenView() {
 
         <View style={styles.balanceBlock}>
           <Text style={styles.balanceLabel}>Total balance</Text>
-          <Text style={styles.balanceValue}>
-            ${wholePart}
-            <Text style={styles.balanceDecimal}>.{decimalPart}</Text>
-          </Text>
-          <View style={styles.deltaBadge}>
-            <AppIcon name="caret-up" size={12} color={colors.positive} />
-            <Text style={styles.deltaLabel}>2.4% today</Text>
-          </View>
+          {/* Fiat pricing is out of scope (no price oracle configured), so the
+              aggregate fiat total is hidden rather than shown as a fake value. */}
+          <Text style={styles.balanceValue}>—</Text>
         </View>
 
         <View style={styles.actionsRow}>
@@ -152,6 +144,7 @@ export const HomeScreen = observer(function HomeScreenView() {
             <AssetRow
               key={asset.id}
               asset={asset}
+              balanceBaseUnits={balances.get(asset.id)}
               onPress={() =>
                 navigation.navigate('AssetDetail', { assetId: asset.id })
               }
@@ -211,24 +204,6 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textPrimary,
     marginTop: spacing.xs,
-  },
-  balanceDecimal: {
-    color: colors.textTertiary,
-  },
-  deltaBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(45,190,140,0.12)',
-    borderRadius: 20,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-  },
-  deltaLabel: {
-    color: colors.positive,
-    fontSize: 12,
-    fontWeight: '600',
   },
   actionsRow: {
     flexDirection: 'row',

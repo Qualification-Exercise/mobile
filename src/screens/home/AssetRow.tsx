@@ -1,4 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { fromBaseUnits } from '@shared/lib';
 import {
   getAssetColor,
   getAssetGlyphColor,
@@ -9,10 +10,18 @@ import { colors, radii, spacing } from '@shared/ui';
 
 type AssetRowProps = {
   asset: Asset;
+  // Live base-unit balance from `useAssetBalances()`; undefined while loading
+  // or on a per-asset fetch failure.
+  balanceBaseUnits?: string;
   onPress?: () => void;
 };
 
-export function AssetRow({ asset, onPress }: AssetRowProps) {
+export function AssetRow({ asset, balanceBaseUnits, onPress }: AssetRowProps) {
+  const balanceDisplay =
+    balanceBaseUnits != null
+      ? fromBaseUnits(balanceBaseUnits, asset.decimals)
+      : '—';
+
   return (
     <TouchableOpacity
       style={styles.row}
@@ -31,9 +40,8 @@ export function AssetRow({ asset, onPress }: AssetRowProps) {
       </View>
       <View style={styles.values}>
         <Text style={styles.balance}>
-          {asset.balance.toLocaleString()} {asset.symbol}
+          {balanceDisplay} {asset.symbol}
         </Text>
-        <Text style={styles.fiatValue}>${asset.fiatValue.toFixed(2)}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -79,10 +87,5 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  fiatValue: {
-    fontSize: 11.5,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
 });

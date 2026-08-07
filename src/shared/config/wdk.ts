@@ -17,6 +17,13 @@ export const USDT_ETHEREUM_SEPOLIA_ADDRESS =
 export const USDT_POLYGON_ADDRESS =
   '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
 
+// EVM chain ids per network. Shared between the WDK network configs below and
+// the backend `srcChainId` mapping (src/shared/config/assets.ts) so the two
+// can never drift. Ethereum is Sepolia (testnet) per the locked plan decision.
+export const ETHEREUM_CHAIN_ID = 11155111;
+export const ARBITRUM_CHAIN_ID = 42161;
+export const POLYGON_CHAIN_ID = 137;
+
 const tronConfig: Record<string, unknown> = {
   provider: 'https://api.trongrid.io',
 };
@@ -48,7 +55,7 @@ export const wdkConfigs: WdkConfigs = {
     ethereum: {
       blockchain: 'ethereum',
       config: {
-        chainId: 11155111,
+        chainId: ETHEREUM_CHAIN_ID,
         provider: 'https://rpc.sepolia.org',
         bundlerUrl: 'https://api.candide.dev/public/v3/11155111',
         paymasterUrl: 'https://api.candide.dev/public/v3/11155111',
@@ -61,7 +68,7 @@ export const wdkConfigs: WdkConfigs = {
     arbitrum: {
       blockchain: 'arbitrum',
       config: {
-        chainId: 42161,
+        chainId: ARBITRUM_CHAIN_ID,
         provider: 'https://arb1.arbitrum.io/rpc',
         bundlerUrl: 'https://api.candide.dev/public/v3/arbitrum',
         paymasterUrl: 'https://api.candide.dev/public/v3/arbitrum',
@@ -74,7 +81,7 @@ export const wdkConfigs: WdkConfigs = {
     polygon: {
       blockchain: 'polygon',
       config: {
-        chainId: 137,
+        chainId: POLYGON_CHAIN_ID,
         provider: 'https://polygon-rpc.com',
         bundlerUrl: 'https://api.candide.dev/public/v3/polygon',
         paymasterUrl: 'https://api.candide.dev/public/v3/polygon',
