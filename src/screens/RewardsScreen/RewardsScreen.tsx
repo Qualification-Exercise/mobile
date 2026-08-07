@@ -11,7 +11,7 @@ import {
   radii,
   spacing,
 } from '@shared/ui';
-import { CouponRow } from '@widgets/coupon-row';
+import { CouponRow } from './CouponRow';
 
 export const RewardsScreen = observer(function RewardsScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();

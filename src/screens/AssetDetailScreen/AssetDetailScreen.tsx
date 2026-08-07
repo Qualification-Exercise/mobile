@@ -24,7 +24,7 @@ import {
   colors,
   spacing,
 } from '@shared/ui';
-import { TransactionRow } from '@widgets/transaction-row';
+import { TransactionRow } from './TransactionRow';
 
 export const AssetDetailScreen = observer(function AssetDetailScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();

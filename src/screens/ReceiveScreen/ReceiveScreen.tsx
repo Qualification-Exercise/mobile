@@ -17,8 +17,8 @@ import {
   colors,
   radii,
   spacing,
+  QrPlaceholder,
 } from '@shared/ui';
-import { QrPlaceholder } from '@widgets/qr-placeholder';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 

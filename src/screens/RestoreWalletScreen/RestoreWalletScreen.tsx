@@ -16,7 +16,7 @@ import {
   colors,
   spacing,
 } from '@shared/ui';
-import { SeedWordInputGrid } from '@widgets/seed-word-input-grid';
+import { SeedWordInputGrid } from './SeedWordInputGrid';
 
 function parsePhraseInput(text: string): string[] | null {
   const words = text.trim().split(/\s+/).filter(Boolean);

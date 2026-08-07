@@ -7,6 +7,8 @@ export * from './SecondaryButton';
 export * from './PressableButton';
 export * from './LightButton';
 export * from './Card';
+export * from './QrPlaceholder';
+export * from './SeedWordGrid';
 export * from './ScreenContainer';
 export * from './KeyboardAvoidingContainer';
 export * from './toastConfig';

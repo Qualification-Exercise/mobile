@@ -22,8 +22,8 @@ import {
   colors,
   radii,
   spacing,
+  SeedWordGrid,
 } from '@shared/ui';
-import { SeedWordGrid } from '@widgets/seed-word-grid';
 
 function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
