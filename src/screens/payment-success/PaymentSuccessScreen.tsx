@@ -1,4 +1,8 @@
-import { useNavigation } from '@react-navigation/native';
+import {
+  type RouteProp,
+  useNavigation,
+  useRoute,
+} from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import {
   Clipboard,
@@ -7,7 +11,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { RootStackNavigationProp } from '@app/navigation/types';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import {
   AppIcon,
@@ -18,78 +25,139 @@ import {
   spacing,
 } from '@shared/ui';
 
+// Shorten a broadcast hash for display, e.g. `0x9f2a…d41c`.
+function shortenHash(hash: string): string {
+  if (hash.length <= 12) {
+    return hash;
+  }
+  return `${hash.slice(0, 6)}…${hash.slice(-4)}`;
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  failed: 'Failed',
+};
+
 export const PaymentSuccessScreen = observer(
   function PaymentSuccessScreenView() {
-    const navigation = useNavigation<RootStackNavigationProp>();
-    const { walletStore } = useStore();
-    const transaction = walletStore.transactions[0];
-    const coupon = walletStore.coupons[0];
-    const cashbackPercent = Math.round(
-      (coupon.amount / Math.abs(transaction.amount)) * 100,
-    );
+    const params =
+      useRoute<RouteProp<RootStackParamList, 'PaymentSuccess'>>().params;
 
-    return (
-      <ScreenContainer>
-        <View style={styles.content}>
-          <View style={styles.checkCircle}>
-            <AppIcon name="checkmark" size={44} color={colors.background} />
-          </View>
-          <Text style={styles.title}>Payment sent</Text>
-          <Text style={styles.subtitle}>
-            {Math.abs(transaction.amount).toFixed(2)} USDt to{' '}
-            {transaction.counterparty}
+    // Plain send-success (from the Send/Approve flow) vs. the scan-to-pay
+    // coupon-cashback success.
+    if (params) {
+      return <SendSuccess {...params} />;
+    }
+    return <CashbackSuccess />;
+  },
+);
+
+const SendSuccess = observer(function SendSuccessView({
+  assetSymbol,
+  amount,
+  hash,
+  status,
+}: NonNullable<RootStackParamList['PaymentSuccess']>) {
+  const navigation = useNavigation<RootStackNavigationProp>();
+
+  return (
+    <ScreenContainer>
+      <View style={styles.content}>
+        <View style={styles.checkCircle}>
+          <AppIcon name="checkmark" size={44} color={colors.background} />
+        </View>
+        <Text style={styles.title}>Transaction sent</Text>
+        <Text style={styles.subtitle}>
+          {amount} {assetSymbol}
+        </Text>
+        {hash ? (
+          <Text style={styles.txHash}>
+            tx {shortenHash(hash)}
+            {status ? ` · ${STATUS_LABEL[status] ?? status}` : ''}
           </Text>
-          <Text style={styles.txHash}>tx 0x9f2a…d41c · Confirmed</Text>
+        ) : null}
 
-          <View style={styles.cashbackCard}>
-            <View style={styles.cashbackHeader}>
-              <View style={styles.cashbackIcon}>
-                <AppIcon
-                  name="gift-outline"
-                  size={16}
-                  color={colors.textPrimary}
-                />
-              </View>
-              <Text style={styles.cashbackLabel}>Cashback earned</Text>
+        <View style={styles.spacer} />
+
+        <View style={styles.actions}>
+          <PrimaryButton title="Done" onPress={() => navigation.popToTop()} />
+        </View>
+      </View>
+    </ScreenContainer>
+  );
+});
+
+const CashbackSuccess = observer(function CashbackSuccessView() {
+  const navigation = useNavigation<RootStackNavigationProp>();
+  const { walletStore } = useStore();
+  const transaction = walletStore.transactions[0];
+  const coupon = walletStore.coupons[0];
+  const cashbackPercent = Math.round(
+    (coupon.amount / Math.abs(transaction.amount)) * 100,
+  );
+
+  return (
+    <ScreenContainer>
+      <View style={styles.content}>
+        <View style={styles.checkCircle}>
+          <AppIcon name="checkmark" size={44} color={colors.background} />
+        </View>
+        <Text style={styles.title}>Payment sent</Text>
+        <Text style={styles.subtitle}>
+          {Math.abs(transaction.amount).toFixed(2)} USDt to{' '}
+          {transaction.counterparty}
+        </Text>
+        <Text style={styles.txHash}>tx 0x9f2a…d41c · Confirmed</Text>
+
+        <View style={styles.cashbackCard}>
+          <View style={styles.cashbackHeader}>
+            <View style={styles.cashbackIcon}>
+              <AppIcon
+                name="gift-outline"
+                size={16}
+                color={colors.textPrimary}
+              />
             </View>
-            <Text style={styles.cashbackPercent}>{cashbackPercent}% back</Text>
-            <Text style={styles.cashbackAmount}>
-              Coupon issued for {coupon.amount.toFixed(2)} UTL
-            </Text>
-            <View style={styles.couponRow}>
-              <Text style={styles.couponCode}>{coupon.code}</Text>
-              <TouchableOpacity
-                style={styles.couponCopyButton}
-                onPress={() => Clipboard.setString(coupon.code)}
-              >
-                <AppIcon
-                  name="copy-outline"
-                  size={14}
-                  color={colors.accentBright}
-                />
-                <Text style={styles.couponCopy}>Copy</Text>
-              </TouchableOpacity>
-            </View>
+            <Text style={styles.cashbackLabel}>Cashback earned</Text>
           </View>
-
-          <View style={styles.spacer} />
-
-          <View style={styles.actions}>
-            <PrimaryButton
-              title="Claim UTL now"
-              onPress={() =>
-                navigation.navigate('ClaimCoupon', { couponCode: coupon.code })
-              }
-            />
-            <TouchableOpacity onPress={() => navigation.popToTop()}>
-              <Text style={styles.done}>Done</Text>
+          <Text style={styles.cashbackPercent}>{cashbackPercent}% back</Text>
+          <Text style={styles.cashbackAmount}>
+            Coupon issued for {coupon.amount.toFixed(2)} UTL
+          </Text>
+          <View style={styles.couponRow}>
+            <Text style={styles.couponCode}>{coupon.code}</Text>
+            <TouchableOpacity
+              style={styles.couponCopyButton}
+              onPress={() => Clipboard.setString(coupon.code)}
+            >
+              <AppIcon
+                name="copy-outline"
+                size={14}
+                color={colors.accentBright}
+              />
+              <Text style={styles.couponCopy}>Copy</Text>
             </TouchableOpacity>
           </View>
         </View>
-      </ScreenContainer>
-    );
-  },
-);
+
+        <View style={styles.spacer} />
+
+        <View style={styles.actions}>
+          <PrimaryButton
+            title="Claim UTL now"
+            onPress={() =>
+              navigation.navigate('ClaimCoupon', { couponCode: coupon.code })
+            }
+          />
+          <TouchableOpacity onPress={() => navigation.popToTop()}>
+            <Text style={styles.done}>Done</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </ScreenContainer>
+  );
+});
 
 const styles = StyleSheet.create({
   content: {

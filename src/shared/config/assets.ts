@@ -16,7 +16,10 @@ const USDT_TRON_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 const UTL_ETHEREUM_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 // The network of every asset must match a key in wdkConfigs.networks.
-type SupportedAssetConfig = AssetConfig & { network: NetworkName };
+export type SupportedAssetConfig = AssetConfig & { network: NetworkName };
+
+// The token a network fee is denominated in, for display before signing.
+export type FeeToken = { decimals: number; symbol: string };
 
 // Single source of truth for token metadata. One entry per (asset, network).
 export const SUPPORTED_ASSETS: SupportedAssetConfig[] = [
@@ -92,4 +95,26 @@ export function getAssetConfig(id: string): SupportedAssetConfig | undefined {
 export function getAsset(id: string): BaseAsset | undefined {
   const config = getAssetConfig(id);
   return config ? new BaseAsset(config) : undefined;
+}
+
+// How a network fee is denominated for an asset. EVM token transfers settle
+// their fee in the USDt paymaster token; Tron token transfers burn TRX for
+// gas; native sends pay in the asset itself. Fee-token semantics per network
+// are best-effort (see the plan's ERC-4337 risk note) — this only affects the
+// human-readable fee shown before signing.
+export function getFeeToken(config: SupportedAssetConfig): FeeToken {
+  if (config.isNative) {
+    return { decimals: config.decimals, symbol: config.symbol };
+  }
+
+  switch (config.network) {
+    case 'ethereum':
+    case 'arbitrum':
+    case 'polygon':
+      return { decimals: 6, symbol: 'USDt' };
+    case 'tron':
+      return { decimals: 6, symbol: 'TRX' };
+    default:
+      return { decimals: config.decimals, symbol: config.symbol };
+  }
 }

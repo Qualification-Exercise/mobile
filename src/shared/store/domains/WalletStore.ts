@@ -1,4 +1,5 @@
 import { makeAutoObservable } from 'mobx';
+import type { NetworkName } from '../../../../.wdk';
 import type { Asset } from '../models/asset';
 import type { Coupon } from '../models/coupon';
 import type { Transaction } from '../models/transaction';
@@ -152,7 +153,29 @@ export class WalletStore {
       .reduce((sum, coupon) => sum + coupon.amount, 0);
   }
 
-  sendAsset(assetId: string, amount: number, destination: string) {
+  // Record a real, broadcast transfer in local history. The broadcast itself
+  // happens in the transfer hook (`useAssetTransfer.send`); the store only
+  // keeps the history row, seeded `pending` until confirmation tracking
+  // updates it.
+  recordSentTransaction(params: {
+    assetId: string;
+    amount: number;
+    destination: string;
+    hash: string;
+    feeBaseUnits?: string;
+    network: NetworkName;
+    timestamp: number;
+  }) {
+    const {
+      assetId,
+      amount,
+      destination,
+      hash,
+      feeBaseUnits,
+      network,
+      timestamp,
+    } = params;
+
     this.transactions.unshift({
       id: `txn-${this.transactions.length + 1}`,
       direction: 'out',
@@ -160,6 +183,11 @@ export class WalletStore {
       amount: -amount,
       date: 'Today',
       assetId,
+      hash,
+      status: 'pending',
+      feeBaseUnits,
+      network,
+      timestamp,
     });
   }
 

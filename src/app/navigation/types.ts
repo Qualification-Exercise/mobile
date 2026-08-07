@@ -13,12 +13,20 @@ export type RootStackParamList = {
   Send: { assetId: string };
   ApproveTransaction: {
     assetId: string;
-    amount: number;
+    amountBaseUnits: string;
     destination: string;
-    network: string;
   };
   ScanToPay: undefined;
-  PaymentSuccess: undefined;
+  // With params: a plain send-success (from the Send/Approve flow). Without:
+  // the scan-to-pay coupon-cashback success, which reads the latest store data.
+  PaymentSuccess:
+    | {
+        assetSymbol: string;
+        amount: string;
+        hash?: string;
+        status?: 'pending' | 'confirmed' | 'failed';
+      }
+    | undefined;
   Rewards: undefined;
   ClaimCoupon: { couponCode?: string } | undefined;
   WalletSettings: undefined;

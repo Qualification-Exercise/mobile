@@ -1,8 +1,15 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { colors, spacing } from '@shared/ui';
 
 type AmountEntryProps = {
   amount: string;
+  onChangeAmount: (text: string) => void;
   helperText?: string;
   onQuickFill: (fraction: number) => void;
 };
@@ -15,13 +22,22 @@ const QUICK_FILLS: Array<{ label: string; fraction: number }> = [
 
 export function AmountEntry({
   amount,
+  onChangeAmount,
   helperText,
   onQuickFill,
 }: AmountEntryProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>Amount</Text>
-      <Text style={styles.amount}>{amount}</Text>
+      <TextInput
+        style={styles.amount}
+        value={amount}
+        onChangeText={onChangeAmount}
+        keyboardType="decimal-pad"
+        placeholder="0"
+        placeholderTextColor={colors.textTertiary}
+        textAlign="center"
+      />
       {helperText ? <Text style={styles.helper}>{helperText}</Text> : null}
       <View style={styles.quickFillRow}>
         {QUICK_FILLS.map(({ label, fraction }) => (
@@ -52,6 +68,8 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.textPrimary,
     marginTop: spacing.xs,
+    minWidth: 120,
+    padding: 0,
   },
   helper: {
     fontSize: 13,
