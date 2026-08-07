@@ -7,6 +7,16 @@ const erc4337Defaults = {
   transferMaxFee: 5000000,
 };
 
+// USDt contract addresses per EVM network. Shared between the WDK paymaster
+// config below and the asset registry (src/shared/config/assets.ts) so the two
+// can never drift.
+export const USDT_ARBITRUM_ADDRESS =
+  '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+export const USDT_ETHEREUM_SEPOLIA_ADDRESS =
+  '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0';
+export const USDT_POLYGON_ADDRESS =
+  '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
+
 const tronConfig: Record<string, unknown> = {
   provider: 'https://api.trongrid.io',
 };
@@ -44,7 +54,7 @@ export const wdkConfigs: WdkConfigs = {
         paymasterUrl: 'https://api.candide.dev/public/v3/11155111',
         ...erc4337Defaults,
         paymasterToken: {
-          address: '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0',
+          address: USDT_ETHEREUM_SEPOLIA_ADDRESS,
         },
       },
     },
@@ -57,7 +67,7 @@ export const wdkConfigs: WdkConfigs = {
         paymasterUrl: 'https://api.candide.dev/public/v3/arbitrum',
         ...erc4337Defaults,
         paymasterToken: {
-          address: '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9',
+          address: USDT_ARBITRUM_ADDRESS,
         },
       },
     },
@@ -71,7 +81,7 @@ export const wdkConfigs: WdkConfigs = {
         ...erc4337Defaults,
         safeModulesVersion: '0.3.0',
         paymasterToken: {
-          address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
+          address: USDT_POLYGON_ADDRESS,
         },
       },
     },
