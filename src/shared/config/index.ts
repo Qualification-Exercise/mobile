@@ -2,7 +2,13 @@ import { Platform } from 'react-native';
 import { ANY_SECRET, API_BASE_URL } from '@env';
 
 export { wdkConfigs } from './wdk';
-export { SUPPORTED_ASSETS, getAssetConfig, getAsset } from './assets';
+export {
+  SUPPORTED_ASSETS,
+  getAssetConfig,
+  getAsset,
+  getFeeToken,
+} from './assets';
+export type { SupportedAssetConfig, FeeToken } from './assets';
 
 // Example: surface a value loaded from the .env file via react-native-dotenv.
 export const anySecret = ANY_SECRET;

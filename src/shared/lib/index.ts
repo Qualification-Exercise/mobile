@@ -1,3 +1,4 @@
+export * from './address';
 export * from './appError';
 export * from './authStorage';
 export * from './biometrics';
