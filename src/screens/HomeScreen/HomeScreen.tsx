@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { useWallet } from '@features/wallet-seed-phrase';
+import { useWallet } from '@shared/lib/hooks/wallet';
 import { useStore } from '@shared/store';
 import { AppIcon, ScreenContainer, colors, radii, spacing } from '@shared/ui';
 import { AssetRow } from '@widgets/asset-row';

@@ -12,7 +12,7 @@ import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
-import { useWallet } from '@features/wallet-seed-phrase';
+import { useWallet } from '@shared/lib/hooks/wallet';
 import {
   AppIcon,
   HeaderBackButton,

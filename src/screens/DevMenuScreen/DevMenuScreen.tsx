@@ -9,7 +9,7 @@ import {
   radii,
   spacing,
 } from '@shared/ui';
-import { ErrorsPlayground } from '@features/dev-tools';
+import { ErrorsPlayground } from './ErrorsPlayground';
 
 type DevMenuView = 'menu' | 'errors-playground';
 

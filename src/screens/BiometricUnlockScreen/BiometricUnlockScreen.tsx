@@ -3,7 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { useWallet } from '@features/wallet-seed-phrase';
+import { useWallet } from '@shared/lib/hooks/wallet';
 import {
   PrimaryButton,
   ScreenContainer,
