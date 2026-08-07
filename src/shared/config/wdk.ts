@@ -21,6 +21,14 @@ if (TRON_API_SECRET) {
 
 export const wdkConfigs: WdkConfigs = {
   networks: {
+    bitcoin: {
+      blockchain: 'bitcoin',
+      config: {
+        host: 'electrum.blockstream.info',
+        port: 50001,
+        network: 'bitcoin',
+      },
+    },
     spark: {
       blockchain: 'spark',
       config: {
