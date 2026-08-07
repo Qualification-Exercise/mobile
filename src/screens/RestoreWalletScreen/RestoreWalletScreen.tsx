@@ -31,7 +31,7 @@ function isShapeValid(words: string[]): boolean {
 
 export function RestoreWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { biometryStore } = useStore();
+  const { biometryStore, secretsStore } = useStore();
   const { restoreWallet, unlock } = useWallet();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
   const [restoring, setRestoring] = useState(false);
@@ -54,26 +54,34 @@ export function RestoreWalletScreen() {
   }
 
   async function handleRestore() {
+    const mnemonic = words.join(' ').trim();
+
+    // 1. Validate the 12-word BIP-39 phrase before doing anything else.
+    if (filledCount !== 12 || !isShapeValid(words)) {
+      Alert.alert(
+        'Invalid recovery phrase',
+        'Enter a valid 12-word recovery phrase and try again.',
+      );
+      return;
+    }
+
+    // 2. Confirm with biometrics before importing.
+    const outcome = await biometryStore.verify('Restore wallet');
+    if (outcome !== 'unlocked') {
+      return;
+    }
+
+    setRestoring(true);
     try {
-      const mnemonic = words.join(' ').trim();
-
-      // 1. Validate the 12-word BIP-39 phrase before doing anything else.
-      if (filledCount !== 12 || !isShapeValid(words)) {
-        Alert.alert(
-            'Invalid recovery phrase',
-            'Enter a valid 12-word recovery phrase and try again.',
-        );
+      // 3. The server is the source of truth. Only accept a phrase that matches
+      // the wallet stored for this account; fail closed on any lookup error.
+      const matches = await secretsStore.matchMnemonic(mnemonic);
+      if (!matches) {
+        Alert.alert('Something went wrong!', 'Could not restore wallet');
         return;
       }
 
-      const outcome = await biometryStore.verify('Restore wallet');
-      if (outcome !== 'unlocked') {
-        return;
-      }
-
-      // 2. Attempt the restore; surface any failure below.
-      setRestoring(true);
-
+      // 4. Attempt the restore; surface any failure below.
       await restoreWallet(mnemonic);
 
       navigation.reset({
@@ -96,7 +104,7 @@ export function RestoreWalletScreen() {
           return;
         } catch (err) {
           console.error(
-              (err instanceof Error && err.message) || 'Could not open wallet',
+            (err instanceof Error && err.message) || 'Could not open wallet',
           );
         }
       }
@@ -143,9 +151,7 @@ export function RestoreWalletScreen() {
           <SeedWordInputGrid words={words} onChangeWord={handleChangeWord} />
         </View>
         <View style={styles.statusRow}>
-          <Text style={styles.status}>
-            {`${filledCount} / 12 words`}
-          </Text>
+          <Text style={styles.status}>{`${filledCount} / 12 words`}</Text>
         </View>
         <View style={styles.spacer} />
         <PrimaryButton
