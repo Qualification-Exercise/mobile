@@ -1,21 +1,23 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { AssetDetailScreen } from '@screens/AssetDetailScreen';
-import { ApproveTransactionScreen } from '@screens/ApproveTransactionScreen';
-import { BiometricUnlockScreen } from '@screens/BiometricUnlockScreen';
-import { ClaimCouponScreen } from '@screens/ClaimCouponScreen';
-import { EnableBiometricScreen } from '@screens/EnableBiometricScreen';
-import { HomeScreen } from '@screens/HomeScreen';
-import { PaymentSuccessScreen } from '@screens/PaymentSuccessScreen';
-import { ReceiveScreen } from '@screens/ReceiveScreen';
-import { CreateWalletScreen } from '@screens/CreateWalletScreen';
-import { RestoreWalletScreen } from '@screens/RestoreWalletScreen';
-import { RewardsScreen } from '@screens/RewardsScreen';
-import { ScanToPayScreen } from '@screens/ScanToPayScreen';
-import { SendScreen } from '@screens/SendScreen';
-import { SignInScreen } from '@screens/SignInScreen';
-import { WalletSettingsScreen } from '@screens/WalletSettingsScreen';
-import { WalletSetupScreen } from '@screens/WalletSetupScreen';
-import { DevMenuScreen } from '@screens/DevMenuScreen';
+import {
+  ApproveTransactionScreen,
+  AssetDetailScreen,
+  BiometricUnlockScreen,
+  ClaimCouponScreen,
+  CreateWalletScreen,
+  DevMenuScreen,
+  EnableBiometricScreen,
+  HomeScreen,
+  PaymentSuccessScreen,
+  ReceiveScreen,
+  RestoreWalletScreen,
+  RewardsScreen,
+  ScanToPayScreen,
+  SendScreen,
+  SignInScreen,
+  WalletSettingsScreen,
+  WalletSetupScreen,
+} from '@screens';
 import type { RootStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
