@@ -10,8 +10,6 @@
       "@screens/*": ["./src/screens/*"],
       "@features": ["./src/features"],
       "@features/*": ["./src/features/*"],
-      "@entities": ["./src/entities"],
-      "@entities/*": ["./src/entities/*"],
       "@shared": ["./src/shared"],
       "@shared/*": ["./src/shared/*"],
       "@wdk-internal/*": [

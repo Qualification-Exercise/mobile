@@ -3,8 +3,8 @@ import {
   getAssetColor,
   getAssetGlyphColor,
   getAssetIcon,
-} from '@entities/asset';
-import type { Asset } from '@entities/asset';
+} from '@shared/store/models/asset';
+import type { Asset } from '@shared/store/models/asset';
 import { colors, radii, spacing } from '@shared/ui';
 
 type AssetRowProps = {
