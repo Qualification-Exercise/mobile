@@ -14,9 +14,11 @@ import type {
   RootStackNavigationProp,
   RootStackParamList,
 } from '@app/navigation/types';
+import type { CreateTransactionDTO } from '@shared/api';
 import {
   getAssetConfig,
   getFeeToken,
+  getSrcChainId,
   type SupportedAssetConfig,
 } from '@shared/config';
 import { fromBaseUnits } from '@shared/lib';
@@ -58,7 +60,7 @@ const ApproveSheet = observer(function ApproveSheetView({
 }) {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore, biometryStore } = useStore();
-  const { send, estimateFee } = useAssetTransfer(config.id);
+  const { address, send, estimateFee } = useAssetTransfer(config.id);
   const refreshBalance = useRefreshBalance();
 
   const feeToken = useMemo(() => getFeeToken(config), [config]);
@@ -152,9 +154,22 @@ const ApproveSheet = observer(function ApproveSheetView({
       { onError: () => {} },
     );
 
-    // TODO (step 10): report the broadcast to POST /api/transactions
-    // (Idempotency-Key = txHash, best-effort). A failed report never blocks or
-    // undoes the on-chain send.
+    // Report the broadcast to the backend for confirmation tracking. Fire and
+    // forget: best-effort, so it never blocks or undoes the on-chain send.
+    const report: CreateTransactionDTO = {
+      chain: config.network,
+      srcChainId: getSrcChainId(config.network),
+      txHash: result.hash,
+      type: 'TRANSFER',
+      direction: 'out',
+      token: config.address ?? config.symbol,
+      amount: amountBaseUnits,
+      from: address ?? '',
+      to: destination,
+      fee: result.fee,
+      broadcastAt: new Date().toISOString(),
+    };
+    walletStore.reportSend(report).catch(() => {});
 
     navigation.navigate('PaymentSuccess', {
       assetSymbol: config.symbol,

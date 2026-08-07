@@ -4,9 +4,11 @@ import { ANY_SECRET, API_BASE_URL } from '@env';
 export { wdkConfigs } from './wdk';
 export {
   SUPPORTED_ASSETS,
+  SUPPORTED_NETWORKS,
   getAssetConfig,
   getAsset,
   getFeeToken,
+  getSrcChainId,
 } from './assets';
 export type { SupportedAssetConfig, FeeToken } from './assets';
 

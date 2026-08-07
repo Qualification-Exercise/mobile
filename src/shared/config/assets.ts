@@ -2,6 +2,9 @@ import type { AssetConfig } from '@tetherto/wdk-react-native-core';
 import { BaseAsset } from '@tetherto/wdk-react-native-core';
 import type { NetworkName } from '../../../.wdk';
 import {
+  ARBITRUM_CHAIN_ID,
+  ETHEREUM_CHAIN_ID,
+  POLYGON_CHAIN_ID,
   USDT_ARBITRUM_ADDRESS,
   USDT_ETHEREUM_SEPOLIA_ADDRESS,
   USDT_POLYGON_ADDRESS,
@@ -84,6 +87,25 @@ export const SUPPORTED_ASSETS: SupportedAssetConfig[] = [
     isNative: false,
     address: UTL_ETHEREUM_ADDRESS,
   },
+];
+
+// EVM chain id per network, used as the backend's `srcChainId`. Non-EVM
+// networks (bitcoin, spark, tron) have no EVM chain id. Values mirror the WDK
+// network configs (imported from wdk.ts) so they can never drift.
+const EVM_CHAIN_IDS: Partial<Record<NetworkName, number>> = {
+  ethereum: ETHEREUM_CHAIN_ID,
+  arbitrum: ARBITRUM_CHAIN_ID,
+  polygon: POLYGON_CHAIN_ID,
+};
+
+// The EVM chain id for `network`, or undefined for non-EVM networks.
+export function getSrcChainId(network: NetworkName): number | undefined {
+  return EVM_CHAIN_IDS[network];
+}
+
+// Every distinct network the wallet supports, derived from the registry.
+export const SUPPORTED_NETWORKS: NetworkName[] = [
+  ...new Set(SUPPORTED_ASSETS.map(config => config.network)),
 ];
 
 // Look up an asset's raw config by id.
