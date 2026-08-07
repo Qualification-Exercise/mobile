@@ -13,7 +13,7 @@ import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useWallet } from '@shared/lib/hooks/wallet';
 import { useStore } from '@shared/store';
 import { AppIcon, ScreenContainer, colors, radii, spacing } from '@shared/ui';
-import { AssetRow } from '@widgets/asset-row';
+import { AssetRow } from './AssetRow';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 

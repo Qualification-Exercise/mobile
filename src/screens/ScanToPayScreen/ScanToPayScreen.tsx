@@ -9,8 +9,8 @@ import {
   colors,
   radii,
   spacing,
+  QrPlaceholder,
 } from '@shared/ui';
-import { QrPlaceholder } from '@widgets/qr-placeholder';
 
 const MERCHANT = {
   name: 'Café Nero — Milan',

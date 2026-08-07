@@ -19,7 +19,7 @@ import {
   radii,
   spacing,
 } from '@shared/ui';
-import { AmountEntry } from '@widgets/amount-entry';
+import { AmountEntry } from './AmountEntry';
 
 export const SendScreen = observer(function SendScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();

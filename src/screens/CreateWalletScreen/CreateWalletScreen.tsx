@@ -21,8 +21,8 @@ import {
   colors,
   radii,
   spacing,
+  SeedWordGrid,
 } from '@shared/ui';
-import { SeedWordGrid } from '@widgets/seed-word-grid';
 
 const BACKUP_STATUSES = [
   { label: 'Device', status: 'Encrypted' },
