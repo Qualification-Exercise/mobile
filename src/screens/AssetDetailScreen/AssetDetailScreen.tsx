@@ -13,7 +13,7 @@ import {
   getAssetColor,
   getAssetGlyphColor,
   getAssetIcon,
-} from '@entities/asset';
+} from '@shared/store/models/asset';
 import { useStore } from '@shared/store';
 import {
   AppIcon,

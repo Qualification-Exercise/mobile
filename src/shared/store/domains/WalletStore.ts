@@ -1,8 +1,8 @@
 import { makeAutoObservable } from 'mobx';
-import type { Asset } from '@entities/asset';
-import type { Coupon } from '@entities/coupon';
-import type { Transaction } from '@entities/transaction';
-import type { Wallet } from '@entities/wallet';
+import type { Asset } from '../models/asset';
+import type { Coupon } from '../models/coupon';
+import type { Transaction } from '../models/transaction';
+import type { Wallet } from '../models/wallet';
 
 const CASHBACK_RATE = 0.05;
 

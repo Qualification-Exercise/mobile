@@ -3,8 +3,8 @@ import {
   getTransactionColor,
   getTransactionIconName,
   getTransactionTitle,
-} from '@entities/transaction';
-import type { Transaction } from '@entities/transaction';
+} from '@shared/store/models/transaction';
+import type { Transaction } from '@shared/store/models/transaction';
 import { AppIcon, colors, radii, spacing } from '@shared/ui';
 
 type TransactionRowProps = {

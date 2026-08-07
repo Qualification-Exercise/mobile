@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { Coupon } from '@entities/coupon';
+import type { Coupon } from '@shared/store/models/coupon';
 import { AppIcon, colors, radii, spacing } from '@shared/ui';
 
 type CouponRowProps = {
