@@ -26,3 +26,33 @@ export type ApiErrorEnvelope = {
   error?: string;
   additional_data?: unknown;
 };
+
+export type SecretMetadata = {
+  mnemonicHash?: string;
+  encryptionKey?: string;
+  version?: number;
+};
+
+export type StoreEntropyRequest = {
+  entropy: string;
+  metadata?: SecretMetadata;
+};
+
+export type StoreSeedRequest = {
+  seed: string;
+  metadata?: SecretMetadata;
+};
+
+export type SecretItem = {
+  entropy?: string;
+  seed?: string;
+  metadata?: SecretMetadata;
+};
+
+export type GetEntropyResponse = {
+  entropies: SecretItem[];
+};
+
+export type GetSeedResponse = {
+  seeds: SecretItem[];
+};

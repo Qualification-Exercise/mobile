@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,10 +11,8 @@ import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import {
-  MNEMONIC_WORD_COUNT,
-  useWallet,
-} from '@features/wallet-seed-phrase';
+import { useStore } from '@shared/store';
+import { MNEMONIC_WORD_COUNT, useWallet } from '@features/wallet-seed-phrase';
 import {
   ScreenContainer,
   PrimaryButton,
@@ -37,7 +36,9 @@ function splitMnemonic(mnemonic: string): string[] {
 
 export function CreateWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { generateMnemonic, restoreWallet } = useWallet();
+  const { secretsStore } = useStore();
+  const { generateMnemonic, restoreWallet, getSeedAndEntropyFromMnemonic } =
+    useWallet();
 
   const [words, setWords] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
@@ -90,10 +91,42 @@ export function CreateWalletScreen() {
       return;
     }
 
+    const mnemonic = words.join(' ');
+
     setSaving(true);
     setSaveError('');
     try {
-      await restoreWallet(words.join(' '));
+      // The server is the source of truth: never create a second wallet for an
+      // account that already has one — steer the user to restore instead.
+      if (await secretsStore.hasRemoteWallet()) {
+        Alert.alert(
+          'Wallet already exists',
+          'You already have a wallet on this account. Restore it from your ' +
+            'recovery phrase instead.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Restore',
+              onPress: () => navigation.navigate('RestoreWallet'),
+            },
+          ],
+        );
+        return;
+      }
+
+      // Derive the encrypted blobs and back them up (with the mnemonic
+      // verifier and the encryption key) before persisting locally, so the
+      // server stays authoritative even if the on-device write later fails.
+      const { encryptedEntropyBuffer, encryptedSeedBuffer, encryptionKey } =
+        await getSeedAndEntropyFromMnemonic(mnemonic);
+      await secretsStore.backupWalletSecrets({
+        encryptedEntropy: encryptedEntropyBuffer,
+        encryptedSeed: encryptedSeedBuffer,
+        encryptionKey,
+        mnemonic,
+      });
+
+      await restoreWallet(mnemonic);
       setConfirmed(true);
       navigation.reset({
         index: 0,
