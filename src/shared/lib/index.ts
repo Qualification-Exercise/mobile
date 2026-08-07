@@ -5,3 +5,4 @@ export * from './biometryStorage';
 export * from './installGlobalErrorHandlers';
 export * from './mnemonicHash';
 export * from './showErrorToast';
+export * from './units';
