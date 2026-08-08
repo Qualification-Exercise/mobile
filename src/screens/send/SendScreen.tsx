@@ -71,7 +71,7 @@ const SendForm = observer(function SendFormView({
 }) {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { balances } = useAssetBalances();
-  const { estimateFee } = useAssetTransfer(config.id);
+  const { estimateFee, isReady } = useAssetTransfer(config.id);
 
   const [amount, setAmount] = useState('');
   const [destination, setDestination] = useState('');
@@ -106,9 +106,10 @@ const SendForm = observer(function SendFormView({
   const canReview = amountPositive && withinBalance && destinationValid;
 
   // Live, debounced fee estimate. Only runs once the inputs would make a valid
-  // send, so the estimate reflects a transfer that could actually be signed.
+  // send and the WDK is ready, so the estimate reflects a transfer that could
+  // actually be signed and never triggers a not-ready alert.
   useEffect(() => {
-    if (!canReview || amountBaseUnits == null) {
+    if (!canReview || amountBaseUnits == null || !isReady) {
       setFee({ loading: false, text: null, error: null });
       return;
     }
@@ -149,7 +150,14 @@ const SendForm = observer(function SendFormView({
       cancelled = true;
       clearTimeout(handle);
     };
-  }, [canReview, amountBaseUnits, destination, estimateFee, feeToken.decimals]);
+  }, [
+    canReview,
+    amountBaseUnits,
+    destination,
+    estimateFee,
+    feeToken.decimals,
+    isReady,
+  ]);
 
   function handleQuickFill(fraction: number) {
     if (balanceBaseUnits == null) {

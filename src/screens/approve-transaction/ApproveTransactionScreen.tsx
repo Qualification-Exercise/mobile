@@ -60,7 +60,7 @@ const ApproveSheet = observer(function ApproveSheetView({
 }) {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore, biometryStore } = useStore();
-  const { address, send, estimateFee } = useAssetTransfer(config.id);
+  const { address, send, estimateFee, isReady } = useAssetTransfer(config.id);
   const refreshBalance = useRefreshBalance();
 
   const feeToken = useMemo(() => getFeeToken(config), [config]);
@@ -87,9 +87,13 @@ const ApproveSheet = observer(function ApproveSheetView({
   );
 
   // One-shot fee estimate for the confirmation summary (the inputs are fixed
-  // on this screen, so no debounce is needed). Best-effort: a failure just
-  // leaves the fee blank and never blocks signing.
+  // on this screen, so no debounce is needed). Best-effort: it only runs once
+  // the WDK is ready (so it never triggers a not-ready alert) and a failure
+  // just leaves the fee blank and never blocks signing.
   useEffect(() => {
+    if (!isReady) {
+      return;
+    }
     let cancelled = false;
     estimateFee(destination, amountBaseUnits)
       .then(result => {
@@ -101,7 +105,7 @@ const ApproveSheet = observer(function ApproveSheetView({
     return () => {
       cancelled = true;
     };
-  }, [estimateFee, destination, amountBaseUnits, feeToken.decimals]);
+  }, [estimateFee, destination, amountBaseUnits, feeToken.decimals, isReady]);
 
   async function verifyTransaction() {
     if (request.loading) {

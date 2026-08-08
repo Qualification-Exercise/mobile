@@ -36,13 +36,21 @@ if (TRON_API_SECRET) {
   tronConfig.apiSecret = TRON_API_SECRET;
 }
 
+// NOTE: environments are intentionally mixed. Ethereum runs on Sepolia
+// (testnet) per the locked plan decision, while Bitcoin, Tron, Arbitrum and
+// Polygon are configured against mainnet. Real funds can move on the mainnet
+// chains — keep this in mind when testing, and revisit before any release that
+// should be testnet-only.
 export const wdkConfigs: WdkConfigs = {
   networks: {
     bitcoin: {
       blockchain: 'bitcoin',
       config: {
+        // Use the SSL Electrum port (50002) with TLS rather than the plaintext
+        // port (50001), so address/balance queries are not exposed on the wire.
         host: 'electrum.blockstream.info',
-        port: 50001,
+        port: 50002,
+        protocol: 'ssl',
         network: 'bitcoin',
       },
     },
