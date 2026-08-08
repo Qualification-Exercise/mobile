@@ -42,9 +42,30 @@ const WDK_ERROR_ALERT = {
     'continue.',
 } as const;
 
+// Non-alerting, reactive readiness flag sharing the same status source as
+// `useEnsureWdkReady`. Use this to gate read-only paths (e.g. fee estimation)
+// that must never surface an alert. Unlike the guard below, this is a plain
+// reactive boolean so effects can depend on it and re-run when readiness flips.
+export function useIsWdkReady(): boolean {
+  const { status: managerStatus } = useWalletManager();
+  const { state } = useWdkApp();
+
+  return (
+    state.status !== 'ERROR' &&
+    state.status !== 'INITIALIZING' &&
+    state.status !== 'REINITIALIZING' &&
+    managerStatus !== 'ERROR' &&
+    managerStatus !== 'LOADING'
+  );
+}
+
 // Returns a stable guard that gates an operation on the live WDK status. Reads
 // from refs so the guard stays valid after an `await` (e.g. a biometric
 // prompt) instead of using a value captured when the closure was created.
+//
+// This guard alerts the user as a side effect, so reserve it for user-driven
+// writes (e.g. signing a send). Read-only, best-effort paths should gate on
+// `useIsWdkReady()` instead, which never alerts.
 export function useEnsureWdkReady(): () => void {
   const { status: managerStatus } = useWalletManager();
   const { state, retry } = useWdkApp();

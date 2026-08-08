@@ -5,7 +5,7 @@ import {
   type TransactionResult,
 } from '@tetherto/wdk-react-native-core';
 import { getAssetConfig } from '@shared/config';
-import { useEnsureWdkReady } from './useEnsureWdkReady';
+import { useEnsureWdkReady, useIsWdkReady } from './useEnsureWdkReady';
 
 // Fee estimate for a transfer (a send result without the broadcast hash).
 export type FeeEstimate = Omit<TransactionResult, 'hash'>;
@@ -15,6 +15,10 @@ export interface UseAssetTransferResult {
   address: string | null;
   isLoading: boolean;
   error: Error | null;
+  // Whether the WDK is in a state that can service a transfer. Read-only,
+  // best-effort callers (e.g. fee estimation) should gate on this rather than
+  // calling `estimateFee`/`send` blindly, since it never surfaces an alert.
+  isReady: boolean;
   // Estimate the network fee for sending `amountBaseUnits` to `to`.
   estimateFee: (to: string, amountBaseUnits: string) => Promise<FeeEstimate>;
   // Sign and broadcast a transfer of `amountBaseUnits` to `to`.
@@ -32,6 +36,7 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
   }
 
   const ensureWdkReady = useEnsureWdkReady();
+  const isReady = useIsWdkReady();
   const account = useAccount<object>({
     accountIndex: 0,
     network: config.network,
@@ -39,12 +44,14 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
 
   const asset = useMemo(() => new BaseAsset(config), [config]);
 
+  // Fee estimation is a read-only, best-effort path: it must never alert. So
+  // it does not call the alerting `ensureWdkReady` guard — callers gate on
+  // `isReady` and treat any throw here as a soft failure (blank fee).
   const estimateFee = useCallback(
     async (to: string, amountBaseUnits: string): Promise<FeeEstimate> => {
-      ensureWdkReady();
       return account.estimateFee({ to, asset, amount: amountBaseUnits });
     },
-    [ensureWdkReady, account, asset],
+    [account, asset],
   );
 
   const send = useCallback(
@@ -60,9 +67,17 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
       address: account.address,
       isLoading: account.isLoading,
       error: account.error,
+      isReady,
       estimateFee,
       send,
     }),
-    [account.address, account.isLoading, account.error, estimateFee, send],
+    [
+      account.address,
+      account.isLoading,
+      account.error,
+      isReady,
+      estimateFee,
+      send,
+    ],
   );
 }

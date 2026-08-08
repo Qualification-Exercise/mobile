@@ -4,15 +4,13 @@ export { useWallet } from './useWallet';
 export type { UseWalletResult } from './useWallet';
 export {
   useEnsureWdkReady,
+  useIsWdkReady,
   WdkNotReadyError,
   type WdkStatus,
   type WalletManagerStatus,
 } from './useEnsureWdkReady';
 export { useAssetTransfer } from './useAssetTransfer';
-export type {
-  UseAssetTransferResult,
-  FeeEstimate,
-} from './useAssetTransfer';
+export type { UseAssetTransferResult, FeeEstimate } from './useAssetTransfer';
 export { useAssetBalances } from './useAssetBalances';
 export type { UseAssetBalancesResult } from './useAssetBalances';
 export { useReceiveAddress } from './useReceiveAddress';
