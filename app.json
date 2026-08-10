@@ -1,5 +1,7 @@
 {
   "name": "wdkqualification",
   "displayName": "wdkqualification",
-  "plugins": ["expo-asset", "expo-font"]
+  "plugins": ["expo-asset", "expo-font"],
+  "ios": { "bundleIdentifier": "org.reactjs.native.example.wdkqualification" },
+  "android": { "package": "com.wdkqualification" }
 }
