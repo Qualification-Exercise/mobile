@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { useRefreshBalance, useWdkApp } from '@tetherto/wdk-react-native-core';
@@ -89,10 +89,24 @@ export const HomeScreen = observer(function HomeScreenView() {
       { accountIndex: 0, type: 'wallet' },
       { onError: () => {} },
     );
-    walletStore.loadPrices();
+    return walletStore.loadPrices();
   }, [walletStore]);
 
-  useFocusEffect(refresh);
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+    }, [refresh]),
+  );
+
+  // The pull-to-refresh spinner must track only the user's own gesture. Tying
+  // it to `pricesRequest.loading` would show it on every focus-driven refresh
+  // too — and a programmatic `refreshing={true}` (no pull) leaves the spinner
+  // stuck at the top of the list when returning to this screen.
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    refresh().finally(() => setRefreshing(false));
+  }, [refresh]);
   const hasWallet = hasPersistedWallet() || state.status === 'READY';
 
   // Every asset the feed prices, summed. Assets with no market (UTL) and
@@ -126,8 +140,8 @@ export const HomeScreen = observer(function HomeScreenView() {
         showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
-            refreshing={walletStore.pricesRequest.loading}
-            onRefresh={refresh}
+            refreshing={refreshing}
+            onRefresh={onRefresh}
             tintColor={colors.textSecondary}
           />
         }
