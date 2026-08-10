@@ -12,11 +12,16 @@ export const walletsApi = {
     }
   },
 
-  // List the addresses already linked to the user's account.
+  // List the addresses already linked to the user's account. The backend has
+  // shipped both shapes — a bare array and the `POST /wallets` envelope — and a
+  // non-array here used to throw inside the caller's `.find`, which read as
+  // "not linked" forever even though linking returned 200.
   async list(): Promise<ListWalletsResponse> {
     try {
-      const { data } = await httpClient.get<ListWalletsResponse>('/wallets');
-      return data;
+      const { data } = await httpClient.get<
+        ListWalletsResponse | { wallets: ListWalletsResponse }
+      >('/wallets');
+      return Array.isArray(data) ? data : data?.wallets ?? [];
     } catch (error) {
       throw toApiError(error);
     }
