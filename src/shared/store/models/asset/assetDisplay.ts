@@ -7,7 +7,7 @@ const ASSET_DISPLAY: Record<
   { icon: string; color: string; glyphColor: string }
 > = {
   BTC: { icon: '₿', color: '#F7931A', glyphColor: '#1A1200' },
-  USDt: { icon: '₮', color: '#26A17B', glyphColor: '#04120D' },
+  USDT: { icon: '₮', color: '#26A17B', glyphColor: '#04120D' },
   UTL: { icon: 'U', color: '#8B5CF6', glyphColor: colors.textPrimary },
   ETH: { icon: 'Ξ', color: '#627EEA', glyphColor: colors.textPrimary },
   POL: { icon: '⬡', color: '#7B3FE4', glyphColor: colors.textPrimary },

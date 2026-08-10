@@ -59,7 +59,7 @@ export const SUPPORTED_ASSETS: SupportedAssetConfig[] = [
   {
     id: 'usdt-ethereum',
     network: 'ethereum',
-    symbol: 'USDt',
+    symbol: 'USDT',
     name: 'Tether USD',
     decimals: 6,
     isNative: false,
@@ -85,7 +85,7 @@ export const SUPPORTED_ASSETS: SupportedAssetConfig[] = [
   {
     id: 'usdt-arbitrum',
     network: 'arbitrum',
-    symbol: 'USDt',
+    symbol: 'USDT',
     name: 'Tether USD',
     decimals: 6,
     isNative: false,
@@ -103,7 +103,7 @@ export const SUPPORTED_ASSETS: SupportedAssetConfig[] = [
   {
     id: 'usdt-polygon',
     network: 'polygon',
-    symbol: 'USDt',
+    symbol: 'USDT',
     name: 'Tether USD',
     decimals: 6,
     isNative: false,
@@ -120,7 +120,7 @@ export const SUPPORTED_ASSETS: SupportedAssetConfig[] = [
   {
     id: 'usdt-tron',
     network: 'tron',
-    symbol: 'USDt',
+    symbol: 'USDT',
     name: 'Tether USD',
     decimals: 6,
     isNative: false,
@@ -292,7 +292,7 @@ export function getFeeToken(
     case 'ethereum':
     case 'arbitrum':
     case 'polygon':
-      return { decimals: 6, symbol: 'USDt' };
+      return { decimals: 6, symbol: 'USDT' };
     case 'tron':
       return { decimals: 6, symbol: 'TRX' };
     default:
