@@ -93,3 +93,29 @@ describe('parsePaymentRequest', () => {
     });
   });
 });
+
+describe('BIP-21 edge cases and receive URIs', () => {
+  const BTC = 'bc1qw508d6qejxtdg4y5r3zarvary0c5xw7kv8f3t4';
+
+  test('reads a bare bitcoin URI with no amount', () => {
+    expect(parsePaymentRequest(`bitcoin:${BTC}`, 'usdt-arbitrum')).toEqual({
+      assetId: 'btc-bitcoin',
+      destination: BTC,
+      amountBaseUnits: null,
+    });
+  });
+
+  test('rejects a malformed amount or an invalid address', () => {
+    expect(
+      parsePaymentRequest(`bitcoin:${BTC}?amount=abc`, 'usdt-arbitrum'),
+    ).toBeNull();
+    expect(
+      parsePaymentRequest('bitcoin:not-an-address', 'usdt-arbitrum'),
+    ).toBeNull();
+  });
+
+  test('builds a bare address for an unknown or non-EVM asset', () => {
+    expect(buildPaymentUri('nope', '0xabc')).toBe('0xabc');
+    expect(buildPaymentUri('btc-bitcoin', BTC)).toBe(BTC);
+  });
+});

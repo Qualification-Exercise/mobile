@@ -1,4 +1,21 @@
-import { fromBaseUnits, toBaseUnits } from './units';
+import { formatAmount, fromBaseUnits, toBaseUnits } from './units';
+
+describe('formatAmount', () => {
+  it('pads to two fraction digits', () => {
+    expect(formatAmount('1500000', 6)).toBe('1.50');
+    expect(formatAmount('2000000', 6)).toBe('2.00');
+    expect(formatAmount('0', 8)).toBe('0.00');
+  });
+
+  it('keeps up to six fraction digits and trims trailing zeros', () => {
+    expect(formatAmount('1234567', 6)).toBe('1.234567');
+    expect(formatAmount('1000100', 6)).toBe('1.0001');
+  });
+
+  it('truncates past the sixth digit rather than rounding up', () => {
+    expect(formatAmount('999999999000000000', 18)).toBe('0.999999');
+  });
+});
 
 describe('toBaseUnits', () => {
   it('scales a whole number by the token decimals', () => {
