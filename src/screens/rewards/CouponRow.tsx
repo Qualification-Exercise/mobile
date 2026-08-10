@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import {
   getCouponAmount,
+  getCouponIconColor,
   getCouponStatusColor,
   getCouponStatusLabel,
   getCouponSubtitle,
@@ -14,10 +15,11 @@ type CouponRowProps = {
 
 export function CouponRow({ coupon }: CouponRowProps) {
   const statusColor = getCouponStatusColor(coupon);
+  const iconColor = getCouponIconColor(coupon);
 
   return (
     <View style={styles.row}>
-      <View style={styles.icon}>
+      <View style={[styles.icon, { backgroundColor: iconColor }]}>
         <AppIcon name="gift-outline" size={18} color={colors.textPrimary} />
       </View>
       <View style={styles.info}>
@@ -47,7 +49,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.xs,
-    backgroundColor: '#8B5CF6',
     alignItems: 'center',
     justifyContent: 'center',
   },

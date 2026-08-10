@@ -53,6 +53,22 @@ export function getCouponStatusColor(coupon: Coupon): string {
   return colors.textTertiary;
 }
 
+// Tint for the coupon's leading icon, keyed off the coupon's lifecycle stage:
+// pink while it can be claimed, blue while its payment is still confirming, and
+// green once claimed. Anything in between keeps the neutral brand purple.
+export function getCouponIconColor(coupon: Coupon): string {
+  if (coupon.claimable) {
+    return colors.pink;
+  }
+  if (coupon.status === 'PENDING') {
+    return colors.blue;
+  }
+  if (coupon.status === 'CLAIMED') {
+    return colors.positive;
+  }
+  return '#8B5CF6';
+}
+
 // What the payment behind the coupon was, e.g. `0.01 USDT`. Falls back to the
 // payment reference when the indexer has not attached the payment yet.
 export function getCouponSubtitle(coupon: Coupon): string {

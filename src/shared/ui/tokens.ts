@@ -9,6 +9,8 @@ export const colors = {
   textTertiary: '#5A626B',
   positive: '#5AD1A6',
   negative: '#E5534B',
+  pink: '#EC4899',
+  blue: '#3B82F6',
 } as const;
 
 export const radii = {
