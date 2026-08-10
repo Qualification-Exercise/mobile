@@ -145,6 +145,10 @@ export interface UseWalletResult {
    * @throws If the mnemonic cannot be processed by the worklet.
    */
   getSeedAndEntropyFromMnemonic: UseWalletManagerResult['getSeedAndEntropyFromMnemonic'];
+
+  getEncryptionKey: () => Promise<string | null>;
+  getEncryptedSeed: () => Promise<string | null>;
+  getEncryptedEntropy: () => Promise<string | null>;
 }
 
 /**
@@ -159,6 +163,9 @@ export function useWallet(): UseWalletResult {
     deleteWallet: deleteWalletRaw,
     getMnemonic: getMnemonicRaw,
     getSeedAndEntropyFromMnemonic: getSeedAndEntropyFromMnemonicRaw,
+    getEncryptionKey: getEncryptionKeyRaw,
+    getEncryptedSeed: getEncryptedSeedRaw,
+    getEncryptedEntropy: getEncryptedEntropyRaw,
     status: managerStatus,
   } = useWalletManager();
   const { state, retry } = useWdkApp();
@@ -254,6 +261,21 @@ export function useWallet(): UseWalletResult {
     [ensureWdkReady, getSeedAndEntropyFromMnemonicRaw],
   );
 
+  const getEncryptionKey = useCallback(async () => {
+    ensureWdkReady();
+    return getEncryptionKeyRaw(DEFAULT_WALLET_ID);
+  }, [ensureWdkReady, getEncryptionKeyRaw]);
+
+  const getEncryptedSeed = useCallback(async () => {
+    ensureWdkReady();
+    return getEncryptedSeedRaw(DEFAULT_WALLET_ID);
+  }, [ensureWdkReady, getEncryptedSeedRaw]);
+
+  const getEncryptedEntropy = useCallback(async () => {
+    ensureWdkReady();
+    return getEncryptedEntropyRaw(DEFAULT_WALLET_ID);
+  }, [ensureWdkReady, getEncryptedEntropyRaw]);
+
   return useMemo(
     () => ({
       wallets,
@@ -266,6 +288,9 @@ export function useWallet(): UseWalletResult {
       deleteWallet,
       getMnemonic,
       getSeedAndEntropyFromMnemonic,
+      getEncryptionKey,
+      getEncryptedSeed,
+      getEncryptedEntropy,
     }),
     [
       wallets,
@@ -278,6 +303,9 @@ export function useWallet(): UseWalletResult {
       deleteWallet,
       getMnemonic,
       getSeedAndEntropyFromMnemonic,
+      getEncryptionKey,
+      getEncryptedSeed,
+      getEncryptedEntropy,
     ],
   );
 }

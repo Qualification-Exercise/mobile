@@ -33,14 +33,23 @@ export type SecretMetadata = {
   version?: number;
 };
 
+export type SecretWriteMetadata = {
+  version: 1;
+};
+
 export type StoreEntropyRequest = {
   entropy: string;
-  metadata?: SecretMetadata;
+  metadata: SecretWriteMetadata;
 };
 
 export type StoreSeedRequest = {
   seed: string;
-  metadata?: SecretMetadata;
+  metadata: SecretWriteMetadata;
+};
+
+export type RemoteRecoveryBundle = {
+  encryptedSeed: string;
+  encryptedEntropy: string;
 };
 
 export type SecretItem = {

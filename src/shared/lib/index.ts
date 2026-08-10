@@ -3,5 +3,7 @@ export * from './authStorage';
 export * from './biometrics';
 export * from './biometryStorage';
 export * from './installGlobalErrorHandlers';
+export * from './localBackupKeyStorage';
 export * from './mnemonicHash';
+export * from './secretValidation';
 export * from './showErrorToast';

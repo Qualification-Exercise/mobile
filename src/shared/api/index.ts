@@ -7,6 +7,8 @@ export type {
   EClientType,
   ApiErrorEnvelope,
   SecretMetadata,
+  SecretWriteMetadata,
+  RemoteRecoveryBundle,
   StoreEntropyRequest,
   StoreSeedRequest,
   SecretItem,

@@ -10,6 +10,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
+import { observer } from 'mobx-react-lite';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { MNEMONIC_WORD_COUNT, useWallet } from '@shared/lib/hooks/wallet';
@@ -34,18 +35,22 @@ function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
 }
 
-export function CreateWalletScreen() {
+export const CreateWalletScreen = observer(function CreateWalletScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { secretsStore } = useStore();
-  const { generateMnemonic, restoreWallet, getSeedAndEntropyFromMnemonic } =
-    useWallet();
+  const { walletBackupStore } = useStore();
+  const {
+    generateMnemonic,
+    restoreWallet,
+    getEncryptionKey,
+    getEncryptedSeed,
+    getEncryptedEntropy,
+  } = useWallet();
 
   const [words, setWords] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const saving = walletBackupStore.backupStatus === 'running';
 
   const generate = useCallback(async () => {
     setGenerating(true);
@@ -93,12 +98,15 @@ export function CreateWalletScreen() {
 
     const mnemonic = words.join(' ');
 
-    setSaving(true);
-    setSaveError('');
-    try {
-      // The server is the source of truth: never create a second wallet for an
-      // account that already has one — steer the user to restore instead.
-      if (await secretsStore.hasRemoteWallet()) {
+    const succeeded = await walletBackupStore.createAndBackupWallet(mnemonic, {
+      restoreWallet,
+      getEncryptionKey,
+      getEncryptedSeed,
+      getEncryptedEntropy,
+    });
+
+    if (!succeeded) {
+      if (walletBackupStore.backupMessage === 'remote_wallet_exists') {
         Alert.alert(
           'Wallet already exists',
           'You already have a wallet on this account. Restore it from your ' +
@@ -111,34 +119,15 @@ export function CreateWalletScreen() {
             },
           ],
         );
-        return;
       }
-
-      // Derive the encrypted blobs and back them up (with the mnemonic
-      // verifier and the encryption key) before persisting locally, so the
-      // server stays authoritative even if the on-device write later fails.
-      const { encryptedEntropyBuffer, encryptedSeedBuffer, encryptionKey } =
-        await getSeedAndEntropyFromMnemonic(mnemonic);
-      await secretsStore.backupWalletSecrets({
-        encryptedEntropy: encryptedEntropyBuffer,
-        encryptedSeed: encryptedSeedBuffer,
-        encryptionKey,
-        mnemonic,
-      });
-
-      await restoreWallet(mnemonic);
-      setConfirmed(true);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-    } catch (err) {
-      setSaveError(
-        (err instanceof Error && err.message) || 'Could not save wallet',
-      );
-    } finally {
-      setSaving(false);
+      return;
     }
+
+    setConfirmed(true);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
   }
 
   return (
@@ -204,11 +193,20 @@ export function CreateWalletScreen() {
               </View>
             ))}
           </View>
-          {saveError ? (
-            <Text style={styles.persistError}>{saveError}</Text>
+          {walletBackupStore.backupMessage &&
+          walletBackupStore.backupMessage !== 'remote_wallet_exists' ? (
+            <Text style={styles.persistError}>
+              {walletBackupStore.backupMessage}
+            </Text>
           ) : null}
           <PrimaryButton
-            title={saving ? 'Saving wallet…' : "I've saved it — Continue"}
+            title={
+              saving
+                ? 'Saving wallet…'
+                : walletBackupStore.backupStatus === 'incomplete'
+                ? 'Retry backup'
+                : "I've saved it — Continue"
+            }
             onPress={handleConfirm}
             disabled={saving}
           />
@@ -216,7 +214,7 @@ export function CreateWalletScreen() {
       )}
     </ScreenContainer>
   );
-}
+});
 
 const styles = StyleSheet.create({
   header: {

@@ -1,7 +1,10 @@
-import { useEffect, useRef } from 'react';
-import { useNavigation } from '@react-navigation/native';
-import { StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
+import { observer } from 'mobx-react-lite';
 import type { RootStackNavigationProp } from '@app/navigation/types';
+import { useWallet } from '@shared/lib/hooks/wallet';
+import { useStore } from '@shared/store';
 import {
   PressableButton,
   ScreenContainer,
@@ -10,9 +13,44 @@ import {
   radii,
   spacing,
 } from '@shared/ui';
+import { getLocalBackupRestoreErrorMessage } from './localBackupRestoreError';
 
-export function WalletSetupScreen() {
+export const WalletSetupScreen = observer(function WalletSetupScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
+  const { walletBackupStore } = useStore();
+  const { unlock } = useWallet();
+  const restoring = !['idle', 'failed', 'complete'].includes(
+    walletBackupStore.restorePhase,
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      walletBackupStore.checkRemoteBackupPresence();
+    }, [walletBackupStore]),
+  );
+
+  async function handleLocalBackupRestore() {
+    walletBackupStore.resetRestoreState();
+    const succeeded = await walletBackupStore.restoreFromLocalBackup({
+      unlock,
+    });
+    if (succeeded) {
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      return;
+    }
+
+    const error = walletBackupStore.restoreError;
+    if (error) {
+      Alert.alert(
+        'Could not restore wallet',
+        getLocalBackupRestoreErrorMessage(
+          error,
+          walletBackupStore.restoreBackupIssue,
+          walletBackupStore.restoreDiagnostics,
+        ),
+      );
+    }
+  }
 
   return (
     <ScreenContainer>
@@ -30,15 +68,37 @@ export function WalletSetupScreen() {
           </View>
         </View>
         <View style={styles.actions}>
-          <PressableButton
-            title="Create new wallet"
-            onPress={() =>
-              navigation.navigate('CreateWallet')
-            }
-          />
+          {walletBackupStore.remoteBackupPresence === 'absent' ? (
+            <PressableButton
+              title="Create new wallet"
+              onPress={() => navigation.navigate('CreateWallet')}
+              disabled={restoring}
+            />
+          ) : walletBackupStore.remoteBackupPresence === 'error' ? (
+            <SecondaryButton
+              title="Retry wallet backup check"
+              onPress={walletBackupStore.checkRemoteBackupPresence}
+              disabled={restoring}
+            />
+          ) : walletBackupStore.remoteBackupPresence === 'checking' ||
+            walletBackupStore.remoteBackupPresence === 'unknown' ? (
+            <Text style={styles.backupCheckText}>
+              Checking wallet backup status…
+            </Text>
+          ) : null}
           <SecondaryButton
             title="Restore with recovery phrase"
             onPress={() => navigation.navigate('RestoreWallet')}
+            disabled={restoring}
+          />
+          <SecondaryButton
+            title={
+              restoring
+                ? 'Restoring backup…'
+                : 'Restore from backup on this device'
+            }
+            onPress={handleLocalBackupRestore}
+            disabled={restoring}
           />
           <Text style={styles.footer}>
             Your recovery phrase is the only way to recover this wallet.
@@ -47,7 +107,7 @@ export function WalletSetupScreen() {
       </View>
     </ScreenContainer>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
@@ -90,6 +150,11 @@ const styles = StyleSheet.create({
   },
   actions: {
     gap: spacing.md,
+  },
+  backupCheckText: {
+    textAlign: 'center',
+    color: colors.textSecondary,
+    fontSize: 13,
   },
   footer: {
     textAlign: 'center',
