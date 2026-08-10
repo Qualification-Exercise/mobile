@@ -13,7 +13,7 @@ import {
   type SupportedAssetConfig,
 } from '@shared/config';
 import { useAssetBalances } from './useAssetBalances';
-import { useEnsureWdkReady } from './useEnsureWdkReady';
+import { useEnsureWdkReady, useIsWdkReady } from './useEnsureWdkReady';
 
 // Who pays the gas.
 //
@@ -69,6 +69,10 @@ export interface UseAssetTransferResult {
   address: string | null;
   isLoading: boolean;
   error: Error | null;
+  // Whether the WDK is in a state that can service a transfer. Read-only,
+  // best-effort callers (e.g. fee estimation) should gate on this rather than
+  // calling `estimateFee`/`send` blindly, since it never surfaces an alert.
+  isReady: boolean;
   // Estimate the network fee for sending `amountBaseUnits` to `to`.
   estimateFee: (to: string, amountBaseUnits: string) => Promise<FeeEstimate>;
   // Sign and broadcast a transfer of `amountBaseUnits` to `to`. Pass the
@@ -131,10 +135,12 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
   }
 
   const ensureWdkReady = useEnsureWdkReady();
+  const isReady = useIsWdkReady();
   const account = useAccount<object>({
     accountIndex: 0,
     network: config.network,
   });
+
   const { balances } = useAssetBalances();
 
   // Gas is paid in the chain's own coin whenever the account holds any, and
@@ -190,6 +196,9 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
     [ensureWdkReady, config, modes],
   );
 
+  // Fee estimation is a read-only, best-effort path: it must never alert. So
+  // it does not call the alerting `ensureWdkReady` guard — callers gate on
+  // `isReady` and treat any throw here as a soft failure (blank fee).
   const estimateFee = useCallback(
     async (to: string, amountBaseUnits: string): Promise<FeeEstimate> => {
       const { fee, gasMode } = await run('quote', to, amountBaseUnits);
@@ -225,9 +234,17 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
       address: account.address,
       isLoading: account.isLoading,
       error: account.error,
+      isReady,
       estimateFee,
       send,
     }),
-    [account.address, account.isLoading, account.error, estimateFee, send],
+    [
+      account.address,
+      account.isLoading,
+      account.error,
+      isReady,
+      estimateFee,
+      send,
+    ],
   );
 }

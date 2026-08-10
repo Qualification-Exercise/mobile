@@ -26,7 +26,13 @@ export function useAssetBalances(): UseAssetBalancesResult {
     [],
   );
 
-  const { data, isLoading, error } = useBalancesForWallet(0, assets);
+  // `staleTime: 0` so the cached (and initially empty) balances are treated as
+  // stale and a live fetch runs on mount. Without it, `useBalancesForWallet`
+  // serves its fresh `initialData` — null for any not-yet-cached asset — and
+  // never refetches, so balances show "—" until a manual refresh.
+  const { data, isLoading, error } = useBalancesForWallet(0, assets, {
+    staleTime: 0,
+  });
 
   const { balances, errors } = useMemo(() => {
     const loaded = new Map<string, string>();

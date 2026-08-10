@@ -10,5 +10,7 @@
         "cameraPermission": "Scan payment QR codes to pay merchants"
       }
     ]
-  ]
+  ],
+  "ios": { "bundleIdentifier": "org.reactjs.native.example.wdkqualification" },
+  "android": { "package": "com.wdkqualification" }
 }

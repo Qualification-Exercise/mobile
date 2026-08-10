@@ -4,6 +4,7 @@ export { useWallet } from './useWallet';
 export type { UseWalletResult } from './useWallet';
 export {
   useEnsureWdkReady,
+  useIsWdkReady,
   WdkNotReadyError,
   type WdkStatus,
   type WalletManagerStatus,

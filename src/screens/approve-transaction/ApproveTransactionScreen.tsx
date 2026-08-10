@@ -91,7 +91,7 @@ const ApproveSheet = observer(function ApproveSheetView({
 }) {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore, biometryStore } = useStore();
-  const { address, send, estimateFee } = useAssetTransfer(config.id);
+  const { address, send, estimateFee, isReady } = useAssetTransfer(config.id);
   const { loadAddresses } = useAddresses();
   const refreshBalance = useRefreshBalance();
   const [linking, setLinking] = useState(false);
@@ -159,9 +159,13 @@ const ApproveSheet = observer(function ApproveSheetView({
   );
 
   // One-shot fee estimate for the confirmation summary (the inputs are fixed
-  // on this screen, so no debounce is needed). Best-effort: a failure just
-  // leaves the fee blank and never blocks signing.
+  // on this screen, so no debounce is needed). Best-effort: it only runs once
+  // the WDK is ready (so it never triggers a not-ready alert) and a failure
+  // just leaves the fee blank and never blocks signing.
   useEffect(() => {
+    if (!isReady) {
+      return;
+    }
     let cancelled = false;
     estimateFee(destination, amountBaseUnits)
       .then(result => {
@@ -196,7 +200,7 @@ const ApproveSheet = observer(function ApproveSheetView({
     return () => {
       cancelled = true;
     };
-  }, [estimateFee, destination, amountBaseUnits, config, feeSymbols]);
+  }, [estimateFee, destination, amountBaseUnits, config, feeSymbols, isReady]);
 
   // Manual retry for the link that normally runs on wallet unlock. Worth
   // offering here because linking is the one thing standing between the user

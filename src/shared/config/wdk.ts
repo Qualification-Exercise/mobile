@@ -8,9 +8,10 @@ const erc4337Defaults = {
   // applies when gas is paid through the paymaster — see
   // `NATIVE_MAX_TRANSFER_FEE` for the native-gas ceiling.
   transferMaxFee: 5000000,
-  // Required by every ERC-4337 network, not optional: the account constructor
-  // looks the Safe module addresses up by this version and throws on an
-  // unknown one. `0.3.0` is currently the only version the WDK supports.
+  // Safe 4337 module set version used for account derivation. '0.3.0' is the
+  // only version in the erc-4337 wallet's SAFE_MODULES_MAP; without it account
+  // derivation throws "Unsupported safe modules version: undefined". Shared by
+  // every EVM network so it can never drift between them.
   safeModulesVersion: '0.3.0',
 };
 
@@ -74,11 +75,21 @@ if (TRON_API_SECRET) {
   tronConfig.apiSecret = TRON_API_SECRET;
 }
 
+// NOTE: environments are intentionally mixed. Ethereum runs on Sepolia
+// (testnet) per the locked plan decision, while Bitcoin, Tron, Arbitrum and
+// Polygon are configured against mainnet. Real funds can move on the mainnet
+// chains — keep this in mind when testing, and revisit before any release that
+// should be testnet-only.
 export const wdkConfigs: WdkConfigs = {
   networks: {
     bitcoin: {
       blockchain: 'bitcoin',
       config: {
+        // Use the SSL Electrum port (50002) with TLS rather than the plaintext
+        // port (50001), so address/balance queries are not exposed on the wire.
+        host: 'electrum.blockstream.info',
+        port: 50002,
+        protocol: 'ssl',
         network: 'bitcoin',
         // A list, not one server: the wallet wraps it in its failover provider
         // and moves to the next entry when a call fails.
