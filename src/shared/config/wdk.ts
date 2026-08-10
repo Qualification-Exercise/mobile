@@ -5,6 +5,11 @@ const erc4337Defaults = {
   paymasterAddress: '0x8b1f6cb5d062aa2ce8d581942bbb960420d875ba',
   entrypointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
   transferMaxFee: 5000000,
+  // Safe 4337 module set version used for account derivation. '0.3.0' is the
+  // only version in the erc-4337 wallet's SAFE_MODULES_MAP; without it account
+  // derivation throws "Unsupported safe modules version: undefined". Shared by
+  // every EVM network so it can never drift between them.
+  safeModulesVersion: '0.3.0',
 };
 
 // USDt contract addresses per EVM network. Shared between the WDK paymaster
@@ -64,7 +69,9 @@ export const wdkConfigs: WdkConfigs = {
       blockchain: 'ethereum',
       config: {
         chainId: ETHEREUM_CHAIN_ID,
-        provider: 'https://rpc.sepolia.org',
+        // Public keyless Sepolia RPC. The previous `rpc.sepolia.org` endpoint is
+        // dead (returns 404), which made balance/account reads fail on Sepolia.
+        provider: 'https://ethereum-sepolia-rpc.publicnode.com',
         bundlerUrl: 'https://api.candide.dev/public/v3/11155111',
         paymasterUrl: 'https://api.candide.dev/public/v3/11155111',
         ...erc4337Defaults,
@@ -90,11 +97,13 @@ export const wdkConfigs: WdkConfigs = {
       blockchain: 'polygon',
       config: {
         chainId: POLYGON_CHAIN_ID,
-        provider: 'https://polygon-rpc.com',
+        // Public keyless Polygon RPC. The previous `polygon-rpc.com` endpoint now
+        // rejects with 401 ("API key disabled"), which made balance/account reads
+        // fail on Polygon.
+        provider: 'https://polygon-bor-rpc.publicnode.com',
         bundlerUrl: 'https://api.candide.dev/public/v3/polygon',
         paymasterUrl: 'https://api.candide.dev/public/v3/polygon',
         ...erc4337Defaults,
-        safeModulesVersion: '0.3.0',
         paymasterToken: {
           address: USDT_POLYGON_ADDRESS,
         },
