@@ -16,7 +16,7 @@ const USDT_TRON_ADDRESS = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t';
 
 // TODO: real UTL (utility token) contract address. Placeholder until the token
 // is deployed; this is the single spot to edit when the real value is known.
-const UTL_ETHEREUM_ADDRESS = '0x0000000000000000000000000000000000000000';
+const UTL_ETHEREUM_ADDRESS = '0x63dE56C3909825e1d83e69daDa3f1e9E379f71AD';
 
 // The network of every asset must match a key in wdkConfigs.networks.
 export type SupportedAssetConfig = AssetConfig & { network: NetworkName };
