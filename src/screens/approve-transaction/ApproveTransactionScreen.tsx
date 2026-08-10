@@ -315,7 +315,9 @@ const ApproveSheet = observer(function ApproveSheetView({
           </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>To</Text>
-            <Text style={styles.rowValueMono}>{destination}</Text>
+            <Text style={styles.rowValueMono}>
+              {shortenAddress(destination)}
+            </Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.rowLabel}>Network</Text>
