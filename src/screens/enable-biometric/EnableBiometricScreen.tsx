@@ -18,73 +18,75 @@ const FEATURES = [
   'Guard account setup',
 ];
 
-export const EnableBiometricScreen = observer(function EnableBiometricScreenView() {
-  const navigation = useNavigation<RootStackNavigationProp>();
-  const { biometryStore } = useStore();
+export const EnableBiometricScreen = observer(
+  function EnableBiometricScreenView() {
+    const navigation = useNavigation<RootStackNavigationProp>();
+    const { biometryStore } = useStore();
 
-  useEffect(() => {
-    if (biometryStore.isEnrolled) {
-      navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] });
-    }
-  }, [biometryStore.isEnrolled, navigation]);
-
-  async function handleEnable() {
-    const outcome = await biometryStore.enableBiometric(
-      'Enable biometric unlock',
-    );
-
-    switch (outcome) {
-      case 'unlocked':
+    useEffect(() => {
+      if (biometryStore.isEnrolled) {
         navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] });
-        return;
-      case 'permission-denied':
-        Alert.alert(
-          'Face ID is turned off for this app',
-          'Enable Face ID for this app in Settings, then come back and try again.',
-          [
-            { text: 'Not now', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Linking.openSettings() },
-          ],
-        );
-        return;
-      case 'unavailable':
-      case 'failed':
-        Alert.alert(
-          'Face ID unavailable',
-          'We could not verify your biometrics. Make sure Face ID is set up on this device, then try again.',
-        );
-        return;
-    }
-  }
+      }
+    }, [biometryStore.isEnrolled, navigation]);
 
-  return (
-    <ScreenContainer>
-      <View style={styles.container}>
-        <View style={styles.hero}>
-          <View style={styles.iconFrame}>
-            <View style={styles.iconInner} />
+    async function handleEnable() {
+      const outcome = await biometryStore.enableBiometric(
+        'Enable biometric unlock',
+      );
+
+      switch (outcome) {
+        case 'unlocked':
+          navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] });
+          return;
+        case 'permission-denied':
+          Alert.alert(
+            'Face ID is turned off for this app',
+            'Enable Face ID for this app in Settings, then come back and try again.',
+            [
+              { text: 'Not now', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => Linking.openSettings() },
+            ],
+          );
+          return;
+        case 'unavailable':
+        case 'failed':
+          Alert.alert(
+            'Face ID unavailable',
+            'We could not verify your biometrics. Make sure Face ID is set up on this device, then try again.',
+          );
+          return;
+      }
+    }
+
+    return (
+      <ScreenContainer>
+        <View style={styles.container}>
+          <View style={styles.hero}>
+            <View style={styles.iconFrame}>
+              <View style={styles.iconInner} />
+            </View>
+            <View style={styles.heroText}>
+              <Text style={styles.title}>Enable Face ID</Text>
+              <Text style={styles.description}>
+                Use Face ID to unlock the app and approve every transaction.
+                Your biometrics never leave the device.
+              </Text>
+            </View>
+            <View style={styles.featureList}>
+              {FEATURES.map(feature => (
+                <View key={feature} style={styles.featureRow}>
+                  <Text style={styles.featureCheck}>✓</Text>
+                  <Text style={styles.featureLabel}>{feature}</Text>
+                </View>
+              ))}
+            </View>
           </View>
-          <View style={styles.heroText}>
-            <Text style={styles.title}>Enable Face ID</Text>
-            <Text style={styles.description}>
-              Use Face ID to unlock the app and approve every transaction. Your
-              biometrics never leave the device.
-            </Text>
-          </View>
-          <View style={styles.featureList}>
-            {FEATURES.map(feature => (
-              <View key={feature} style={styles.featureRow}>
-                <Text style={styles.featureCheck}>✓</Text>
-                <Text style={styles.featureLabel}>{feature}</Text>
-              </View>
-            ))}
-          </View>
+          <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
         </View>
-        <PrimaryButton title="Enable Face ID" onPress={handleEnable} />
-      </View>
-    </ScreenContainer>
-  );
-});
+      </ScreenContainer>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   container: {

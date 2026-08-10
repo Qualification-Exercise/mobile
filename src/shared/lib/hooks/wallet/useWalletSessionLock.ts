@@ -19,8 +19,13 @@ import { lockWdkWalletSession } from './wdkSessionLock';
 // `background -> inactive -> active` return path, where the immediate previous
 // state is `inactive`, not `background`.
 export function useWalletSessionLock(): void {
-  const { appStateStore, authStore, biometryStore, navigationStore, wdkAppStore } =
-    useStore();
+  const {
+    appStateStore,
+    authStore,
+    biometryStore,
+    navigationStore,
+    wdkAppStore,
+  } = useStore();
 
   useEffect(
     () =>
@@ -36,7 +41,10 @@ export function useWalletSessionLock(): void {
             return;
           }
 
-          if (appStateStore.isAppInBackground && wdkAppStore.status === 'READY') {
+          if (
+            appStateStore.isAppInBackground &&
+            wdkAppStore.status === 'READY'
+          ) {
             lockWdkWalletSession();
             return;
           }

@@ -1,0 +1,6 @@
+<resources>
+    <!-- Mirrors src/shared/ui/tokens.ts so the native launch screen and the
+         first React screen are the same colour. -->
+    <color name="brandBackground">#05070A</color>
+    <color name="brandAccent">#2DBE8C</color>
+</resources>

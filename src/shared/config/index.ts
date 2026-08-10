@@ -7,10 +7,17 @@ export {
   SUPPORTED_NETWORKS,
   getAssetConfig,
   getAsset,
+  getNativeAsset,
+  getNativeMaxTransferFee,
   getFeeToken,
   getSrcChainId,
+  getChainKind,
+  getNetworkLabel,
+  getPriceTicker,
+  groupAssetsByNetwork,
+  findAssetConfig,
 } from './assets';
-export type { SupportedAssetConfig, FeeToken } from './assets';
+export type { SupportedAssetConfig, FeeToken, ChainKind } from './assets';
 
 // Example: surface a value loaded from the .env file via react-native-dotenv.
 export const anySecret = ANY_SECRET;

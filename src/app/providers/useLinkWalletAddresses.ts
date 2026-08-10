@@ -2,7 +2,11 @@ import { useEffect } from 'react';
 import { useAddresses, useWdkApp } from '@tetherto/wdk-react-native-core';
 import type { NetworkName } from '../../../.wdk';
 import { walletsApi, type LinkedWalletDTO } from '@shared/api';
-import { SUPPORTED_NETWORKS, getSrcChainId } from '@shared/config';
+import {
+  SUPPORTED_NETWORKS,
+  getChainKind,
+  getSrcChainId,
+} from '@shared/config';
 import { useStore } from '@shared/store';
 
 // Once the wallet is READY (and the user is authenticated), register the
@@ -35,18 +39,17 @@ export function useLinkWalletAddresses() {
           const wallets: LinkedWalletDTO[] = [];
           for (const result of results) {
             if (result.success) {
+              const network = result.network as NetworkName;
               wallets.push({
-                chain: result.network,
-                srcChainId: getSrcChainId(result.network as NetworkName),
+                chain: getChainKind(network),
+                srcChainId: getSrcChainId(network),
                 address: result.address,
               });
             }
           }
 
           // The backend requires an EVM address (cashback payout recipient).
-          const hasEvmAddress = wallets.some(
-            wallet => wallet.srcChainId != null,
-          );
+          const hasEvmAddress = wallets.some(wallet => wallet.chain === 'evm');
           if (hasEvmAddress) {
             await walletsApi.link({ wallets });
             if (!cancelled) {
