@@ -5,7 +5,14 @@ import {
 } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import {
   useAddresses,
   useRefreshBalance,
@@ -308,73 +315,75 @@ const ApproveSheet = observer(function ApproveSheetView({
   return (
     <View style={styles.backdrop}>
       <View style={styles.sheet}>
-        <View style={styles.handle} />
-        <Text style={styles.title}>Confirm transaction</Text>
-        <View style={styles.summary}>
-          <View style={[styles.row, styles.rowBorder]}>
-            <Text style={styles.rowLabel}>Send</Text>
-            <Text style={styles.rowValueStrong}>
-              {amountDisplay} {config.symbol}
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <View style={styles.handle} />
+          <Text style={styles.title}>Confirm transaction</Text>
+          <View style={styles.summary}>
+            <View style={[styles.row, styles.rowBorder]}>
+              <Text style={styles.rowLabel}>Send</Text>
+              <Text style={styles.rowValueStrong}>
+                {amountDisplay} {config.symbol}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>To</Text>
+              <Text style={styles.rowValueMono}>
+                {shortenAddress(destination)}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Network</Text>
+              <Text style={styles.rowValue}>
+                {getNetworkLabel(config.network)}
+              </Text>
+            </View>
+            <View style={styles.row}>
+              <Text style={styles.rowLabel}>Fee</Text>
+              <Text style={styles.rowValue}>{feeDisplay}</Text>
+            </View>
+          </View>
+          <View style={styles.biometricRow}>
+            <View style={styles.biometricFrame}>
+              <View style={styles.biometricInner} />
+            </View>
+            <Text style={styles.biometricLabel}>
+              Confirm with Face ID to sign
             </Text>
           </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>To</Text>
-            <Text style={styles.rowValueMono}>
-              {shortenAddress(destination)}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Network</Text>
-            <Text style={styles.rowValue}>
-              {getNetworkLabel(config.network)}
-            </Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.rowLabel}>Fee</Text>
-            <Text style={styles.rowValue}>{feeDisplay}</Text>
-          </View>
-        </View>
-        <View style={styles.biometricRow}>
-          <View style={styles.biometricFrame}>
-            <View style={styles.biometricInner} />
-          </View>
-          <Text style={styles.biometricLabel}>
-            Confirm with Face ID to sign
-          </Text>
-        </View>
-        {linkError ? <Text style={styles.error}>{linkError}</Text> : null}
-        {linkError && !walletStore.linkedEvmAddress ? (
-          // Only offered when nothing is linked. A mismatch is a 409 on the
-          // backend (one address per chain, no reset endpoint), so retrying it
-          // would just fail again — that case needs backend intervention.
+          {linkError ? <Text style={styles.error}>{linkError}</Text> : null}
+          {linkError && !walletStore.linkedEvmAddress ? (
+            // Only offered when nothing is linked. A mismatch is a 409 on the
+            // backend (one address per chain, no reset endpoint), so retrying it
+            // would just fail again — that case needs backend intervention.
+            <TouchableOpacity
+              style={[styles.linkButton, linking && styles.confirmButtonBusy]}
+              onPress={retryLink}
+              activeOpacity={0.85}
+              disabled={linking}
+            >
+              <Text style={styles.linkLabel}>
+                {linking ? 'Linking…' : 'Link wallet'}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {feeError && !sendError && !linkError ? (
+            <Text style={styles.error}>{feeError}</Text>
+          ) : null}
+          {sendError ? <Text style={styles.error}>{sendError}</Text> : null}
           <TouchableOpacity
-            style={[styles.linkButton, linking && styles.confirmButtonBusy]}
-            onPress={retryLink}
+            style={[
+              styles.confirmButton,
+              (request.loading || !!linkError) && styles.confirmButtonBusy,
+            ]}
+            onPress={verifyTransaction}
             activeOpacity={0.85}
-            disabled={linking}
+            disabled={request.loading || !!linkError}
           >
-            <Text style={styles.linkLabel}>
-              {linking ? 'Linking…' : 'Link wallet'}
+            <Text style={styles.confirmLabel}>
+              {request.loading ? 'Broadcasting…' : 'Verify'}
             </Text>
           </TouchableOpacity>
-        ) : null}
-        {feeError && !sendError && !linkError ? (
-          <Text style={styles.error}>{feeError}</Text>
-        ) : null}
-        {sendError ? <Text style={styles.error}>{sendError}</Text> : null}
-        <TouchableOpacity
-          style={[
-            styles.confirmButton,
-            (request.loading || !!linkError) && styles.confirmButtonBusy,
-          ]}
-          onPress={verifyTransaction}
-          activeOpacity={0.85}
-          disabled={request.loading || !!linkError}
-        >
-          <Text style={styles.confirmLabel}>
-            {request.loading ? 'Broadcasting…' : 'Verify'}
-          </Text>
-        </TouchableOpacity>
+        </ScrollView>
       </View>
     </View>
   );
@@ -390,6 +399,9 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: radii.xxl,
     padding: spacing.xl,
+    // The link error plus its button can push the sheet past the top of the
+    // screen; cap it and let the content scroll instead.
+    maxHeight: '85%',
   },
   handle: {
     width: 40,
