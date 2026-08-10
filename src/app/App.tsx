@@ -8,12 +8,8 @@ import { RootErrorBoundary, toastConfig } from '@shared/ui';
 import { GOOGLE_IOS_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from '@env';
 import { RootStoreContext, useStore } from '@shared/store';
 import { WalletNavigationContainer } from './navigation/WalletNavigationContainer';
-import {
-  RootStore,
-  useLinkWalletAddresses,
-  useSyncAppState,
-  useSyncWdkAppState,
-} from './providers';
+import { RootStore, useSyncAppState, useSyncWdkAppState } from './providers';
+import { useLinkWalletAddresses } from '@shared/lib';
 import { WdkAppProvider } from '@tetherto/wdk-react-native-core';
 import { bundle } from '../../.wdk';
 import {

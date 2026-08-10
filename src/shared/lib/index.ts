@@ -9,3 +9,4 @@ export * from './mnemonicHash';
 export * from './paymentUri';
 export * from './showErrorToast';
 export * from './units';
+export * from './walletLinking';

@@ -25,6 +25,7 @@ import {
 } from '@shared/config';
 import {
   describeFeeError,
+  formatAmount,
   fromBaseUnits,
   isValidAddress,
   toBaseUnits,
@@ -250,10 +251,7 @@ const SendForm = observer(function SendFormView({
     setAmount(fromBaseUnits(scaled.toString(), config.decimals));
   }
 
-  const balanceDisplay = fromBaseUnits(
-    balanceBaseUnits ?? '0',
-    config.decimals,
-  );
+  const balanceDisplay = formatAmount(balanceBaseUnits ?? '0', config.decimals);
 
   let validationMessage: string | null = null;
   if (amountPositive && balanceBaseUnits != null && !withinBalance) {

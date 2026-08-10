@@ -34,6 +34,10 @@ export const NATIVE_MAX_TRANSFER_FEE: Record<string, bigint> = {
 // balance batch (WDK's `fetchBalances` rejects rather than degrading per
 // network), so these must all be endpoints that answer without an API key.
 // `polygon-rpc.com` no longer does: it answers 401 `API key disabled`.
+// Bitcoin's stateless HTTPS backend (Blockbook v2 REST), used ahead of the
+// Electrum sockets below.
+const BLOCKBOOK_URL = 'https://btc1.trezor.io/api';
+
 const SEPOLIA_RPC_URL = 'https://ethereum-sepolia-rpc.publicnode.com';
 const ARBITRUM_RPC_URL = 'https://arbitrum-one-rpc.publicnode.com';
 const POLYGON_RPC_URL = 'https://polygon-bor-rpc.publicnode.com';
@@ -75,9 +79,34 @@ export const wdkConfigs: WdkConfigs = {
     bitcoin: {
       blockchain: 'bitcoin',
       config: {
-        host: 'electrum.blockstream.info',
-        port: 50001,
         network: 'bitcoin',
+        // A list, not one server: the wallet wraps it in its failover provider
+        // and moves to the next entry when a call fails.
+        //
+        // Blockbook comes first because it is plain HTTPS with no session. The
+        // Electrum entries hold one long-lived TCP socket, and a phone loses
+        // that socket constantly — backgrounding, wifi/LTE handover, an idle
+        // server hanging up. The client does not notice until the next call,
+        // which then fails with "Connection to server lost, please retry".
+        client: [
+          { type: 'blockbook-http', clientConfig: { url: BLOCKBOOK_URL } },
+          {
+            type: 'electrum',
+            clientConfig: {
+              host: 'electrum.blockstream.info',
+              // 50002 is the TLS port; 50001 is plaintext, which mobile
+              // carriers and captive networks are happy to interrupt.
+              port: 50002,
+              protocol: 'ssl',
+              // Default is 120s. Ping more often than a NAT or the server
+              // times an idle connection out, so the socket is kept rather
+              // than found dead mid-request.
+              pingPeriod: 30_000,
+            },
+          },
+        ],
+        // Failover attempts across the list above.
+        retries: 2,
       },
     },
     spark: {

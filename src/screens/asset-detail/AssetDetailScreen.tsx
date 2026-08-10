@@ -18,7 +18,7 @@ import type {
   RootStackParamList,
 } from '@app/navigation/types';
 import { getNetworkLabel } from '@shared/config';
-import { fromBaseUnits } from '@shared/lib';
+import { formatAmount } from '@shared/lib';
 import { useAssetBalances } from '@shared/lib/hooks/wallet';
 import {
   formatFiat,
@@ -89,7 +89,7 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
         </View>
         <Text style={styles.balance}>
           {balanceBaseUnits != null
-            ? fromBaseUnits(balanceBaseUnits, asset.decimals)
+            ? formatAmount(balanceBaseUnits, asset.decimals)
             : '—'}{' '}
           {asset.symbol}
         </Text>

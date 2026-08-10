@@ -165,6 +165,12 @@ export type ClaimChallengeDTO = {
   nonce: string;
   message: string;
   expiresAt: string;
+  // The EIP-712 domain to sign the message under: the payout Safe and the
+  // chain it is deployed on. The Safe answers `isValidSignature` only on its
+  // own chain, which is not necessarily the chain the reward is paid out on,
+  // so both come from the server rather than from local config.
+  verifyingContract: string;
+  chainId: number;
 };
 
 export type CreateClaimRequest = {
@@ -218,9 +224,17 @@ export type LinkWalletsRequest = {
   wallets: LinkedWalletDTO[];
 };
 
-export type ListWalletsResponse = {
-  wallets: LinkedWalletDTO[];
+// A linked wallet as the backend reports it. `verified` stays false until the
+// user signs a coupon claim from that address; it does not gate cashback.
+export type LinkedWalletStatusDTO = LinkedWalletDTO & {
+  primary: boolean;
+  verified: boolean;
+  linkedAt: string;
 };
+
+// `GET /wallets` answers with a bare array — unlike `POST /wallets`, which
+// wraps the same rows in a `wallets` object.
+export type ListWalletsResponse = LinkedWalletStatusDTO[];
 
 // A spot price from `GET /pricing/live`. `price` is null for an asset the
 // upstream has no market for.

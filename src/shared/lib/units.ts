@@ -38,3 +38,16 @@ export function fromBaseUnits(base: string, decimals: number): string {
 
   return frac ? `${intPart || '0'}.${frac}` : intPart || '0';
 }
+
+// Display form of a balance: always at least 2 fraction digits, never more
+// than 6. Digits past the sixth are cut, not rounded — a balance must never
+// read higher than it is.
+//
+// For display only. Anything that feeds an amount back into a transfer (the
+// MAX button, a fee quote) must keep using `fromBaseUnits`, which is exact.
+export function formatAmount(base: string, decimals: number): string {
+  const [intPart, frac = ''] = fromBaseUnits(base, decimals).split('.');
+  const shown = frac.slice(0, 6).replace(/0+$/, '');
+
+  return `${intPart}.${shown.padEnd(2, '0')}`;
+}

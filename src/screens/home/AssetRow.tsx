@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { fromBaseUnits } from '@shared/lib';
+import { formatAmount } from '@shared/lib';
 import {
   formatFiat,
   getAssetColor,
@@ -28,7 +28,7 @@ export function AssetRow({
 }: AssetRowProps) {
   const balanceDisplay =
     balanceBaseUnits != null
-      ? fromBaseUnits(balanceBaseUnits, asset.decimals)
+      ? formatAmount(balanceBaseUnits, asset.decimals)
       : '—';
   const fiatValue = getFiatValue(balanceBaseUnits, asset.decimals, price);
 

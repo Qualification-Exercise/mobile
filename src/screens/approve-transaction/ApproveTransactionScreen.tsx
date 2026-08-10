@@ -7,6 +7,7 @@ import { observer } from 'mobx-react-lite';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import {
+  useAddresses,
   useRefreshBalance,
   type TransactionResult,
 } from '@tetherto/wdk-react-native-core';
@@ -24,7 +25,11 @@ import {
   getSrcChainId,
   type SupportedAssetConfig,
 } from '@shared/config';
-import { describeFeeError, fromBaseUnits } from '@shared/lib';
+import {
+  describeFeeError,
+  fromBaseUnits,
+  linkWalletAddresses,
+} from '@shared/lib';
 import { useAssetTransfer, type GasMode } from '@shared/lib/hooks/wallet';
 import { useStore, TypedRequest } from '@shared/store';
 import type { BiometryOutcome } from '@shared/store/domains';
@@ -87,7 +92,9 @@ const ApproveSheet = observer(function ApproveSheetView({
   const navigation = useNavigation<RootStackNavigationProp>();
   const { walletStore, biometryStore } = useStore();
   const { address, send, estimateFee } = useAssetTransfer(config.id);
+  const { loadAddresses } = useAddresses();
   const refreshBalance = useRefreshBalance();
+  const [linking, setLinking] = useState(false);
 
   const [gasMode, setGasMode] = useState<GasMode>(quotedGasMode ?? 'token');
   // Both gas modes are attempted when quoting, so a failure means neither
@@ -104,6 +111,30 @@ const ApproveSheet = observer(function ApproveSheetView({
     [config, gasMode],
   );
   const amountDisplay = fromBaseUnits(amountBaseUnits, config.decimals);
+
+  // The backend recognises a payer by sender address alone. A transfer from
+  // any address other than the linked one is written off as `ignored` and
+  // never reprocessed — no coupon, no retry, money spent. So an EVM send is
+  // blocked until `GET /wallets` has confirmed the address we sign with.
+  // Address comparison is case-insensitive: EVM addresses differ only by
+  // EIP-55 checksum casing.
+  const linkError = useMemo(() => {
+    if (getChainKind(config.network) !== 'evm' || !address) {
+      return null;
+    }
+    const linked = walletStore.linkedEvmAddress;
+    if (!linked) {
+      return 'This wallet is not linked to your account yet. Reopen the app while online — paying now would forfeit the cashback.';
+    }
+    if (linked.toLowerCase() !== address.toLowerCase()) {
+      return `Your account is linked to ${shortenAddress(
+        linked,
+      )}, but this wallet signs as ${shortenAddress(
+        address,
+      )}. A payment from here would not be credited.`;
+    }
+    return null;
+  }, [config.network, address, walletStore.linkedEvmAddress]);
 
   const [sendError, setSendError] = useState<string | null>(null);
   const [feeText, setFeeText] = useState<string | null>(null);
@@ -167,8 +198,21 @@ const ApproveSheet = observer(function ApproveSheetView({
     };
   }, [estimateFee, destination, amountBaseUnits, config, feeSymbols]);
 
+  // Manual retry for the link that normally runs on wallet unlock. Worth
+  // offering here because linking is the one thing standing between the user
+  // and a payment that earns cashback, and it fails for transient reasons
+  // (offline at unlock, expired session).
+  async function retryLink() {
+    if (linking) {
+      return;
+    }
+    setLinking(true);
+    await linkWalletAddresses(loadAddresses, walletStore);
+    setLinking(false);
+  }
+
   async function verifyTransaction() {
-    if (request.loading) {
+    if (request.loading || linkError) {
       return;
     }
     setSendError(null);
@@ -292,18 +336,34 @@ const ApproveSheet = observer(function ApproveSheetView({
             Confirm with Face ID to sign
           </Text>
         </View>
-        {feeError && !sendError ? (
+        {linkError ? <Text style={styles.error}>{linkError}</Text> : null}
+        {linkError && !walletStore.linkedEvmAddress ? (
+          // Only offered when nothing is linked. A mismatch is a 409 on the
+          // backend (one address per chain, no reset endpoint), so retrying it
+          // would just fail again — that case needs backend intervention.
+          <TouchableOpacity
+            style={[styles.linkButton, linking && styles.confirmButtonBusy]}
+            onPress={retryLink}
+            activeOpacity={0.85}
+            disabled={linking}
+          >
+            <Text style={styles.linkLabel}>
+              {linking ? 'Linking…' : 'Link wallet'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
+        {feeError && !sendError && !linkError ? (
           <Text style={styles.error}>{feeError}</Text>
         ) : null}
         {sendError ? <Text style={styles.error}>{sendError}</Text> : null}
         <TouchableOpacity
           style={[
             styles.confirmButton,
-            request.loading && styles.confirmButtonBusy,
+            (request.loading || !!linkError) && styles.confirmButtonBusy,
           ]}
           onPress={verifyTransaction}
           activeOpacity={0.85}
-          disabled={request.loading}
+          disabled={request.loading || !!linkError}
         >
           <Text style={styles.confirmLabel}>
             {request.loading ? 'Broadcasting…' : 'Verify'}
@@ -412,6 +472,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  linkButton: {
+    height: 48,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: colors.accentBright,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  linkLabel: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.accentBright,
   },
   confirmButtonBusy: {
     opacity: 0.6,

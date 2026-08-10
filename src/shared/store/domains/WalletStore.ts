@@ -114,9 +114,11 @@ export class WalletStore {
     },
   );
 
-  // Whether this session has already linked the wallet's derived addresses to
-  // the backend, so linking isn't re-posted on every READY transition.
-  addressesLinked = false;
+  // The EVM address the backend has on file, as returned by `GET /wallets`.
+  // Payment must originate from exactly this address: the backend identifies
+  // the payer by sender address alone, and a mismatch is dropped as `ignored`
+  // with no retry. `null` means unknown/unlinked — do not let a payment go.
+  linkedEvmAddress: string | null = null;
 
   // Best-effort backend-report queue: broadcasts whose `POST /transactions`
   // failed. Retried on a later deferred pass. In-memory only — persistence
@@ -127,8 +129,8 @@ export class WalletStore {
     makeAutoObservable(this);
   }
 
-  markAddressesLinked() {
-    this.addressesLinked = true;
+  setLinkedEvmAddress(address: string | null) {
+    this.linkedEvmAddress = address;
   }
 
   get prices(): Map<string, number> {
