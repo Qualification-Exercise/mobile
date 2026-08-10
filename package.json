@@ -11,6 +11,7 @@
     "start:metro": "react-native start",
     "expo:start": "EXPO_UNSTABLE_MCP_SERVER=1 expo start -c",
     "test": "jest",
+    "test:coverage": "jest --coverage --coverageReporters=text --coverageReporters=json-summary && node scripts/coverage-average.js",
     "typecheck": "tsc --noEmit",
     "wdk:bundle": "wdk-worklet-bundler generate --install",
     "wdk:watch": "onchange 'wdk.config.js' -- npm run wdk:bundle",
