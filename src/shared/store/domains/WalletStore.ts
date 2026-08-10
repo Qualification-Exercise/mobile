@@ -1,17 +1,16 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import type { NetworkName } from '../../../../.wdk';
-import { SUPPORTED_ASSETS } from '@shared/config';
-import { transactionsApi, type CreateTransactionDTO } from '@shared/api';
+import {
+  couponsApi,
+  pricingApi,
+  transactionsApi,
+  type CreateTransactionDTO,
+} from '@shared/api';
+import { SUPPORTED_ASSETS, getPriceTicker } from '@shared/config';
 import type { Asset } from '../models/asset';
-import type { Coupon } from '../models/coupon';
-import type { Transaction } from '../models/transaction';
+import { sumClaimableUtl, toCoupon, type Coupon } from '../models/coupon';
+import { toTransaction, type Transaction } from '../models/transaction';
 import type { Wallet } from '../models/wallet';
-
-const CASHBACK_RATE = 0.05;
-
-// UTL is the cashback payout token (Ethereum). Kept as a named const so the
-// coupon flow references the registry id rather than a magic string.
-const UTL_ASSET_ID = 'utl-ethereum';
+import { TypedRequest } from '../typedRequest';
 
 // Build the wallet's asset list from the asset registry so token metadata has
 // a single source of truth. Balances are intentionally left at zero here:
@@ -33,22 +32,18 @@ function buildAssetsFromRegistry(): Asset[] {
   }));
 }
 
-function randomSegment(length: number): string {
-  return Math.random()
-    .toString(36)
-    .slice(2)
-    .toUpperCase()
-    .padEnd(length, '0')
-    .slice(0, length);
-}
-
-function generateCouponCode(): string {
-  return `WDK-${randomSegment(4)}-${randomSegment(2)}`;
-}
+// Assets with no market (UTL) are left out rather than sent and ignored. The
+// rest are asked for under the feed's own ticker — see `getPriceTicker`.
+const PRICED_TICKERS: string[] = [
+  ...new Set(
+    SUPPORTED_ASSETS.filter(config => config.symbol !== 'UTL').map(config =>
+      getPriceTicker(config.symbol),
+    ),
+  ),
+];
 
 export class WalletStore {
   wallet: Wallet = {
-    address: '0xA4f2…c9c2E',
     displayName: 'Main Wallet',
   };
 
@@ -56,79 +51,74 @@ export class WalletStore {
   // from `useAssetBalances()` in components, not from these objects.
   assets: Asset[] = buildAssetsFromRegistry();
 
-  transactions: Transaction[] = [
-    {
-      id: 'txn-1',
-      direction: 'in',
-      counterparty: 'From 0x91c…2De',
-      amount: 250.0,
-      date: 'Today',
-      assetId: 'usdt-arbitrum',
-    },
-    {
-      id: 'txn-2',
-      direction: 'out',
-      counterparty: 'Café Nero — Milan',
-      amount: -25.0,
-      date: 'Today',
-      assetId: 'usdt-arbitrum',
-    },
-    {
-      id: 'txn-3',
-      direction: 'in',
-      counterparty: 'Bridge · Polygon',
-      amount: 500.0,
-      date: 'Yesterday',
-      assetId: 'usdt-arbitrum',
-    },
-    {
-      id: 'txn-4',
-      direction: 'out',
-      counterparty: 'To 0x33a…9b1',
-      amount: -40.0,
-      date: 'Mar 12',
-      assetId: 'usdt-arbitrum',
-    },
-    {
-      id: 'txn-5',
-      direction: 'in',
-      counterparty: 'From 0xd21…77c',
-      amount: 120.0,
-      date: 'Mar 09',
-      assetId: 'usdt-arbitrum',
-    },
-  ];
+  // Broadcasts made on this device that the backend has not listed yet. They
+  // are merged into `transactions` so a send shows up in history immediately,
+  // and drop out as soon as the same hash comes back from the API.
+  localTransactions: Transaction[] = [];
 
-  coupons: Coupon[] = [
-    {
-      code: 'WDK-5F2A-9K',
-      merchant: 'Café Nero — Milan',
-      amount: 1.25,
-      status: 'Claimable',
+  transactionsRequest = new TypedRequest<Transaction[]>(
+    async () => {
+      const { items } = await transactionsApi.list();
+      return items.map(toTransaction);
     },
     {
-      code: 'WDK-2C8B-7X',
-      merchant: 'GreenMart',
-      amount: 1.75,
-      status: 'Claimable',
+      initialData: [],
+      defaultError: 'Could not load transactions.',
+      loadingMessage: 'Loading activity…',
     },
-    {
-      code: 'WDK-9A1D-3P',
-      merchant: 'Bar Torino',
-      amount: 0.75,
-      status: 'Claimable',
-    },
-    {
-      code: 'WDK-4E6F-1M',
-      merchant: 'Metro Kiosk',
-      amount: 2.0,
-      status: 'Claimed',
-    },
-  ];
+  );
 
-  // Whether this session has already linked the wallet's derived addresses to
-  // the backend, so linking isn't re-posted on every READY transition.
-  addressesLinked = false;
+  couponsRequest = new TypedRequest<Coupon[]>(
+    async () => {
+      const { items } = await couponsApi.list();
+      return items.map(toCoupon);
+    },
+    {
+      initialData: [],
+      defaultError: 'Could not load coupons.',
+      loadingMessage: 'Loading rewards…',
+    },
+  );
+
+  // Spot price per upper-case ticker, in USD. Missing entries mean the feed
+  // has no market for that asset, which keeps it out of the fiat total rather
+  // than counting it as zero.
+  pricesRequest = new TypedRequest<Map<string, number>>(
+    async () => {
+      const { data } = await pricingApi.live(PRICED_TICKERS);
+      const prices = new Map<string, number>();
+      const unpriced: string[] = [];
+
+      for (const entry of data) {
+        const price = Number(entry.price);
+        if (entry.price != null && Number.isFinite(price)) {
+          prices.set(entry.from.toUpperCase(), price);
+        } else {
+          unpriced.push(entry.from);
+        }
+      }
+
+      // An asset the feed cannot quote drops out of the fiat total, which is
+      // invisible on screen — the total just reads low. Name it instead.
+      if (unpriced.length > 0) {
+        console.warn('[WalletStore] no price for', unpriced.join(', '));
+      }
+      console.log('[WalletStore] prices', Object.fromEntries(prices));
+
+      return prices;
+    },
+    {
+      initialData: new Map(),
+      defaultError: 'Could not load prices.',
+      loadingMessage: 'Loading prices…',
+    },
+  );
+
+  // The EVM address the backend has on file, as returned by `GET /wallets`.
+  // Payment must originate from exactly this address: the backend identifies
+  // the payer by sender address alone, and a mismatch is dropped as `ignored`
+  // with no retry. `null` means unknown/unlinked — do not let a payment go.
+  linkedEvmAddress: string | null = null;
 
   // Best-effort backend-report queue: broadcasts whose `POST /transactions`
   // failed. Retried on a later deferred pass. In-memory only — persistence
@@ -139,59 +129,63 @@ export class WalletStore {
     makeAutoObservable(this);
   }
 
-  markAddressesLinked() {
-    this.addressesLinked = true;
+  setLinkedEvmAddress(address: string | null) {
+    this.linkedEvmAddress = address;
   }
 
-  // Fiat pricing is out of scope: no price oracle is configured, so per-asset
-  // `fiatValue` is a placeholder (0) and this total is not a real figure.
-  // Components should treat fiat as unavailable until an oracle is wired in.
-  get totalFiatBalance(): number {
-    return this.assets.reduce((sum, asset) => sum + asset.fiatValue, 0);
+  get prices(): Map<string, number> {
+    return this.pricesRequest.data;
   }
 
-  get claimableCashbackTotal(): number {
-    return this.coupons
-      .filter(coupon => coupon.status === 'Claimable')
-      .reduce((sum, coupon) => sum + coupon.amount, 0);
+  // USD price for one whole unit of `symbol`, or null when the feed has no
+  // market for it.
+  priceOf(symbol: string): number | null {
+    return this.prices.get(getPriceTicker(symbol)) ?? null;
+  }
+
+  async loadPrices() {
+    await this.pricesRequest.fetch();
+  }
+
+  // Server history plus any local broadcast the server has not caught up on.
+  get transactions(): Transaction[] {
+    const known = new Set(
+      this.transactionsRequest.data.map(transaction => transaction.hash),
+    );
+    return [
+      ...this.localTransactions.filter(
+        transaction => !known.has(transaction.hash),
+      ),
+      ...this.transactionsRequest.data,
+    ];
+  }
+
+  get coupons(): Coupon[] {
+    return this.couponsRequest.data;
+  }
+
+  // Total claimable cashback, in UTL base units.
+  get claimableCashbackTotal(): bigint {
+    return sumClaimableUtl(this.coupons);
+  }
+
+  get claimableCoupons(): Coupon[] {
+    return this.coupons.filter(coupon => coupon.claimable);
+  }
+
+  async loadTransactions() {
+    await this.transactionsRequest.fetch();
+  }
+
+  async loadCoupons() {
+    await this.couponsRequest.fetch();
   }
 
   // Record a real, broadcast transfer in local history. The broadcast itself
-  // happens in the transfer hook (`useAssetTransfer.send`); the store only
-  // keeps the history row, seeded `pending` until confirmation tracking
-  // updates it.
-  recordSentTransaction(params: {
-    assetId: string;
-    amount: number;
-    destination: string;
-    hash: string;
-    feeBaseUnits?: string;
-    network: NetworkName;
-    timestamp: number;
-  }) {
-    const {
-      assetId,
-      amount,
-      destination,
-      hash,
-      feeBaseUnits,
-      network,
-      timestamp,
-    } = params;
-
-    this.transactions.unshift({
-      id: `txn-${this.transactions.length + 1}`,
-      direction: 'out',
-      counterparty: `To ${destination}`,
-      amount: -amount,
-      date: 'Today',
-      assetId,
-      hash,
-      status: 'pending',
-      feeBaseUnits,
-      network,
-      timestamp,
-    });
+  // happens in the transfer hook (`useAssetTransfer.send`); this row is only
+  // shown until the backend lists the same hash.
+  recordSentTransaction(transaction: Transaction) {
+    this.localTransactions.unshift(transaction);
   }
 
   // Report a broadcast to the backend for confirmation tracking. Best-effort:
@@ -221,39 +215,6 @@ export class WalletStore {
     });
     for (const dto of queued) {
       await this.reportSend(dto);
-    }
-  }
-
-  recordScanToPayment(merchant: string, amount: number, assetId: string) {
-    this.transactions.unshift({
-      id: `txn-${this.transactions.length + 1}`,
-      direction: 'out',
-      counterparty: merchant,
-      amount: -amount,
-      date: 'Today',
-      assetId,
-    });
-
-    this.coupons.unshift({
-      code: generateCouponCode(),
-      merchant,
-      amount: Number((amount * CASHBACK_RATE).toFixed(2)),
-      status: 'Claimable',
-    });
-  }
-
-  claimCoupon(code: string) {
-    const coupon = this.coupons.find(c => c.code === code);
-    if (!coupon || coupon.status === 'Claimed') {
-      return;
-    }
-
-    coupon.status = 'Claimed';
-
-    const utl = this.assets.find(asset => asset.id === UTL_ASSET_ID);
-    if (utl) {
-      utl.balance += coupon.amount;
-      utl.fiatValue += coupon.amount;
     }
   }
 }

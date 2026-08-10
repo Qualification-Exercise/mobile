@@ -4,6 +4,9 @@ import { TRON_API_KEY, TRON_API_SECRET } from '@env';
 const erc4337Defaults = {
   paymasterAddress: '0x8b1f6cb5d062aa2ce8d581942bbb960420d875ba',
   entrypointAddress: '0x0000000071727De22E5E9d8BAf0edAc6f37da032',
+  // Denominated in the paymaster token (USDt, 6 decimals): 5 USDt. Only
+  // applies when gas is paid through the paymaster — see
+  // `NATIVE_MAX_TRANSFER_FEE` for the native-gas ceiling.
   transferMaxFee: 5000000,
   // Safe 4337 module set version used for account derivation. '0.3.0' is the
   // only version in the erc-4337 wallet's SAFE_MODULES_MAP; without it account
@@ -12,13 +15,44 @@ const erc4337Defaults = {
   safeModulesVersion: '0.3.0',
 };
 
+// Per-network ceiling on a transfer's fee when gas is paid in the chain's own
+// coin, in that coin's base units (wei for ETH/POL).
+//
+// It cannot be shared with `transferMaxFee` below: that one is denominated in
+// the paymaster token (USDt, 6 decimals), so reusing it in native mode would
+// cap every transfer at a few thousand wei and reject all of them. Values are
+// deliberately loose — this is a runaway-gas guard, not a fee target.
+export const NATIVE_MAX_TRANSFER_FEE: Record<string, bigint> = {
+  // 0.01 ETH — Sepolia gas is erratic and the coin is worthless anyway.
+  ethereum: 10_000_000_000_000_000n,
+  // 0.005 ETH — an Arbitrum user operation costs a small fraction of this.
+  arbitrum: 5_000_000_000_000_000n,
+  // 5 POL.
+  polygon: 5_000_000_000_000_000_000n,
+};
+
+// EVM JSON-RPC endpoints. A single unreachable endpoint fails the whole
+// balance batch (WDK's `fetchBalances` rejects rather than degrading per
+// network), so these must all be endpoints that answer without an API key.
+// `polygon-rpc.com` no longer does: it answers 401 `API key disabled`.
+// Bitcoin's stateless HTTPS backend (Blockbook v2 REST), used ahead of the
+// Electrum sockets below.
+const BLOCKBOOK_URL = 'https://btc1.trezor.io/api';
+
+const SEPOLIA_RPC_URL = 'https://ethereum-sepolia-rpc.publicnode.com';
+const ARBITRUM_RPC_URL = 'https://arbitrum-one-rpc.publicnode.com';
+const POLYGON_RPC_URL = 'https://polygon-bor-rpc.publicnode.com';
+
 // USDt contract addresses per EVM network. Shared between the WDK paymaster
 // config below and the asset registry (src/shared/config/assets.ts) so the two
 // can never drift.
 export const USDT_ARBITRUM_ADDRESS =
   '0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9';
+// USD₮ on Ethereum Sepolia. This is the one Candide's paymaster accepts on
+// this chain (`pm_supportedERC20Tokens`), which is what makes token-paid gas
+// work here at all.
 export const USDT_ETHEREUM_SEPOLIA_ADDRESS =
-  '0xaA8E23Fb1079EA71e0a56F48a2aA51851D8433D0';
+  '0xd077A400968890Eacc75cdc901F0356c943e4fDb';
 export const USDT_POLYGON_ADDRESS =
   '0xc2132D05D31c914a87C6611C10748AEb04B58e8F';
 
@@ -51,12 +85,34 @@ export const wdkConfigs: WdkConfigs = {
     bitcoin: {
       blockchain: 'bitcoin',
       config: {
-        // Use the SSL Electrum port (50002) with TLS rather than the plaintext
-        // port (50001), so address/balance queries are not exposed on the wire.
-        host: 'electrum.blockstream.info',
-        port: 50002,
-        protocol: 'ssl',
         network: 'bitcoin',
+        // A list, not one server: the wallet wraps it in its failover provider
+        // and moves to the next entry when a call fails.
+        //
+        // Blockbook comes first because it is plain HTTPS with no session. The
+        // Electrum entries hold one long-lived TCP socket, and a phone loses
+        // that socket constantly — backgrounding, wifi/LTE handover, an idle
+        // server hanging up. The client does not notice until the next call,
+        // which then fails with "Connection to server lost, please retry".
+        client: [
+          { type: 'blockbook-http', clientConfig: { url: BLOCKBOOK_URL } },
+          {
+            type: 'electrum',
+            clientConfig: {
+              host: 'electrum.blockstream.info',
+              // 50002 is the TLS port; 50001 is plaintext, which mobile
+              // carriers and captive networks are happy to interrupt.
+              port: 50002,
+              protocol: 'ssl',
+              // Default is 120s. Ping more often than a NAT or the server
+              // times an idle connection out, so the socket is kept rather
+              // than found dead mid-request.
+              pingPeriod: 30_000,
+            },
+          },
+        ],
+        // Failover attempts across the list above.
+        retries: 2,
       },
     },
     spark: {
@@ -69,9 +125,7 @@ export const wdkConfigs: WdkConfigs = {
       blockchain: 'ethereum',
       config: {
         chainId: ETHEREUM_CHAIN_ID,
-        // Public keyless Sepolia RPC. The previous `rpc.sepolia.org` endpoint is
-        // dead (returns 404), which made balance/account reads fail on Sepolia.
-        provider: 'https://ethereum-sepolia-rpc.publicnode.com',
+        provider: SEPOLIA_RPC_URL,
         bundlerUrl: 'https://api.candide.dev/public/v3/11155111',
         paymasterUrl: 'https://api.candide.dev/public/v3/11155111',
         ...erc4337Defaults,
@@ -84,7 +138,7 @@ export const wdkConfigs: WdkConfigs = {
       blockchain: 'arbitrum',
       config: {
         chainId: ARBITRUM_CHAIN_ID,
-        provider: 'https://arb1.arbitrum.io/rpc',
+        provider: ARBITRUM_RPC_URL,
         bundlerUrl: 'https://api.candide.dev/public/v3/arbitrum',
         paymasterUrl: 'https://api.candide.dev/public/v3/arbitrum',
         ...erc4337Defaults,
@@ -97,10 +151,7 @@ export const wdkConfigs: WdkConfigs = {
       blockchain: 'polygon',
       config: {
         chainId: POLYGON_CHAIN_ID,
-        // Public keyless Polygon RPC. The previous `polygon-rpc.com` endpoint now
-        // rejects with 401 ("API key disabled"), which made balance/account reads
-        // fail on Polygon.
-        provider: 'https://polygon-bor-rpc.publicnode.com',
+        provider: POLYGON_RPC_URL,
         bundlerUrl: 'https://api.candide.dev/public/v3/polygon',
         paymasterUrl: 'https://api.candide.dev/public/v3/polygon',
         ...erc4337Defaults,

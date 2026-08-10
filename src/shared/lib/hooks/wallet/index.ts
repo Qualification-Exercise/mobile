@@ -10,11 +10,17 @@ export {
   type WalletManagerStatus,
 } from './useEnsureWdkReady';
 export { useAssetTransfer } from './useAssetTransfer';
-export type { UseAssetTransferResult, FeeEstimate } from './useAssetTransfer';
+export type {
+  UseAssetTransferResult,
+  FeeEstimate,
+  GasMode,
+} from './useAssetTransfer';
 export { useAssetBalances } from './useAssetBalances';
 export type { UseAssetBalancesResult } from './useAssetBalances';
 export { useReceiveAddress } from './useReceiveAddress';
 export type { UseReceiveAddressResult } from './useReceiveAddress';
+export { useClaimCoupon } from './useClaimCoupon';
+export type { UseClaimCouponResult } from './useClaimCoupon';
 
 export function isWalletAlreadyExistsError(message: string): boolean {
   return message.includes('already exists');

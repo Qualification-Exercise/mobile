@@ -1,5 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import {
+  getTransactionAmount,
   getTransactionColor,
   getTransactionIconName,
   getTransactionTitle,
@@ -13,7 +14,6 @@ type TransactionRowProps = {
 
 export function TransactionRow({ transaction }: TransactionRowProps) {
   const color = getTransactionColor(transaction);
-  const sign = transaction.amount >= 0 ? '+' : '-';
 
   return (
     <View style={styles.row}>
@@ -30,8 +30,7 @@ export function TransactionRow({ transaction }: TransactionRowProps) {
       </View>
       <View style={styles.values}>
         <Text style={[styles.amount, { color }]}>
-          {sign}
-          {Math.abs(transaction.amount).toFixed(2)}
+          {getTransactionAmount(transaction)}
         </Text>
         <Text style={styles.date}>{transaction.date}</Text>
       </View>

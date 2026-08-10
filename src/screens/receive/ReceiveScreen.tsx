@@ -3,12 +3,15 @@ import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
 import {
   Clipboard,
+  Share,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
+import { getNetworkLabel } from '@shared/config';
+import { buildPaymentUri } from '@shared/lib';
 import { useReceiveAddress } from '@shared/lib/hooks/wallet';
 import { useStore } from '@shared/store';
 import {
@@ -19,7 +22,8 @@ import {
   colors,
   radii,
   spacing,
-  QrPlaceholder,
+  AssetPickerSheet,
+  QrCode,
 } from '@shared/ui';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
@@ -30,6 +34,7 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
   const assets = walletStore.assets;
 
   const [selectedAssetId, setSelectedAssetId] = useState(DEFAULT_ASSET_ID);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const asset = assets.find(a => a.id === selectedAssetId) ?? assets[0];
 
   // Derive the receive address for the selected asset's chain. Switching the
@@ -38,13 +43,9 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
   const displayAddress =
     address ?? (isLoading ? 'Loading address…' : 'Address unavailable');
 
-  // The selector cycles through the wallet's assets, switching the chain (and
-  // therefore the derived address) on each tap.
-  function selectNextAsset() {
-    const index = assets.findIndex(a => a.id === asset.id);
-    const next = assets[(index + 1) % assets.length];
-    setSelectedAssetId(next.id);
-  }
+  // What the QR encodes: a payment URI another wallet can act on, which for a
+  // token also names the contract so the payer cannot pick the wrong asset.
+  const paymentUri = address ? buildPaymentUri(asset.id, address) : null;
 
   return (
     <ScreenContainer>
@@ -56,14 +57,16 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
       <View style={styles.body}>
         <TouchableOpacity
           style={styles.selector}
-          onPress={selectNextAsset}
+          onPress={() => setPickerOpen(true)}
           activeOpacity={0.85}
         >
           <View style={styles.selectorPill}>
             <Text style={styles.selectorPillLabel}>{asset.symbol}</Text>
           </View>
           <View style={styles.selectorNetwork}>
-            <Text style={styles.selectorNetworkLabel}>{asset.network}</Text>
+            <Text style={styles.selectorNetworkLabel}>
+              {getNetworkLabel(asset.network)}
+            </Text>
             <AppIcon
               name="chevron-down"
               size={14}
@@ -71,12 +74,29 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
             />
           </View>
         </TouchableOpacity>
-        <QrPlaceholder size={236} />
+        {paymentUri ? (
+          <QrCode value={paymentUri} size={236} />
+        ) : (
+          <View style={styles.qrFallback} />
+        )}
         <View style={styles.addressBlock}>
-          <Text style={styles.addressLabel}>Your {asset.network} address</Text>
+          <Text style={styles.addressLabel}>
+            Your {getNetworkLabel(asset.network)} address
+          </Text>
           <Text style={styles.addressValue}>{displayAddress}</Text>
         </View>
       </View>
+      <AssetPickerSheet
+        visible={pickerOpen}
+        title="Receive on"
+        assets={assets}
+        selectedAssetId={asset.id}
+        onSelect={id => {
+          setSelectedAssetId(id);
+          setPickerOpen(false);
+        }}
+        onClose={() => setPickerOpen(false)}
+      />
       <View style={styles.actionsRow}>
         <TouchableOpacity
           style={[styles.copyButton, !address && styles.copyButtonDisabled]}
@@ -88,7 +108,13 @@ export const ReceiveScreen = observer(function ReceiveScreenView() {
         </TouchableOpacity>
         <PrimaryButton
           title="Share"
-          onPress={() => {}}
+          onPress={() => {
+            if (paymentUri) {
+              // Sharing can be dismissed by the user; nothing to recover from.
+              Share.share({ message: paymentUri }).catch(() => {});
+            }
+          }}
+          disabled={!paymentUri}
           style={styles.actionButton}
         />
       </View>
@@ -145,6 +171,12 @@ const styles = StyleSheet.create({
   selectorNetworkLabel: {
     fontSize: 12.5,
     color: colors.textSecondary,
+  },
+  qrFallback: {
+    width: 236,
+    height: 236,
+    borderRadius: radii.xl,
+    backgroundColor: colors.surfaceAlt,
   },
   addressBlock: {
     alignItems: 'center',

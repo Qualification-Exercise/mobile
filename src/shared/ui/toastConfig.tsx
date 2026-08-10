@@ -29,7 +29,7 @@ const text2Style = {
  * `<Toast />` so `Toast.show({ type: 'success' | 'error' })` renders on brand.
  */
 export const toastConfig: ToastConfig = {
-  success: (props) => (
+  success: props => (
     <BaseToast
       {...props}
       style={[cardStyle, { borderLeftColor: colors.accentBright }]}
@@ -37,7 +37,7 @@ export const toastConfig: ToastConfig = {
       text2Style={text2Style}
     />
   ),
-  error: (props) => (
+  error: props => (
     <ErrorToast
       {...props}
       style={[cardStyle, { borderLeftColor: '#E0715A' }]}

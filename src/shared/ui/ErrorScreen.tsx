@@ -27,7 +27,11 @@ export function ErrorScreen({ error, onReset }: ErrorScreenProps) {
             : 'The app hit an unexpected error. Please try again.'}
         </Text>
       </View>
-      <PrimaryButton title="Try again" onPress={onReset} style={styles.button} />
+      <PrimaryButton
+        title="Try again"
+        onPress={onReset}
+        style={styles.button}
+      />
     </ScreenContainer>
   );
 }

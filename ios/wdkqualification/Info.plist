@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>wdkqualification</string>
+	<string>WDK Wallet</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -44,6 +44,8 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<key>NSCameraUsageDescription</key>
+	<string>Scan payment QR codes to pay merchants</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>Use Face ID to unlock the app and approve transactions</string>
 	<key>NSLocationWhenInUseUsageDescription</key>

@@ -1,0 +1,11 @@
+<resources>
+
+    <!-- Android 12+ draws its own splash screen and ignores windowBackground,
+         so the same mark and colour are handed to the platform API instead. -->
+    <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <item name="android:windowSplashScreenBackground">@color/brandBackground</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_mark</item>
+    </style>
+
+</resources>

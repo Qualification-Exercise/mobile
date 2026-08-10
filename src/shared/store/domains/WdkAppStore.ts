@@ -9,8 +9,6 @@ const INITIAL_STATE: WdkAppState = { status: 'INITIALIZING' };
 // 'READY'	walletId: string	Wallet is unlocked and ready for operations
 // 'ERROR'	error: Error	Initialization failed
 export class WdkAppStore {
-
-
   state: WdkAppState = INITIAL_STATE;
 
   constructor() {
@@ -18,7 +16,10 @@ export class WdkAppStore {
   }
 
   get isStartingRuntime() {
-    return this.state.status === 'INITIALIZING' || this.state.status === 'REINITIALIZING';
+    return (
+      this.state.status === 'INITIALIZING' ||
+      this.state.status === 'REINITIALIZING'
+    );
   }
 
   setState(state: WdkAppState) {

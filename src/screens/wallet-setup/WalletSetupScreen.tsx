@@ -1,4 +1,3 @@
-import { useEffect, useRef } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { StyleSheet, Text, View } from 'react-native';
 import type { RootStackNavigationProp } from '@app/navigation/types';
@@ -32,9 +31,7 @@ export function WalletSetupScreen() {
         <View style={styles.actions}>
           <PressableButton
             title="Create new wallet"
-            onPress={() =>
-              navigation.navigate('CreateWallet')
-            }
+            onPress={() => navigation.navigate('CreateWallet')}
           />
           <SecondaryButton
             title="Restore with recovery phrase"
