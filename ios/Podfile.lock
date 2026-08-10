@@ -1613,7 +1613,7 @@ PODS:
     - ReactCommon/turbomodule/core
     - ReactNativeDependencies
     - Yoga
-  - "react-native-bare-kit (0.15.0+103164)":
+  - "react-native-bare-kit (0.15.0+0138e0)":
     - hermes-engine
     - RCTRequired
     - RCTTypeSafety
@@ -2740,7 +2740,7 @@ SPEC CHECKSUMS:
   gRPC-Swift: 74adcaaa62ac5e0a018938840328cb1fdfb09e7b
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
-  hermes-engine: 7d4f50190d7c157526ff7554ea912521d6d19ec7
+  hermes-engine: 4606089f6e7c591028ec4e084390f7bb96d41ac0
   Logging: beeb016c9c80cf77042d62e83495816847ef108b
   MMKVCore: 3d16ce9f7d411e135020915fde98a056859a1efa
   NitroMmkv: 85a251e15c39d7c95fe58cf40786fa126b8d143c
@@ -2783,7 +2783,7 @@ SPEC CHECKSUMS:
   React-Mapbuffer: 44dd007f917e2396afa0e70bbd70273237d93fde
   React-microtasksnativemodule: f413ee411341fb3c34d20e85e9f6f524921fab15
   React-mutationobservernativemodule: 58f6d2adf7d98e72b241608dfa2ddce414d2a4e7
-  react-native-bare-kit: 7b07d8cc64d56f7188812be3812cd82d92ed2bd9
+  react-native-bare-kit: 67e8f7f70d6e284d1ed44efe506a553ed1cc5119
   react-native-safe-area-context: fb5c8ee9f6dd62ef710611b3d370c501f42a4ac0
   React-NativeModulesApple: 167e532fb9bae30f3c66636b8ee0092bab263667
   React-networking: 89f6b69755a3176f30e56ba1ba8e214b1518ecfb
@@ -2845,4 +2845,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 07fa002bd8c455b2ab7d339c390f9bd5e9995df0
 
-COCOAPODS: 1.15.2
+COCOAPODS: 1.16.2

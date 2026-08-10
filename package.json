@@ -9,7 +9,7 @@
     "prepare": "husky",
     "start": "concurrently -n wdk,metro -c blue,green \"npm run wdk:watch\" \"react-native start\"",
     "start:metro": "react-native start",
-    "expo:start": "EXPO_UNSTABLE_MCP_SERVER=1 expo start",
+    "expo:start": "EXPO_UNSTABLE_MCP_SERVER=1 expo start -c",
     "test": "jest",
     "typecheck": "tsc --noEmit",
     "wdk:bundle": "wdk-worklet-bundler generate --install",
