@@ -85,11 +85,6 @@ export const wdkConfigs: WdkConfigs = {
     bitcoin: {
       blockchain: 'bitcoin',
       config: {
-        // Use the SSL Electrum port (50002) with TLS rather than the plaintext
-        // port (50001), so address/balance queries are not exposed on the wire.
-        host: 'electrum.blockstream.info',
-        port: 50002,
-        protocol: 'ssl',
         network: 'bitcoin',
         // A list, not one server: the wallet wraps it in its failover provider
         // and moves to the next entry when a call fails.

@@ -168,7 +168,12 @@ export function useAssetTransfer(assetId: string): UseAssetTransferResult {
       amountBaseUnits: string,
       forced?: GasMode,
     ) => {
-      ensureWdkReady();
+      // Only the send path alerts. A quote is read-only and best-effort, so it
+      // must stay silent even when readiness flips between render and call —
+      // callers gate on `isReady` and treat a throw as a blank fee.
+      if (action === 'send') {
+        ensureWdkReady();
+      }
 
       const attempts = forced ? [forced] : modes;
       let lastError: unknown;
