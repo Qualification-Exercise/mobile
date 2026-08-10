@@ -1,5 +1,8 @@
 import { useMemo } from 'react';
-import { BaseAsset, useBalancesForWallet } from '@tetherto/wdk-react-native-core';
+import {
+  BaseAsset,
+  useBalancesForWallet,
+} from '@tetherto/wdk-react-native-core';
 import { SUPPORTED_ASSETS } from '@shared/config';
 
 export interface UseAssetBalancesResult {
@@ -19,7 +22,13 @@ export function useAssetBalances(): UseAssetBalancesResult {
     [],
   );
 
-  const { data, isLoading, error } = useBalancesForWallet(0, assets);
+  // `staleTime: 0` so the cached (and initially empty) balances are treated as
+  // stale and a live fetch runs on mount. Without it, `useBalancesForWallet`
+  // serves its fresh `initialData` — null for any not-yet-cached asset — and
+  // never refetches, so balances show "—" until a manual refresh.
+  const { data, isLoading, error } = useBalancesForWallet(0, assets, {
+    staleTime: 0,
+  });
 
   const balances = useMemo(() => {
     const map = new Map<string, string>();
