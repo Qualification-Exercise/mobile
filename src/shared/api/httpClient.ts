@@ -9,6 +9,40 @@ import type { ApiErrorEnvelope, AuthTokens } from './types';
 
 const REQUEST_TIMEOUT_MS = 15000;
 
+// A 429 from the backend indexer is transient. Retry a bounded number of times,
+// honoring the server's `Retry-After` when present and otherwise backing off
+// with capped exponential delay plus jitter. Without this a rate-limited
+// endpoint fails immediately and the caller is free to retry in a tight loop.
+const MAX_429_RETRIES = 2;
+const RETRY_BACKOFF_BASE_MS = 1000;
+const RETRY_BACKOFF_CAP_MS = 15000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Milliseconds to wait before retrying a 429. Prefers the server's `Retry-After`
+// header — either delta-seconds or an HTTP date — and falls back to capped
+// exponential backoff with jitter. `attempt` is the number of retries already
+// made (0 for the first retry).
+function resolveRetryDelayMs(retryAfter: unknown, attempt: number): number {
+  if (typeof retryAfter === 'string' && retryAfter.trim() !== '') {
+    const seconds = Number(retryAfter);
+    if (Number.isFinite(seconds)) {
+      return Math.min(Math.max(seconds, 0) * 1000, RETRY_BACKOFF_CAP_MS);
+    }
+    const dateMs = Date.parse(retryAfter);
+    if (!Number.isNaN(dateMs)) {
+      return Math.min(Math.max(dateMs - Date.now(), 0), RETRY_BACKOFF_CAP_MS);
+    }
+  }
+  const backoff = Math.min(
+    RETRY_BACKOFF_BASE_MS * 2 ** attempt,
+    RETRY_BACKOFF_CAP_MS,
+  );
+  return backoff + Math.random() * RETRY_BACKOFF_BASE_MS;
+}
+
 // This is the list of endpoints where a 401 should be returned to the
 // caller as-is, instead of triggering our "token expired → refresh → retry"
 // logic (in the response interceptor at the bottom of this file).
@@ -119,8 +153,24 @@ httpClient.interceptors.response.use(
   async (error: AxiosError) => {
     const bridge = authBridge;
     const original = error.config as
-      | (InternalAxiosRequestConfig & { _retried?: boolean })
+      | (InternalAxiosRequestConfig & {
+          _retried?: boolean;
+          _retry429Count?: number;
+        })
       | undefined;
+
+    // Transient rate-limit: wait out the backoff and retry before surfacing it.
+    if (original != null && error.response?.status === 429) {
+      const attempt = original._retry429Count ?? 0;
+      if (attempt < MAX_429_RETRIES) {
+        original._retry429Count = attempt + 1;
+        const headers = error.response.headers as
+          | Record<string, unknown>
+          | undefined;
+        await sleep(resolveRetryDelayMs(headers?.['retry-after'], attempt));
+        return httpClient(original as AxiosRequestConfig);
+      }
+    }
 
     const canRetry =
       bridge != null &&

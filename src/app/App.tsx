@@ -1,7 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { observer } from 'mobx-react-lite';
-import { Alert, DevSettings, StatusBar, useColorScheme } from 'react-native';
+import {
+  Alert,
+  DevSettings,
+  LogBox,
+  StatusBar,
+  useColorScheme,
+} from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import { RootErrorBoundary, toastConfig } from '@shared/ui';
@@ -21,6 +27,16 @@ import { wdkConfigs } from '@shared/config';
 
 const MENU_ITEM_TITLE = 'Clear all cached data';
 const DEV_MENU_ITEM_TITLE = 'Dev Menu';
+
+// WDK logs a per-asset balance failure via `console.error`, which in dev raises
+// a full-screen LogBox overlay that blocks the UI whenever one network is
+// unreachable or rate-limited (e.g. a TronGrid 429). The failure is already
+// handled — the affected asset just shows "—" — so it should not take over the
+// screen. Warnings/errors still print to the console; only the overlay is
+// suppressed, and only for this specific, already-handled message.
+if (__DEV__) {
+  LogBox.ignoreLogs([/Failed to fetch balance for/]);
+}
 
 function DevMenu() {
   const { authStore, biometryStore, navigationStore } = useStore();

@@ -5,6 +5,14 @@ import {
 } from '@tetherto/wdk-react-native-core';
 import { SUPPORTED_ASSETS } from '@shared/config';
 
+// How long a fetched balance is considered fresh. Every mount of a screen that
+// uses this hook (Home, AssetDetail) would otherwise trigger a full-wallet
+// balance fetch, and each fetch hits every network — including keyless
+// TronGrid, which 429s under that load. A short window lets rapid navigation
+// reuse the cached result while a mount after the window still refetches.
+// Pull-to-refresh and the focus refresh in HomeScreen force a fetch regardless.
+const BALANCE_STALE_TIME_MS = 30_000;
+
 export interface UseAssetBalancesResult {
   // assetId -> base-unit balance string. Missing entries mean not-yet-loaded
   // or a per-asset fetch failure.
@@ -26,12 +34,13 @@ export function useAssetBalances(): UseAssetBalancesResult {
     [],
   );
 
-  // `staleTime: 0` so the cached (and initially empty) balances are treated as
-  // stale and a live fetch runs on mount. Without it, `useBalancesForWallet`
-  // serves its fresh `initialData` — null for any not-yet-cached asset — and
-  // never refetches, so balances show "—" until a manual refresh.
+  // A short stale window (not 0): the first mount still fetches — nothing is
+  // cached yet, so `initialData` is null and the query runs — while mounts
+  // within the window reuse the cached balances instead of re-hitting every
+  // network. `staleTime: 0` made every screen mount refetch, which hammered
+  // keyless TronGrid into 429s.
   const { data, isLoading, error } = useBalancesForWallet(0, assets, {
-    staleTime: 0,
+    staleTime: BALANCE_STALE_TIME_MS,
   });
 
   const { balances, errors } = useMemo(() => {

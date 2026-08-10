@@ -25,6 +25,12 @@ import { AssetRow } from './AssetRow';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
+// Focus fires on every return to this screen (screens stay mounted, so React
+// Query never refetches on its own). Forcing a full-wallet refresh each time
+// hammered keyless TronGrid into 429s, so a focus refresh is skipped when the
+// last one was under this window ago. Pull-to-refresh always forces one.
+const FOCUS_REFRESH_MIN_INTERVAL_MS = 30_000;
+
 // The address shown in the header. EVM networks share one derived account, so
 // the primary payment chain stands in for "your address".
 const HEADER_ADDRESS_NETWORK = 'arbitrum';
@@ -84,7 +90,9 @@ export const HomeScreen = observer(function HomeScreenView() {
   // A send changes the balance only once it is mined, which is usually after
   // the user has already navigated back here — so balances and prices are
   // re-read on focus, not just on mount.
+  const lastRefreshRef = useRef(0);
   const refresh = useCallback(() => {
+    lastRefreshRef.current = Date.now();
     refreshBalanceRef.current.mutate(
       { accountIndex: 0, type: 'wallet' },
       { onError: () => {} },
@@ -92,9 +100,14 @@ export const HomeScreen = observer(function HomeScreenView() {
     return walletStore.loadPrices();
   }, [walletStore]);
 
+  // Skip the focus refresh when a recent one already ran — rapid navigation
+  // between Home and a detail screen would otherwise refetch every balance each
+  // time. A stale enough focus, and pull-to-refresh below, still refresh.
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      if (Date.now() - lastRefreshRef.current >= FOCUS_REFRESH_MIN_INTERVAL_MS) {
+        refresh();
+      }
     }, [refresh]),
   );
 
