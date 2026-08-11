@@ -1,0 +1,23 @@
+# The app reads its settings from a ".env" file, and those settings get
+# baked into the app when it's built. We don't store that file in the
+# repository for safety, so we recreate it here from a stored secret.
+#
+# Shared by the Android and iOS jobs. The secret is passed in as an input
+# because composite actions don't have direct access to repository secrets.
+name: Write .env
+description: Recreate the .env file from a stored secret so its values are baked into the build.
+
+inputs:
+  dotenv:
+    description: The full contents of the .env file (pulled from an encrypted secret).
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        # The file's contents, handed in by the caller.
+        DOTENV: ${{ inputs.dotenv }}
+      # Write those contents into the .env file.
+      run: printf '%s' "$DOTENV" > .env
