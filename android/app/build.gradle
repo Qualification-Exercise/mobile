@@ -55,7 +55,7 @@ react {
     //
     // Added by install-expo-modules
     entryFile = file(["node", "-e", "require('expo/scripts/resolveAppEntry')", rootDir.getAbsoluteFile().getParentFile().getAbsolutePath(), "android", "absolute"].execute(null, rootDir).text.trim())
-    cliFile = new File(["node", "--print", "require.resolve('@expo/cli')"].execute(null, rootDir).text.trim())
+    cliFile = new File(["node", "--print", "require.resolve('@expo/cli', { paths: [require.resolve('expo/package.json')] })"].execute(null, rootDir).text.trim())
     bundleCommand = "export:embed"
 }
 
@@ -87,7 +87,10 @@ android {
         applicationId "com.wdkqualification"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
+        // versionCode is injected by CI (Fastlane passes -PVERSION_CODE=<n>,
+        // wired to the GitHub run number) so every upload is unique. Defaults
+        // to 1 for local builds.
+        versionCode((project.findProperty("VERSION_CODE") ?: 1).toString().toInteger())
         versionName "1.0"
     }
     signingConfigs {
@@ -97,15 +100,29 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        // Release signing is driven entirely by env vars injected in CI (see
+        // .github/workflows/cd.yml). When ANDROID_KEYSTORE_FILE is absent (local
+        // dev), release falls back to the debug keystore below.
+        release {
+            def keystoreFile = System.getenv("ANDROID_KEYSTORE_FILE")
+            if (keystoreFile != null) {
+                storeFile file(keystoreFile)
+                storePassword System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("ANDROID_KEY_ALIAS")
+                keyPassword System.getenv("ANDROID_KEY_PASSWORD")
+            }
+        }
     }
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Use the real upload keystore when CI provides one; otherwise fall
+            // back to the debug keystore so local `assembleRelease` still works.
+            signingConfig(System.getenv("ANDROID_KEYSTORE_FILE") != null
+                ? signingConfigs.release
+                : signingConfigs.debug)
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }

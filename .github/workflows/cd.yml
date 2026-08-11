@@ -89,8 +89,8 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           # The version we worked out earlier from the tag.
           MARKETING_VERSION: ${{ steps.version.outputs.version }}
-        # Run Fastlane's "beta" task to build and upload.
-        run: bundle exec fastlane android beta
+        # Run Fastlane's "build" task to build and upload.
+        run: bundle exec fastlane android build
 
   ios:
     name: iOS → TestFlight
@@ -153,5 +153,5 @@ jobs:
           BUILD_NUMBER: ${{ github.run_number }}
           # The version we worked out earlier from the tag.
           MARKETING_VERSION: ${{ steps.version.outputs.version }}
-        # run Fastlane's "beta" task to build and upload.
-        run: bundle exec fastlane ios beta
+        # run Fastlane's "build" task to build and upload.
+        run: bundle exec fastlane ios build

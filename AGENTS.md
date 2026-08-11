@@ -25,6 +25,20 @@ enabled (`newArchEnabled=true` in `android/gradle.properties`).
   commas, `arrowParens: avoid`) — run `npx prettier --write .`. There is no
   `format` script.
 
+## CI/CD
+
+GitHub Actions workflows live in `.github/workflows/`:
+
+- `ci.yml` — `lint`, `typecheck`, and `test:coverage` on every PR and push to
+  `main`.
+- `cd.yml` — on version tags (`v*`) and manual dispatch, builds and ships via
+  Fastlane (`fastlane/Fastfile`) to **TestFlight** (iOS) and the **Play Console**
+  internal track (Android).
+
+Setup, required GitHub secrets, and one-time provisioning are documented in
+[docs/ci-cd.md](./docs/ci-cd.md). The app identifier is
+`com.wdk.best.wallet.sdk.wdkwallet`, shared by the iOS and Android builds.
+
 ## Comments
 
 Use single-line `//` comments everywhere, including for multi-line notes and for
