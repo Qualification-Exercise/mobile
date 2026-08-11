@@ -14,6 +14,18 @@ const ASSET_DISPLAY: Record<
   TRX: { icon: 'T', color: '#EB0029', glyphColor: colors.textPrimary },
 };
 
+const ASSET_ICON_URLS: Record<string, string> = {
+  BTC: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1.png',
+  USDT: 'https://s2.coinmarketcap.com/static/img/coins/64x64/825.png',
+  ETH: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png',
+  POL: 'https://s2.coinmarketcap.com/static/img/coins/64x64/28321.png',
+  TRX: 'https://s2.coinmarketcap.com/static/img/coins/64x64/1958.png',
+};
+
+export function getAssetIconUrl(asset: Pick<Asset, 'symbol'>): string | null {
+  return ASSET_ICON_URLS[asset.symbol] ?? null;
+}
+
 export function getAssetIcon(asset: Pick<Asset, 'symbol'>): string {
   return ASSET_DISPLAY[asset.symbol]?.icon ?? asset.symbol.charAt(0);
 }

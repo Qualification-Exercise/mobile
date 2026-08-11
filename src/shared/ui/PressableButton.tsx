@@ -6,7 +6,7 @@ import {
   Text,
   ViewStyle,
 } from 'react-native';
-import { colors, radii, spacing } from './tokens';
+import { colors, radii, spacing, typography } from './tokens';
 
 type PressableButtonProps = {
   title: string;
@@ -67,23 +67,24 @@ export function PressableButton({
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: radii.xl,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
     paddingVertical: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   buttonPressed: {
-    opacity: 0.85,
+    backgroundColor: colors.surfaceAlt,
+    borderColor: colors.borderStrong,
   },
   label: {
-    color: colors.accentBright,
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.heading,
+    color: colors.textPrimary,
+    letterSpacing: 0.2,
   },
 });

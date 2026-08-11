@@ -3,14 +3,17 @@ import {
   ErrorToast,
   type ToastConfig,
 } from 'react-native-toast-message';
-import { colors, radii } from './tokens';
+import { colors, radii, shadows, typography } from './tokens';
 
 const cardStyle = {
-  backgroundColor: colors.surface,
-  borderLeftWidth: 4,
+  backgroundColor: colors.surfaceAlt,
+  borderLeftWidth: 3,
+  borderWidth: 1,
+  borderColor: colors.border,
   borderRadius: radii.md,
   height: 'auto' as const,
   paddingVertical: 12,
+  ...shadows.floating,
 };
 
 const successCardStyle = {
@@ -24,14 +27,14 @@ const errorCardStyle = {
 };
 
 const text1Style = {
-  color: colors.textPrimary,
-  fontSize: 14,
+  ...typography.body,
   fontWeight: '600' as const,
+  color: colors.textPrimary,
 };
 
 const text2Style = {
+  ...typography.caption,
   color: colors.textSecondary,
-  fontSize: 12,
 };
 
 /**
