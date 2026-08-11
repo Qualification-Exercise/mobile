@@ -29,6 +29,7 @@ module.exports = {
   // },
 
   networks: {
+    bitcoin: { package: '@tetherto/wdk-wallet-btc' },
     spark: { package: '@tetherto/wdk-wallet-spark' },
     ethereum: { package: '@tetherto/wdk-wallet-evm-erc-4337' },
     arbitrum: { package: '@tetherto/wdk-wallet-evm-erc-4337' },

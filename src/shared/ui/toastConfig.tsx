@@ -13,6 +13,16 @@ const cardStyle = {
   paddingVertical: 12,
 };
 
+const successCardStyle = {
+  ...cardStyle,
+  borderLeftColor: colors.accentBright,
+};
+
+const errorCardStyle = {
+  ...cardStyle,
+  borderLeftColor: '#E0715A',
+};
+
 const text1Style = {
   color: colors.textPrimary,
   fontSize: 14,
@@ -29,18 +39,18 @@ const text2Style = {
  * `<Toast />` so `Toast.show({ type: 'success' | 'error' })` renders on brand.
  */
 export const toastConfig: ToastConfig = {
-  success: (props) => (
+  success: props => (
     <BaseToast
       {...props}
-      style={[cardStyle, { borderLeftColor: colors.accentBright }]}
+      style={successCardStyle}
       text1Style={text1Style}
       text2Style={text2Style}
     />
   ),
-  error: (props) => (
+  error: props => (
     <ErrorToast
       {...props}
-      style={[cardStyle, { borderLeftColor: '#E0715A' }]}
+      style={errorCardStyle}
       text1Style={text1Style}
       text2Style={text2Style}
       // Error messages (plus the dev-only source tag) routinely run past the

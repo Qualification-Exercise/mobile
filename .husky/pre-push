@@ -1,0 +1,3 @@
+# Run only the tests related to what this branch changed vs the default branch.
+# Full suite + coverage stay in CI; this is a fast local gate before sharing code.
+npx jest --bail --passWithNoTests --changedSince=origin/main

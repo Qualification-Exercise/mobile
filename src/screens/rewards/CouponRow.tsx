@@ -1,5 +1,12 @@
 import { StyleSheet, Text, View } from 'react-native';
-import type { Coupon } from '@shared/store/models/coupon';
+import {
+  getCouponAmount,
+  getCouponIconColor,
+  getCouponStatusColor,
+  getCouponStatusLabel,
+  getCouponSubtitle,
+  type Coupon,
+} from '@shared/store/models/coupon';
 import { AppIcon, colors, radii, spacing } from '@shared/ui';
 
 type CouponRowProps = {
@@ -7,22 +14,22 @@ type CouponRowProps = {
 };
 
 export function CouponRow({ coupon }: CouponRowProps) {
-  const statusColor =
-    coupon.status === 'Claimable' ? colors.positive : colors.textTertiary;
+  const statusColor = getCouponStatusColor(coupon);
+  const iconColor = getCouponIconColor(coupon);
 
   return (
     <View style={styles.row}>
-      <View style={styles.icon}>
+      <View style={[styles.icon, { backgroundColor: iconColor }]}>
         <AppIcon name="gift-outline" size={18} color={colors.textPrimary} />
       </View>
       <View style={styles.info}>
-        <Text style={styles.code}>{coupon.code}</Text>
-        <Text style={styles.merchant}>{coupon.merchant}</Text>
+        <Text style={styles.code}>{coupon.code ?? 'Pending coupon'}</Text>
+        <Text style={styles.merchant}>{getCouponSubtitle(coupon)}</Text>
       </View>
       <View style={styles.values}>
-        <Text style={styles.amount}>{coupon.amount.toFixed(2)} UTL</Text>
+        <Text style={styles.amount}>{getCouponAmount(coupon)} UTL</Text>
         <Text style={[styles.status, { color: statusColor }]}>
-          {coupon.status}
+          {getCouponStatusLabel(coupon)}
         </Text>
       </View>
     </View>
@@ -42,7 +49,6 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: radii.xs,
-    backgroundColor: '#8B5CF6',
     alignItems: 'center',
     justifyContent: 'center',
   },

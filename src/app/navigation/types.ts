@@ -10,15 +10,20 @@ export type RootStackParamList = {
   Home: undefined;
   AssetDetail: { assetId: string };
   Receive: undefined;
-  Send: { assetId: string };
+  Send: { assetId: string; destination?: string };
   ApproveTransaction: {
     assetId: string;
-    amount: number;
+    amountBaseUnits: string;
     destination: string;
-    network: string;
+    gasMode?: 'native' | 'token';
   };
   ScanToPay: undefined;
-  PaymentSuccess: undefined;
+  PaymentSuccess: {
+    assetSymbol: string;
+    amount: string;
+    hash?: string;
+    status?: 'pending' | 'confirmed' | 'failed';
+  };
   Rewards: undefined;
   ClaimCoupon: { couponCode?: string } | undefined;
   WalletSettings: undefined;

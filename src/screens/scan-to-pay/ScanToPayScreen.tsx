@@ -1,37 +1,67 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useRef, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import type { RootStackNavigationProp } from '@app/navigation/types';
-import { useStore } from '@shared/store';
 import {
-  AppIcon,
+  CameraView,
+  useCameraPermissions,
+  type BarcodeScanningResult,
+} from 'expo-camera';
+import type { RootStackNavigationProp } from '@app/navigation/types';
+import { parsePaymentRequest } from '@shared/lib';
+import {
   HeaderCloseButton,
+  PrimaryButton,
   ScreenContainer,
   colors,
   radii,
   spacing,
-  QrPlaceholder,
 } from '@shared/ui';
 
-const MERCHANT = {
-  name: 'Café Nero — Milan',
-  network: 'Dynamic QR · Arbitrum',
-  amount: 25.0,
-  currency: 'USDt',
-  assetId: 'usdt-arbitrum',
-};
+// The asset a bare address is assumed to be for: the wallet's primary payment
+// token. A QR that names its own token or chain overrides this.
+const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
 export function ScanToPayScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { walletStore } = useStore();
+  const [permission, requestPermission] = useCameraPermissions();
+  const [error, setError] = useState<string | null>(null);
 
-  function handlePay() {
-    walletStore.recordScanToPayment(
-      MERCHANT.name,
-      MERCHANT.amount,
-      MERCHANT.assetId,
-    );
-    navigation.navigate('PaymentSuccess');
-  }
+  // The camera keeps firing while the navigation animation runs, so the first
+  // accepted code latches this and every later frame is ignored.
+  const handled = useRef(false);
+
+  const handleScan = useCallback(
+    ({ data }: BarcodeScanningResult) => {
+      if (handled.current) {
+        return;
+      }
+
+      const request = parsePaymentRequest(data, DEFAULT_ASSET_ID);
+      if (!request) {
+        setError('That QR is not a payment this wallet can pay.');
+        return;
+      }
+
+      handled.current = true;
+      setError(null);
+
+      // With an amount the QR is a complete payment request and goes straight
+      // to the signing sheet; without one the user still has to enter it.
+      if (request.amountBaseUnits) {
+        navigation.replace('ApproveTransaction', {
+          assetId: request.assetId,
+          amountBaseUnits: request.amountBaseUnits,
+          destination: request.destination,
+        });
+      } else {
+        navigation.replace('Send', {
+          assetId: request.assetId,
+          destination: request.destination,
+        });
+      }
+    },
+    [navigation],
+  );
 
   return (
     <ScreenContainer>
@@ -42,40 +72,37 @@ export function ScanToPayScreen() {
           <View style={styles.headerSpacer} />
         </View>
         <View style={styles.viewfinderWrapper}>
-          <Text style={styles.hint}>Point at a merchant's payment QR</Text>
-          <View style={styles.viewfinder}>
-            <QrPlaceholder size={182} />
-          </View>
-        </View>
-        <View style={styles.summary}>
-          <View style={styles.summaryRow}>
-            <View style={styles.merchantIcon}>
-              <AppIcon
-                name="storefront-outline"
-                size={18}
-                color={colors.textPrimary}
+          {permission?.granted ? (
+            <>
+              <Text style={styles.hint}>
+                Point at a merchant&apos;s payment QR
+              </Text>
+              <View style={styles.viewfinder}>
+                <CameraView
+                  style={styles.camera}
+                  facing="back"
+                  barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+                  onBarcodeScanned={handleScan}
+                />
+              </View>
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+            </>
+          ) : (
+            <View style={styles.permission}>
+              <Text style={styles.hint}>
+                {permission?.canAskAgain === false
+                  ? 'Camera access is off for this app. Enable it in Settings to scan payment QR codes.'
+                  : 'Scanning a payment QR needs access to the camera.'}
+              </Text>
+              <PrimaryButton
+                title="Allow camera"
+                onPress={() => {
+                  requestPermission().catch(() => {});
+                }}
+                disabled={permission?.canAskAgain === false}
               />
             </View>
-            <View style={styles.merchantInfo}>
-              <Text style={styles.merchantName}>{MERCHANT.name}</Text>
-              <Text style={styles.merchantNetwork}>{MERCHANT.network}</Text>
-            </View>
-            <View style={styles.merchantAmount}>
-              <Text style={styles.amountValue}>
-                {MERCHANT.amount.toFixed(2)}
-              </Text>
-              <Text style={styles.amountCurrency}>{MERCHANT.currency}</Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={styles.payButton}
-            onPress={handlePay}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.payLabel}>
-              Pay {MERCHANT.amount.toFixed(2)} {MERCHANT.currency}
-            </Text>
-          </TouchableOpacity>
+          )}
         </View>
       </View>
     </ScreenContainer>
@@ -112,67 +139,23 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   viewfinder: {
+    width: 260,
+    height: 260,
     borderWidth: 4,
     borderColor: colors.accentBright,
     borderRadius: radii.sm,
-    padding: 12,
+    overflow: 'hidden',
   },
-  summary: {
-    backgroundColor: 'rgba(11,14,17,0.85)',
-    borderWidth: 1,
-    borderColor: 'rgba(45,190,140,0.25)',
-    borderRadius: radii.xxl,
-    padding: spacing.lg,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-  },
-  merchantIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: radii.sm,
-    backgroundColor: colors.surfaceAlt,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  merchantInfo: {
+  camera: {
     flex: 1,
   },
-  merchantName: {
-    fontSize: 14.5,
-    fontWeight: '700',
-    color: colors.textPrimary,
+  permission: {
+    gap: spacing.xl,
+    paddingHorizontal: spacing.xl,
   },
-  merchantNetwork: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  merchantAmount: {
-    alignItems: 'flex-end',
-  },
-  amountValue: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.textPrimary,
-  },
-  amountCurrency: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  payButton: {
-    height: 50,
-    borderRadius: radii.md,
-    backgroundColor: colors.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: spacing.lg,
-  },
-  payLabel: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.background,
+  error: {
+    fontSize: 13,
+    color: colors.negative,
+    textAlign: 'center',
   },
 });

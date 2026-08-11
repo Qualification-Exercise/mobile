@@ -10,6 +10,10 @@ import type {
   RootStackNavigationProp,
   RootStackParamList,
 } from '@app/navigation/types';
+import type { ClaimDTO } from '@shared/api';
+import { getAssetConfig, getNetworkLabel } from '@shared/config';
+import { useClaimCoupon } from '@shared/lib/hooks/wallet';
+import { getCouponAmount } from '@shared/store/models/coupon';
 import { useStore } from '@shared/store';
 import {
   ScreenContainer,
@@ -20,32 +24,73 @@ import {
   spacing,
 } from '@shared/ui';
 
-function splitCode(code?: string): [string, string] {
-  if (!code) {
-    return ['', ''];
-  }
-  const parts = code.split('-');
-  return [parts[1] ?? '', parts[2] ?? ''];
+// Where the UTL is minted. Shown before signing so the user can see which
+// contract, on which chain, will pay them out — the payout is on a testnet
+// while the payments that earned it are on mainnet.
+const UTL_ASSET = getAssetConfig('utl-ethereum');
+const UTL_CONTRACT = UTL_ASSET?.address ?? '';
+const UTL_NETWORK_LABEL = UTL_ASSET ? getNetworkLabel(UTL_ASSET.network) : '';
+
+function shortenContract(address: string): string {
+  return address.length > 12
+    ? `${address.slice(0, 6)}…${address.slice(-4)}`
+    : address;
 }
+
+// The status the backend reports right after accepting a claim, in the words
+// the claim screen uses.
+const STATUS_MESSAGES: Record<string, string> = {
+  PENDING_ATTESTATION: 'Claim submitted — verifying your payment.',
+  ATTESTED: 'Verified. Sending your UTL.',
+  CLAIM_SUBMITTED: 'Payout transaction sent.',
+  CLAIMED: 'Claimed. The UTL is in your wallet.',
+};
 
 export const ClaimCouponScreen = observer(function ClaimCouponScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { params } = useRoute<RouteProp<RootStackParamList, 'ClaimCoupon'>>();
 
   const { walletStore } = useStore();
-  const [initialSegmentA, initialSegmentB] = splitCode(params?.couponCode);
-  const [segmentA, setSegmentA] = useState(initialSegmentA);
-  const [segmentB, setSegmentB] = useState(initialSegmentB);
+  const { claim } = useClaimCoupon();
 
-  const code = `WDK-${segmentA}-${segmentB}`.toUpperCase();
-  const coupon = walletStore.coupons.find(c => c.code === code);
-  const canClaim = !!coupon && coupon.status === 'Claimable';
+  const [code, setCode] = useState(params?.couponCode ?? '');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<ClaimDTO | null>(null);
 
-  function handleClaim() {
-    if (!coupon) {
-      return;
+  // Match against the loaded coupons so the amount can be shown before
+  // claiming. An unmatched code is still submittable: the backend is the
+  // authority on whether it is claimable.
+  const normalized = code.trim().toUpperCase();
+  const coupon = walletStore.coupons.find(c => c.code === normalized);
+  const canClaim = normalized !== '' && !busy && !result;
+
+  async function handleClaim() {
+    setBusy(true);
+    setError(null);
+    try {
+      const claimed = await claim(normalized);
+      setResult(claimed);
+      // The claimed coupon has left `ISSUED`, so the rewards list is stale.
+      walletStore.loadCoupons();
+    } catch (thrown) {
+      setError(
+        thrown instanceof Error
+          ? thrown.message
+          : 'Could not claim this coupon.',
+      );
+    } finally {
+      setBusy(false);
     }
-    walletStore.claimCoupon(coupon.code);
+  }
+
+  let buttonTitle = 'Claim UTL';
+  if (busy) {
+    buttonTitle = 'Signing…';
+  } else if (result) {
+    buttonTitle = 'Done';
+  } else if (coupon) {
+    buttonTitle = `Claim ${getCouponAmount(coupon)} UTL`;
   }
 
   return (
@@ -58,45 +103,44 @@ export const ClaimCouponScreen = observer(function ClaimCouponScreenView() {
       <View style={styles.container}>
         <Text style={styles.description}>
           Redeem your cashback coupon for UTL, sent straight to your wallet.
+          You&apos;ll sign a message proving the payout address is yours — it
+          moves no funds.
         </Text>
-        <View style={styles.codeRow}>
-          <View style={styles.codeSegmentStatic}>
-            <Text style={styles.codeText}>WDK</Text>
-          </View>
-          <Text style={styles.codeDash}>-</Text>
-          <TextInput
-            style={styles.codeSegmentInput}
-            value={segmentA}
-            onChangeText={value => setSegmentA(value.toUpperCase())}
-            autoCapitalize="characters"
-            maxLength={4}
-          />
-          <Text style={styles.codeDash}>-</Text>
-          <TextInput
-            style={styles.codeSegmentInput}
-            value={segmentB}
-            onChangeText={value => setSegmentB(value.toUpperCase())}
-            autoCapitalize="characters"
-            maxLength={2}
-          />
-        </View>
+        <TextInput
+          style={styles.codeInput}
+          value={code}
+          onChangeText={value => setCode(value.toUpperCase())}
+          placeholder="COUPON CODE"
+          placeholderTextColor={colors.textTertiary}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          editable={!busy && !result}
+        />
         <View style={styles.detailCard}>
           <View style={[styles.detailRow, styles.detailRowBorder]}>
-            <Text style={styles.detailLabel}>You'll receive</Text>
+            <Text style={styles.detailLabel}>You&apos;ll receive</Text>
             <Text style={styles.detailValueStrong}>
-              {(coupon?.amount ?? 0).toFixed(2)} UTL
+              {coupon ? getCouponAmount(coupon) : '—'} UTL
             </Text>
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Contract</Text>
-            <Text style={styles.detailValueMono}>0xUTL…a91</Text>
+            <Text style={styles.detailValueMono}>
+              {shortenContract(UTL_CONTRACT)} · {UTL_NETWORK_LABEL}
+            </Text>
           </View>
         </View>
+        {result ? (
+          <Text style={styles.status}>
+            {STATUS_MESSAGES[result.status] ?? result.status}
+          </Text>
+        ) : null}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.spacer} />
         <PrimaryButton
-          title={`Claim ${(coupon?.amount ?? 0).toFixed(2)} UTL`}
-          onPress={handleClaim}
-          disabled={!canClaim}
+          title={buttonTitle}
+          onPress={result ? () => navigation.goBack() : handleClaim}
+          disabled={!canClaim && !result}
         />
       </View>
     </ScreenContainer>
@@ -127,35 +171,12 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     lineHeight: 20,
   },
-  codeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+  codeInput: {
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.xs,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     marginTop: spacing.xl,
-  },
-  codeSegmentStatic: {
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.xs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  codeText: {
-    fontFamily: 'Menlo',
-    fontSize: 15,
-    fontWeight: '700',
-    letterSpacing: 2,
-    color: colors.textPrimary,
-  },
-  codeDash: {
-    color: colors.textSecondary,
-    fontSize: 15,
-  },
-  codeSegmentInput: {
-    flex: 1,
-    backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.xs,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
     fontFamily: 'Menlo',
     fontSize: 15,
     fontWeight: '700',
@@ -192,6 +213,16 @@ const styles = StyleSheet.create({
     fontFamily: 'Menlo',
     fontSize: 12.5,
     color: colors.textPrimary,
+  },
+  status: {
+    fontSize: 13,
+    color: colors.positive,
+    marginTop: spacing.lg,
+  },
+  error: {
+    fontSize: 13,
+    color: colors.negative,
+    marginTop: spacing.lg,
   },
   spacer: {
     flex: 1,

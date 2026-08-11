@@ -4,6 +4,8 @@
     <style name="AppTheme" parent="Theme.AppCompat.DayNight.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="android:editTextBackground">@drawable/rn_edit_text_material</item>
+        <!-- Shown during cold start, and behind the React root afterwards. -->
+        <item name="android:windowBackground">@drawable/splash_screen</item>
     </style>
 
 </resources>

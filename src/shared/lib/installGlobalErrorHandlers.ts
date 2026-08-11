@@ -11,7 +11,9 @@ declare const ErrorUtils: ErrorUtilsInterface;
 declare const HermesInternal:
   | {
       hasPromise?: () => boolean;
-      enablePromiseRejectionTracker?: (options: RejectionTrackingOptions) => void;
+      enablePromiseRejectionTracker?: (
+        options: RejectionTrackingOptions,
+      ) => void;
     }
   | undefined;
 

@@ -110,7 +110,7 @@ export function ErrorsPlayground() {
         builds it is tagged with the error source.
       </Text>
 
-      {TRIGGERS.map((trigger) => (
+      {TRIGGERS.map(trigger => (
         <Pressable
           key={trigger.key}
           style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}

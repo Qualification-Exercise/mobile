@@ -14,12 +14,14 @@ jestRuntime.mock('@react-native-google-signin/google-signin', () => ({
     getTokens: jestRuntime.fn(),
     clearCachedAccessToken: jestRuntime.fn(),
   },
-  isErrorWithCode: error =>
-    typeof error === 'object' && error != null && 'code' in error,
-  isSuccessResponse: response => response?.type === 'success',
-  isCancelledResponse: response => response?.type === 'cancelled',
-  isNoSavedCredentialFoundResponse: response =>
-    response?.type === 'noSavedCredentialFound',
+  isErrorWithCode: jestRuntime.fn(() => false),
+  isSuccessResponse: jestRuntime.fn(() => true),
+  isCancelledResponse: jestRuntime.fn(
+    response => response?.type === 'cancelled',
+  ),
+  isNoSavedCredentialFoundResponse: jestRuntime.fn(
+    response => response?.type === 'noSavedCredentialFound',
+  ),
   statusCodes: {
     PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
     SIGN_IN_REQUIRED: 'SIGN_IN_REQUIRED',

@@ -1,18 +1,37 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { formatAmount } from '@shared/lib';
 import {
+  formatFiat,
   getAssetColor,
   getAssetGlyphColor,
   getAssetIcon,
+  getFiatValue,
 } from '@shared/store/models/asset';
 import type { Asset } from '@shared/store/models/asset';
 import { colors, radii, spacing } from '@shared/ui';
 
 type AssetRowProps = {
   asset: Asset;
+  // Live base-unit balance from `useAssetBalances()`; undefined while loading
+  // or on a per-asset fetch failure.
+  balanceBaseUnits?: string;
+  // USD per whole unit, or null when the feed has no market for the asset.
+  price?: number | null;
   onPress?: () => void;
 };
 
-export function AssetRow({ asset, onPress }: AssetRowProps) {
+export function AssetRow({
+  asset,
+  balanceBaseUnits,
+  price = null,
+  onPress,
+}: AssetRowProps) {
+  const balanceDisplay =
+    balanceBaseUnits != null
+      ? formatAmount(balanceBaseUnits, asset.decimals)
+      : '—';
+  const fiatValue = getFiatValue(balanceBaseUnits, asset.decimals, price);
+
   return (
     <TouchableOpacity
       style={styles.row}
@@ -27,13 +46,17 @@ export function AssetRow({ asset, onPress }: AssetRowProps) {
       </View>
       <View style={styles.info}>
         <Text style={styles.name}>{asset.name}</Text>
-        <Text style={styles.network}>{asset.network}</Text>
+        {/* The network is the group heading on the list, so the row shows the
+            ticker instead of repeating it. */}
+        <Text style={styles.network}>{asset.symbol}</Text>
       </View>
       <View style={styles.values}>
         <Text style={styles.balance}>
-          {asset.balance.toLocaleString()} {asset.symbol}
+          {balanceDisplay} {asset.symbol}
         </Text>
-        <Text style={styles.fiatValue}>${asset.fiatValue.toFixed(2)}</Text>
+        {fiatValue != null ? (
+          <Text style={styles.fiat}>{formatFiat(fiatValue)}</Text>
+        ) : null}
       </View>
     </TouchableOpacity>
   );
@@ -72,6 +95,11 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 2,
   },
+  fiat: {
+    fontSize: 11.5,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   values: {
     alignItems: 'flex-end',
   },
@@ -79,10 +107,5 @@ const styles = StyleSheet.create({
     fontSize: 14.5,
     fontWeight: '700',
     color: colors.textPrimary,
-  },
-  fiatValue: {
-    fontSize: 11.5,
-    color: colors.textSecondary,
-    marginTop: 2,
   },
 });

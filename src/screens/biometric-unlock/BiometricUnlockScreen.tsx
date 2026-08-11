@@ -76,7 +76,9 @@ export const BiometricUnlockScreen = observer(
 
     useEffect(() => {
       runUnlock();
-    }, [runUnlock]);
+      // Run only once when the screen mounts.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
       <ScreenContainer>

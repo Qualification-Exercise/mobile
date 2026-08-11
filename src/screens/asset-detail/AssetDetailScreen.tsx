@@ -1,18 +1,31 @@
 import {
   type RouteProp,
+  useFocusEffect,
   useNavigation,
   useRoute,
 } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback } from 'react';
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import type {
   RootStackNavigationProp,
   RootStackParamList,
 } from '@app/navigation/types';
+import { getNetworkLabel } from '@shared/config';
+import { formatAmount } from '@shared/lib';
+import { useAssetBalances } from '@shared/lib/hooks/wallet';
 import {
+  formatFiat,
   getAssetColor,
   getAssetGlyphColor,
   getAssetIcon,
+  getFiatValue,
 } from '@shared/store/models/asset';
 import { useStore } from '@shared/store';
 import {
@@ -34,6 +47,21 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
   const asset = walletStore.assets.find(a => a.id === assetId);
   const transactions = walletStore.transactions.filter(
     t => t.assetId === assetId,
+  );
+
+  // Balances are owned by the WDK query layer, not the store's asset model —
+  // reading `asset.balance` here showed a hard zero for every asset.
+  const { balances } = useAssetBalances();
+  const balanceBaseUnits = balances.get(assetId);
+
+  // History lives on the backend (indexer + this device's own reports), and
+  // prices are a live feed, so both are re-read whenever the screen comes into
+  // focus — landing here right after a send is the common case.
+  useFocusEffect(
+    useCallback(() => {
+      walletStore.loadTransactions();
+      walletStore.loadPrices();
+    }, [walletStore]),
   );
 
   if (!asset) {
@@ -59,9 +87,21 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
             {getAssetIcon(asset)}
           </Text>
         </View>
-        <Text style={styles.balance}>{asset.balance.toLocaleString()}</Text>
+        <Text style={styles.balance}>
+          {balanceBaseUnits != null
+            ? formatAmount(balanceBaseUnits, asset.decimals)
+            : '—'}{' '}
+          {asset.symbol}
+        </Text>
         <Text style={styles.fiatValue}>
-          ≈ ${asset.fiatValue.toFixed(2)} · {asset.network}
+          {formatFiat(
+            getFiatValue(
+              balanceBaseUnits,
+              asset.decimals,
+              walletStore.priceOf(asset.symbol),
+            ),
+          )}{' '}
+          · {getNetworkLabel(asset.network)}
         </Text>
       </View>
       <View style={styles.actionsRow}>
@@ -77,7 +117,20 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
         />
       </View>
       <Text style={styles.activityTitle}>Activity</Text>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={walletStore.transactionsRequest.loading}
+            onRefresh={() => walletStore.loadTransactions()}
+            tintColor={colors.textSecondary}
+          />
+        }
+      >
+        {transactions.length === 0 &&
+        !walletStore.transactionsRequest.loading ? (
+          <Text style={styles.empty}>No activity yet.</Text>
+        ) : null}
         {transactions.map(transaction => (
           <TransactionRow key={transaction.id} transaction={transaction} />
         ))}
@@ -131,6 +184,12 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
+  },
+  empty: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: spacing.xl,
   },
   activityTitle: {
     fontSize: 14,
