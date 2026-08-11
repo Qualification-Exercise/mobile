@@ -84,3 +84,6 @@ dist/
 # WDK worklet bundle (generated via npm run wdk:bundle)
 .wdk/
 .wdk-bundle/
+
+# Docs
+docs

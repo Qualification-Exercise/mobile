@@ -70,10 +70,9 @@ WDK core internals. Use these instead of relative `../../../` imports.
   `useStore()`.
 - Consider the four kinds of stores: root store, feature stores, domain stores,
   and domain objects.
-- Wrap any async call in the generic MobX wrapper `Request<R>`
-  (`src/shared/store/request.ts`, plus `typedRequest.ts`).
 - Wrap any component that reads observable state in `observer()` from
-  `mobx-react-lite`. Always pass a **named** function — never an anonymous
+  `mobx-react-lite`. Always pass a **named** function with same name as
+  a component — never an anonymous
   arrow: `const App = observer(function App() { … })`, not
   `observer(() => …)`, so the component has a display name in React DevTools
   and stack traces.
