@@ -1,0 +1,9 @@
+# fastlane match — syncs the iOS distribution certificate and App Store
+# provisioning profile from a private git repo. CI runs it read-only and never
+# regenerates certificates.
+
+git_url(ENV["MATCH_GIT_URL"])
+storage_mode("git")
+type("appstore")
+app_identifier([ENV["IOS_BUNDLE_ID"] || "org.reactjs.native.example.wdkqualification"])
+readonly(true)

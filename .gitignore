@@ -85,5 +85,10 @@ dist/
 .wdk/
 .wdk-bundle/
 
-# Docs
-docs
+# CI/CD build artifacts and injected secrets
+android/app/upload.keystore
+fastlane/README.md
+fastlane/report.xml
+
+# Docs — kept local by default
+docs/*

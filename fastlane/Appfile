@@ -1,0 +1,12 @@
+# Fastlane app configuration. All identity values are environment-driven so the
+# same config works locally and in CI without hardcoding accounts.
+
+app_identifier(ENV["IOS_BUNDLE_ID"])
+apple_id(ENV["APPLE_ID"])
+team_id(ENV["APPLE_TEAM_ID"])
+
+for_platform :android do
+  package_name(ENV["ANDROID_PACKAGE"])
+  # Raw JSON string of the Play service-account key (PLAY_SERVICE_ACCOUNT_JSON).
+  json_key_data(ENV["PLAY_SERVICE_ACCOUNT_JSON"])
+end

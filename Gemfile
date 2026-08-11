@@ -15,3 +15,6 @@ gem 'logger'
 gem 'benchmark'
 gem 'mutex_m'
 gem 'nkf'
+
+# CI/CD — builds and uploads to TestFlight and the Play Console.
+gem 'fastlane'
