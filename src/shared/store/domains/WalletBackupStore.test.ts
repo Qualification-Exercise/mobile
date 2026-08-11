@@ -45,7 +45,6 @@ function createDependencies() {
   };
   const dependencies = {
     secretsStore,
-    googleDriveKeyProvider: cloudKeyProvider,
     authStore,
   } as unknown as RootStore;
   return {
@@ -75,17 +74,16 @@ beforeEach(() => {
   });
 });
 
-test('RootStore wires the shared Google Drive provider into wallet backup', () => {
+test('RootStore constructs a wallet backup store with its Google Drive client', () => {
   const root = new RootStore();
 
   expect(root.walletBackupStore).toBeInstanceOf(WalletBackupStore);
-  expect(root.googleDriveKeyProvider).toBeDefined();
 });
 
 test('backs up and verifies the exact WDK credential set across cloud providers', async () => {
   const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
   const credentials = createWalletCredentials();
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.backupToCloud(credentials)).resolves.toBe(true);
 
@@ -103,7 +101,7 @@ test('backs up and verifies the exact WDK credential set across cloud providers'
 
 test('creates a Drive backup when backend ciphertext already exists', async () => {
   const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.backupToCloud(createWalletCredentials())).resolves.toBe(
     true,
@@ -127,9 +125,9 @@ test.each([
 ] as const)(
   'reports local recovery key presence as %s',
   async (credentials, expected) => {
-    const { dependencies } = createDependencies();
+    const { dependencies, cloudKeyProvider } = createDependencies();
     keychain.getGenericPassword.mockResolvedValue(credentials);
-    const store = new WalletBackupStore(dependencies);
+    const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
     await store.checkRecoveryOptions();
 
@@ -138,7 +136,7 @@ test.each([
 );
 
 test('does not expose another backend user local recovery key', async () => {
-  const { dependencies } = createDependencies();
+  const { dependencies, cloudKeyProvider } = createDependencies();
   keychain.getGenericPassword.mockImplementation(async options => {
     const service = options?.service ?? '';
     return service.endsWith('.user-1')
@@ -150,7 +148,7 @@ test('does not expose another backend user local recovery key', async () => {
         }
       : false;
   });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await store.checkRecoveryOptions();
   expect(store.localRecoveryKeyAvailable).toBe(true);
@@ -165,7 +163,7 @@ test('does not expose another backend user local recovery key', async () => {
 
 test('reports a Drive recovery key while checking recovery options', async () => {
   const { dependencies, cloudKeyProvider } = createDependencies();
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await store.checkRecoveryOptions();
 
@@ -177,7 +175,7 @@ test('reports a Drive recovery key while checking recovery options', async () =>
 test('does not report a Drive recovery key without silent Drive access', async () => {
   const { dependencies, cloudKeyProvider } = createDependencies();
   cloudKeyProvider.authorize.mockResolvedValue({ status: 'denied' });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await store.checkRecoveryOptions();
 
@@ -197,7 +195,7 @@ test('does not offer key-only recovery after the backend backup is deleted', asy
     service: 'com.wdkqualification.walletBackupKey.v1.default',
     storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
   });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await store.checkRecoveryOptions();
 
@@ -222,9 +220,9 @@ test.each([
 ] as const)(
   'reports the local recovery key as %s',
   async (credentials, expected) => {
-    const { dependencies } = createDependencies();
+    const { dependencies, cloudKeyProvider } = createDependencies();
     keychain.getGenericPassword.mockResolvedValue(credentials);
-    const store = new WalletBackupStore(dependencies);
+    const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
     await store.checkBackupAvailability(createWalletCredentials());
 
@@ -233,8 +231,8 @@ test.each([
 );
 
 test('does not report a stale local key as a usable recovery backup', async () => {
-  const { dependencies } = createDependencies();
-  const store = new WalletBackupStore(dependencies);
+  const { dependencies, cloudKeyProvider } = createDependencies();
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await store.checkBackupAvailability(createWalletCredentials());
 
@@ -250,7 +248,7 @@ test('saves and verifies local recovery independently of Drive', async () => {
     service: 'com.wdkqualification.walletBackupKey.v1.default',
     storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
   });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.saveLocalBackup(createWalletCredentials())).resolves.toBe(
     true,
@@ -272,11 +270,11 @@ test('saves and verifies local recovery independently of Drive', async () => {
 });
 
 test('does not save a local key when backend credentials conflict', async () => {
-  const { dependencies, secretsStore } = createDependencies();
+  const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
   secretsStore.ensureRemoteWalletSecrets.mockRejectedValue(
     new RemoteRecoveryError(),
   );
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.saveLocalBackup(createWalletCredentials())).resolves.toBe(
     false,
@@ -290,7 +288,7 @@ test('does not save a local key when backend credentials conflict', async () => 
 test('does not mutate providers when Drive consent is cancelled', async () => {
   const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
   cloudKeyProvider.authorize.mockResolvedValue({ status: 'cancelled' });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
   const credentials = createWalletCredentials();
 
   await expect(store.backupToCloud(credentials)).resolves.toBe(false);
@@ -317,7 +315,7 @@ test.each([
       encryptedEntropy,
     });
     cloudKeyProvider.getEncryptionKey.mockResolvedValue(drive);
-    const store = new WalletBackupStore(dependencies);
+    const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
     await store.checkBackupAvailability(createWalletCredentials());
 
@@ -328,7 +326,7 @@ test.each([
 test('does not load credentials when cloud restore consent is cancelled', async () => {
   const { dependencies, cloudKeyProvider, secretsStore } = createDependencies();
   cloudKeyProvider.authorize.mockResolvedValue({ status: 'cancelled' });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.loadBackupCredentials('cloud')).resolves.toBeNull();
 
@@ -340,7 +338,7 @@ test('does not load credentials when cloud restore consent is cancelled', async 
 
 test('loads cloud credentials without writing the wallet', async () => {
   const { dependencies, cloudKeyProvider, secretsStore } = createDependencies();
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.loadBackupCredentials('cloud')).resolves.toEqual(
     createWalletCredentials(),
@@ -353,19 +351,19 @@ test('loads cloud credentials without writing the wallet', async () => {
 });
 
 test('loads local credentials without requesting Drive access', async () => {
-  const { dependencies } = createDependencies();
+  const { dependencies, cloudKeyProvider } = createDependencies();
   keychain.getGenericPassword.mockResolvedValue({
     username: 'wallet-backup-key',
     password: VALID_KEY,
     service: 'com.wdkqualification.walletBackupKey.v1.default',
     storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
   });
-  const store = new WalletBackupStore(dependencies);
+  const store = new WalletBackupStore(dependencies, cloudKeyProvider);
 
   await expect(store.loadBackupCredentials('local')).resolves.toEqual(
     createWalletCredentials(),
   );
 
-  expect(dependencies.googleDriveKeyProvider.authorize).not.toHaveBeenCalled();
+  expect(cloudKeyProvider.authorize).not.toHaveBeenCalled();
   expect(store.status).toBe('success');
 });

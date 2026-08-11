@@ -6,7 +6,6 @@ export * from './biometryStorage';
 export * from './cloudKeyProvider';
 export * from './driveKeyEnvelope';
 export * from './feeError';
-export * from './googleDriveAuthorization';
 export * from './installGlobalErrorHandlers';
 export * from './localBackupKeyStorage';
 export * from './mnemonicHash';
