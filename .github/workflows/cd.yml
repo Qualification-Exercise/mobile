@@ -22,7 +22,6 @@ permissions:
 jobs:
   android:
     name: Android → Play Console (internal)
-    # run on a fresh Linux machine provided by GitHub.
     runs-on: ubuntu-latest
     steps:
       # download a copy of the repository's code onto the machine
@@ -33,7 +32,7 @@ jobs:
         with:
           node-version: '22'
           cache: npm
-      # needed to build android
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
@@ -45,35 +44,21 @@ jobs:
           # Automatically install and cache the Ruby packages (gems)
           bundler-cache: true
 
-      # Figure out the app's version number from the tag.
-      # A tag like "v1.2.3" becomes the version "1.2.3".
-      # If someone started this manually (no tag), we leave it empty and
-      # Fastlane just keeps whatever version the app already has.
+      # Figure out the app's version number from the tag (shared composite action).
       - name: Derive marketing version from tag
         # Give this step an id so a later step can read its result.
         id: version
-        run: |
-          # Did this run start from a tag?
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            # Yes: take the tag name, drop the leading "v", and save it.
-            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            # No: save an empty version.
-            echo "version=" >> "$GITHUB_OUTPUT"
-          fi
+        uses: ./.github/actions/derive-version
 
       - name: Install JS dependencies (generates the WDK worklet bundle)
         run: npm ci
 
-      # The app reads its settings from a ".env" file, and those settings get
-      # baked into the app when it's built. We don't store that file in the
-      # repository for safety, so we recreate it here from a stored secret.
+      # Recreate the .env settings file from a secret (shared composite action).
       - name: Write .env
-        env:
+        uses: ./.github/actions/write-env
+        with:
           # Pull the file's contents from GitHub's encrypted secrets.
-          DOTENV: ${{ secrets.DOTENV_PRODUCTION }}
-        # Write those contents into the .env file.
-        run: printf '%s' "$DOTENV" > .env
+          dotenv: ${{ secrets.DOTENV_PRODUCTION }}
 
       # A "keystore" is the file used to sign the Android app so the store
       # trusts it. It's a binary file, so we store it as text (base64) in a
@@ -127,32 +112,22 @@ jobs:
         with:
           bundler-cache: true
 
-      # Same version logic as the Android job: turn a tag like "v1.2.3" into
-      # "1.2.3", or leave it empty for manual runs.
+      # Same version logic as the Android job (shared composite action).
       - name: Derive marketing version from tag
         # Give this step an id so a later step can read its result.
         id: version
-        run: |
-          # Did this run start from a tag?
-          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
-            # Yes: take the tag name, drop the leading "v", and save it.
-            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-          else
-            # No: save an empty version.
-            echo "version=" >> "$GITHUB_OUTPUT"
-          fi
+        uses: ./.github/actions/derive-version
 
       - name: Install JS dependencies (generates the WDK worklet bundle)
         run: npm ci
 
       # Same as the Android job: recreate the .env settings file from a secret
-      # so its values can be baked into the build.
+      # so its values can be baked into the build (shared composite action).
       - name: Write .env
-        env:
+        uses: ./.github/actions/write-env
+        with:
           # Pull the file's contents from GitHub's encrypted secrets.
-          DOTENV: ${{ secrets.DOTENV_PRODUCTION }}
-        # Write those contents into the .env file.
-        run: printf '%s' "$DOTENV" > .env
+          dotenv: ${{ secrets.DOTENV_PRODUCTION }}
 
       - name: Install CocoaPods
         run: bundle exec pod install --project-directory=ios

@@ -1,0 +1,29 @@
+# Figure out the app's version number from the tag.
+# A tag like "v1.2.3" becomes the version "1.2.3".
+# If someone started the run manually (no tag), we leave it empty and
+# Fastlane just keeps whatever version the app already has.
+#
+# Shared by the Android and iOS jobs so the logic lives in one place.
+name: Derive marketing version from tag
+description: Turn a "v1.2.3" tag into the marketing version "1.2.3"; empty for non-tag runs.
+
+outputs:
+  version:
+    description: The marketing version derived from the tag, or empty for manual runs.
+    # Expose the inner step's output as the action's output.
+    value: ${{ steps.derive.outputs.version }}
+
+runs:
+  using: composite
+  steps:
+    - id: derive
+      shell: bash
+      run: |
+        # Did this run start from a tag?
+        if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+          # Yes: take the tag name, drop the leading "v", and save it.
+          echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        else
+          # No: save an empty version.
+          echo "version=" >> "$GITHUB_OUTPUT"
+        fi
