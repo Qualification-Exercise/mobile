@@ -1,6 +1,6 @@
 import * as Keychain from 'react-native-keychain';
 import { createSecureStorage } from '@tetherto/wdk-react-native-secure-storage';
-import { RemoteRecoveryError } from '@shared/lib/wallet-backup';
+import { RemoteRecoveryError } from '@shared/lib';
 import {
   WalletBackupStore,
   type WalletBackupDependencies,

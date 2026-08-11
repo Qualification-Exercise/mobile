@@ -1,6 +1,6 @@
-import { ApiError } from '@shared/api';
-import { InvalidLocalBackupKeyError } from '../localBackupKeyStorage';
-import { CloudKeyProviderError } from './CloudKeyProvider';
+import { ApiError } from '@shared/api/httpClient';
+import { InvalidLocalBackupKeyError } from './localBackupKeyStorage';
+import { CloudKeyProviderError } from './cloudKeyProvider';
 
 export type WalletBackupErrorCode =
   | 'authentication_failed'

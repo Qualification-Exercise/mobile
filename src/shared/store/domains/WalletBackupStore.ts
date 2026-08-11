@@ -5,16 +5,14 @@ import {
   isValidEncryptionKey,
   loadLocalBackupKey,
   saveLocalBackupKey,
-} from '@shared/lib';
-import { DEFAULT_WALLET_ID } from '@shared/lib/hooks/wallet';
-import {
   getWalletBackupErrorMessage,
   toWalletBackupError,
   WalletBackupOperationError,
   type CloudAuthorizationOutcome,
   type CloudKeyProvider,
   type WalletBackupError,
-} from '@shared/lib/wallet-backup';
+} from '@shared/lib';
+import { DEFAULT_WALLET_ID } from '@shared/lib/hooks/wallet';
 import type { BiometryOutcome } from './BiometryStore';
 import type { SecretsStore } from './SecretsStore';
 

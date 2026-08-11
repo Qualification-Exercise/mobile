@@ -8,7 +8,7 @@ import {
   WalletStore,
   WdkAppStore,
 } from '@shared/store/domains';
-import { googleDriveKeyProvider } from '@shared/api/google-drive';
+import { GoogleDriveKeyProvider } from '@shared/api';
 
 export class RootStore {
   walletStore = new WalletStore();
@@ -20,7 +20,7 @@ export class RootStore {
   walletBackupStore = new WalletBackupStore({
     biometryStore: this.biometryStore,
     secretsStore: this.secretsStore,
-    cloudKeyProvider: googleDriveKeyProvider,
+    cloudKeyProvider: new GoogleDriveKeyProvider(),
     getUserId: () => this.authStore.user?.id ?? null,
     isAuthenticated: () => this.authStore.isAuthenticated,
   });

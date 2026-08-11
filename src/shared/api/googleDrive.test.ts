@@ -3,13 +3,13 @@ import {
   type DriveAuthorization,
   type DriveHttpResponse,
   type DriveTransport,
-} from './GoogleDriveKeyProvider';
+} from './googleDrive';
 import {
   DRIVE_KEY_ENVELOPE_FILE_NAME,
   MAX_DRIVE_KEY_ENVELOPE_BYTES,
   serializeDriveKeyEnvelope,
-} from './driveKeyEnvelope';
-import type { DriveKeyEnvelopeV1 } from './types';
+  type DriveKeyEnvelopeV1,
+} from '@shared/lib/driveKeyEnvelope';
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {},

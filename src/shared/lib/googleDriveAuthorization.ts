@@ -6,7 +6,7 @@ import {
 import {
   CloudKeyProviderError,
   type CloudAuthorizationOutcome,
-} from '@shared/lib/wallet-backup';
+} from './cloudKeyProvider';
 
 export const GOOGLE_DRIVE_APP_DATA_SCOPE =
   'https://www.googleapis.com/auth/drive.appdata';

@@ -1,7 +1,6 @@
 import { makeAutoObservable } from 'mobx';
 import { secretsApi, type RemoteRecoveryBundle } from '@shared/api';
-import { RemoteRecoveryError } from '@shared/lib/wallet-backup';
-import { isValidEncryptedCredential } from '@shared/lib';
+import { isValidEncryptedCredential, RemoteRecoveryError } from '@shared/lib';
 
 export type RemoteCredentialState = {
   encryptedSeed: string | null;

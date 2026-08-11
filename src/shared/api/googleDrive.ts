@@ -3,19 +3,19 @@ import {
   type CloudAuthorizationOutcome,
   type CloudKeyLookupResult,
   type CloudKeyProvider,
-} from '@shared/lib/wallet-backup';
+} from '@shared/lib/cloudKeyProvider';
 import {
   DRIVE_KEY_ENVELOPE_FILE_NAME,
   MAX_DRIVE_KEY_ENVELOPE_BYTES,
   createDriveKeyEnvelope,
   parseDriveKeyEnvelope,
   serializeDriveKeyEnvelope,
-} from './driveKeyEnvelope';
+  type DriveKeyEnvelopeV1,
+} from '@shared/lib/driveKeyEnvelope';
 import {
   googleDriveAuthorization,
   type GoogleDriveAuthorization,
-} from './GoogleDriveAuthorization';
-import type { DriveKeyEnvelopeV1 } from './types';
+} from '@shared/lib/googleDriveAuthorization';
 
 const DRIVE_API_URL = 'https://www.googleapis.com/drive/v3';
 const DRIVE_UPLOAD_URL = 'https://www.googleapis.com/upload/drive/v3';
@@ -376,5 +376,3 @@ export class GoogleDriveKeyProvider implements CloudKeyProvider {
     return serialized;
   }
 }
-
-export const googleDriveKeyProvider = new GoogleDriveKeyProvider();

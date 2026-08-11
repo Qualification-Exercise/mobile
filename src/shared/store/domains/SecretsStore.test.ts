@@ -1,5 +1,5 @@
 import { secretsApi } from '@shared/api';
-import { RemoteRecoveryError } from '@shared/lib/wallet-backup';
+import { RemoteRecoveryError } from '@shared/lib';
 import { SecretsStore } from './SecretsStore';
 
 jest.mock('expo-local-authentication', () => ({}));

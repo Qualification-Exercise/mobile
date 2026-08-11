@@ -2,7 +2,7 @@ import {
   GOOGLE_DRIVE_APP_DATA_SCOPE,
   GoogleDriveAuthorization,
   type GoogleSignInAuthorizationClient,
-} from './GoogleDriveAuthorization';
+} from './googleDriveAuthorization';
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {},

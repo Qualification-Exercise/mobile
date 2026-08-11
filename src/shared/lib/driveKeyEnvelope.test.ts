@@ -5,7 +5,7 @@ import {
   parseDriveKeyEnvelope,
   serializeDriveKeyEnvelope,
 } from './driveKeyEnvelope';
-import type { DriveKeyEnvelopeV1 } from './types';
+import type { DriveKeyEnvelopeV1 } from './driveKeyEnvelope';
 
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 

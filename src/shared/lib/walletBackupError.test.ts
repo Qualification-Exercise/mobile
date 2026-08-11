@@ -8,9 +8,9 @@ import {
 import {
   CloudKeyProviderError,
   type CloudKeyProviderErrorCode,
-} from './CloudKeyProvider';
-import { InvalidLocalBackupKeyError } from '../localBackupKeyStorage';
-import { ApiError } from '@shared/api';
+} from './cloudKeyProvider';
+import { InvalidLocalBackupKeyError } from './localBackupKeyStorage';
+import { ApiError } from '@shared/api/httpClient';
 
 jest.mock('expo-crypto', () => ({}));
 

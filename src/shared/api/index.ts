@@ -5,6 +5,13 @@ export { couponsApi } from './coupons';
 export { pricingApi } from './pricing';
 export { claimsApi } from './claims';
 export { walletsApi } from './wallets';
+export { GoogleDriveKeyProvider } from './googleDrive';
+export type {
+  DriveAuthorization,
+  DriveHttpRequest,
+  DriveHttpResponse,
+  DriveTransport,
+} from './googleDrive';
 export { httpClient, configureAuth, ApiError, toApiError } from './httpClient';
 export type {
   AuthUser,
