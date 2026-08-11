@@ -1,0 +1,52 @@
+# name in GitHub "Actions"
+name: CI
+
+
+on:
+  # run on prs and push to prs
+  pull_request:
+  # run on push to main
+  push:
+    branches: [main]
+
+# ensure oldest ongoing run is cancelled, new run is started
+concurrency:
+  # group runs together by branch, so cancelling only affects the same branch.
+  group: ci-${{ github.ref }}
+  # cancel the older run when a newer one for the same branch starts.
+  cancel-in-progress: true
+
+# in our case reading files is enough
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    # job's name taken from matrix.check.name
+    name: ${{ matrix.check.name }}
+    # run on a fresh Linux machine provided by GitHub.
+    runs-on: ubuntu-latest
+    strategy:
+      # don't stop the other jobs (lint, typecheck, test) if one fails
+      fail-fast: false
+      matrix:
+        check:
+          - { name: lint, cmd: npm run lint }
+          - { name: typecheck, cmd: npm run typecheck }
+          - { name: test, cmd: npm run test:coverage }
+    # steps every job needs to run (lint, typecheck, test)
+    steps:
+      # download a copy of the repository's code onto the machine
+      - uses: actions/checkout@v4
+
+      # install Node.js so we can run the npm commands.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+
+      # run the check for this variation (lint, typecheck, or test).
+      - name: ${{ matrix.check.name }}
+        run: ${{ matrix.check.cmd }}
