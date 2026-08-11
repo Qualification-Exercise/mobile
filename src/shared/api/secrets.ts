@@ -16,12 +16,12 @@ export const secretsApi = {
     }
   },
 
-  async getEntropy(): Promise<SecretItem[]> {
+  async getEntropy(): Promise<SecretItem | null> {
     try {
       const { data } = await httpClient.get<GetEntropyResponse>(
         '/secrets/entropy',
       );
-      return data.entropies;
+      return data.entropies[0] ?? null;
     } catch (error) {
       throw toApiError(error);
     }
@@ -35,10 +35,10 @@ export const secretsApi = {
     }
   },
 
-  async getSeed(): Promise<SecretItem[]> {
+  async getSeed(): Promise<SecretItem | null> {
     try {
       const { data } = await httpClient.get<GetSeedResponse>('/secrets/seed');
-      return data.seeds;
+      return data.seeds[0] ?? null;
     } catch (error) {
       throw toApiError(error);
     }

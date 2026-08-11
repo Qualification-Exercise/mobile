@@ -14,6 +14,7 @@ import Toast from 'react-native-toast-message';
 import { observer } from 'mobx-react-lite';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
+import { getWalletBackupErrorMessage } from '@shared/lib';
 import { useWallet } from '@shared/lib/hooks/wallet';
 import {
   AppIcon,
@@ -31,53 +32,63 @@ function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
 }
 
+function showWalletCredentialsError() {
+  Toast.show({
+    type: 'error',
+    text1: 'Backup unavailable',
+    text2: 'Could not read wallet credentials.',
+  });
+}
+
 export const WalletSettingsScreen = observer(
   function WalletSettingsScreenView() {
     const navigation = useNavigation<RootStackNavigationProp>();
     const { authStore, biometryStore, walletBackupStore } = useStore();
-    const {
-      getMnemonic,
-      deleteWallet,
-      getEncryptionKey,
-      getEncryptedSeed,
-      getEncryptedEntropy,
-    } = useWallet();
+    const { getMnemonic, deleteWallet, getWalletCredentials } = useWallet();
 
     const [revealedWords, setRevealedWords] = useState<string[]>([]);
     const [revealing, setRevealing] = useState(false);
     const [revealError, setRevealError] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
-    const recoveryOperationRunning = walletBackupStore.busy;
+    const recoveryOperationRunning = walletBackupStore.status === 'loading';
 
     useEffect(() => {
-      walletBackupStore.checkLocalBackup({
-        getEncryptionKey,
-        getEncryptedSeed,
-        getEncryptedEntropy,
-      });
-      walletBackupStore.checkCloudBackup();
-    }, [
-      getEncryptedEntropy,
-      getEncryptedSeed,
-      getEncryptionKey,
-      walletBackupStore,
-    ]);
+      getWalletCredentials()
+        .then(credentials => {
+          walletBackupStore.checkBackupAvailability(credentials);
+        })
+        .catch(() => {
+          walletBackupStore.checkBackupAvailability();
+        });
+    }, [getWalletCredentials, walletBackupStore]);
 
     async function handleSaveLocalBackup() {
-      await walletBackupStore.saveLocalBackup({
-        getEncryptionKey,
-        getEncryptedSeed,
-        getEncryptedEntropy,
-      });
+      const outcome = await biometryStore.verify('Save backup on this device');
+      if (outcome !== 'unlocked') {
+        return;
+      }
+      try {
+        const credentials = await getWalletCredentials();
+        await walletBackupStore.saveLocalBackup(credentials);
+      } catch {
+        showWalletCredentialsError();
+      }
     }
 
     async function handleCreateBackup() {
-      await walletBackupStore.backupExistingWallet({
-        getEncryptionKey,
-        getEncryptedSeed,
-        getEncryptedEntropy,
-      });
+      const outcome = await biometryStore.verify(
+        'Enable Google Drive recovery',
+      );
+      if (outcome !== 'unlocked') {
+        return;
+      }
+      try {
+        const credentials = await getWalletCredentials();
+        await walletBackupStore.backupToCloud(credentials);
+      } catch {
+        showWalletCredentialsError();
+      }
     }
 
     async function handleRevealPhrase() {
@@ -216,22 +227,25 @@ export const WalletSettingsScreen = observer(
             ) : null}
           </View>
 
+          {walletBackupStore.status === 'error' && walletBackupStore.error ? (
+            <Text style={styles.errorText}>
+              {getWalletBackupErrorMessage(walletBackupStore.error)}
+            </Text>
+          ) : null}
+
           <Text style={styles.sectionTitle}>On-device backup</Text>
           <View style={styles.section}>
             <Text style={styles.sectionDescription}>
               Keep a recovery key on this device.
             </Text>
-            {walletBackupStore.localBackup.loading ||
-            (walletBackupStore.localBackup.available == null &&
-              !walletBackupStore.localBackup.error) ? (
+            {walletBackupStore.localBackupAvailable == null &&
+            recoveryOperationRunning ? (
               <View style={styles.revealLoading}>
                 <ActivityIndicator size="small" color={colors.accentBright} />
                 <Text style={styles.revealLoadingText}>Checking…</Text>
               </View>
-            ) : walletBackupStore.localBackup.available ? (
-              <Text style={styles.successText}>
-                {walletBackupStore.localMessage || 'Saved on this device.'}
-              </Text>
+            ) : walletBackupStore.localBackupAvailable ? (
+              <Text style={styles.successText}>Saved on this device.</Text>
             ) : (
               <SecondaryButton
                 title={
@@ -241,12 +255,6 @@ export const WalletSettingsScreen = observer(
                 disabled={recoveryOperationRunning || revealing || deleting}
               />
             )}
-            {walletBackupStore.localMessage &&
-            !walletBackupStore.localBackup.available ? (
-              <Text style={styles.errorText}>
-                {walletBackupStore.localMessage}
-              </Text>
-            ) : null}
           </View>
 
           <Text style={styles.sectionTitle}>Google Drive</Text>
@@ -254,43 +262,27 @@ export const WalletSettingsScreen = observer(
             <Text style={styles.sectionDescription}>
               Back up your recovery key to Google Drive.
             </Text>
-            {walletBackupStore.cloudBackup.loading ||
-            (walletBackupStore.cloudBackup.available == null &&
-              !walletBackupStore.cloudBackup.error) ? (
+            {walletBackupStore.cloudBackupAvailable == null &&
+            recoveryOperationRunning ? (
               <View style={styles.revealLoading}>
                 <ActivityIndicator size="small" color={colors.accentBright} />
                 <Text style={styles.revealLoadingText}>Checking…</Text>
               </View>
-            ) : walletBackupStore.cloudBackup.available ? (
+            ) : walletBackupStore.cloudBackupAvailable ? (
               <Text style={styles.successText}>
-                {walletBackupStore.cloudMessage ||
-                  'Google Drive backup is ready.'}
+                Google Drive backup is ready.
               </Text>
-            ) : walletBackupStore.cloudBackup.error ? (
-              <SecondaryButton
-                title="Retry"
-                onPress={walletBackupStore.checkCloudBackup}
-                disabled={recoveryOperationRunning || revealing || deleting}
-              />
             ) : (
               <SecondaryButton
-                title="Back up to Google Drive"
+                title={
+                  recoveryOperationRunning
+                    ? 'Saving…'
+                    : 'Back up to Google Drive'
+                }
                 onPress={handleCreateBackup}
                 disabled={recoveryOperationRunning || revealing || deleting}
               />
             )}
-            {walletBackupStore.cloudMessage &&
-            !walletBackupStore.cloudBackup.available ? (
-              <Text
-                style={
-                  walletBackupStore.error
-                    ? styles.errorText
-                    : styles.successText
-                }
-              >
-                {walletBackupStore.cloudMessage}
-              </Text>
-            ) : null}
           </View>
 
           <Text style={styles.sectionTitle}>Delete wallet</Text>

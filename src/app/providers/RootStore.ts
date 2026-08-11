@@ -17,12 +17,7 @@ export class RootStore {
   wdkAppStore = new WdkAppStore();
   appStateStore = new AppStateStore();
   secretsStore = new SecretsStore();
-  walletBackupStore = new WalletBackupStore({
-    biometryStore: this.biometryStore,
-    secretsStore: this.secretsStore,
-    cloudKeyProvider: new GoogleDriveKeyProvider(),
-    getUserId: () => this.authStore.user?.id ?? null,
-    isAuthenticated: () => this.authStore.isAuthenticated,
-  });
+  googleDriveKeyProvider = new GoogleDriveKeyProvider();
+  walletBackupStore = new WalletBackupStore(this);
   navigationStore = new NavigationStore(this);
 }

@@ -13,12 +13,12 @@ export class SecretsStore {
   }
 
   async hasRemoteWallet(): Promise<boolean> {
-    const [seeds, entropies] = await Promise.all([
+    const [seed, entropy] = await Promise.all([
       secretsApi.getSeed(),
       secretsApi.getEntropy(),
     ]);
 
-    return seeds.length > 0 || entropies.length > 0;
+    return seed != null || entropy != null;
   }
 
   async getRemoteCredentialState(): Promise<RemoteCredentialState> {
@@ -74,32 +74,23 @@ export class SecretsStore {
 }
 
 async function loadRemoteCredentialState(): Promise<RemoteCredentialState> {
-  const [seedRecords, entropyRecords] = await Promise.all([
+  const [seedRecord, entropyRecord] = await Promise.all([
     secretsApi.getSeed(),
     secretsApi.getEntropy(),
   ]);
-  const seeds = seedRecords.map(record => record.seed);
-  const entropies = entropyRecords.map(record => record.entropy);
   if (
-    seeds.some(
-      value => typeof value !== 'string' || !isValidEncryptedCredential(value),
-    ) ||
-    entropies.some(
-      value => typeof value !== 'string' || !isValidEncryptedCredential(value),
-    )
+    (seedRecord != null &&
+      (typeof seedRecord.seed !== 'string' ||
+        !isValidEncryptedCredential(seedRecord.seed))) ||
+    (entropyRecord != null &&
+      (typeof entropyRecord.entropy !== 'string' ||
+        !isValidEncryptedCredential(entropyRecord.entropy)))
   ) {
     throw new RemoteRecoveryError();
   }
 
-  const distinctSeeds = [...new Set(seeds as string[])];
-  const distinctEntropies = [...new Set(entropies as string[])];
-
-  if (distinctSeeds.length > 1 || distinctEntropies.length > 1) {
-    throw new RemoteRecoveryError();
-  }
-
   return {
-    encryptedSeed: distinctSeeds[0] ?? null,
-    encryptedEntropy: distinctEntropies[0] ?? null,
+    encryptedSeed: seedRecord?.seed ?? null,
+    encryptedEntropy: entropyRecord?.entropy ?? null,
   };
 }

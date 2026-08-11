@@ -27,11 +27,19 @@ describe('secretsApi', () => {
     });
   });
 
-  it('unwraps the entropies and seeds arrays', async () => {
+  it('unwraps the single entropy and seed records', async () => {
     mockGet.mockResolvedValueOnce({ data: { entropies: [{ entropy: 'e' }] } });
-    await expect(secretsApi.getEntropy()).resolves.toEqual([{ entropy: 'e' }]);
+    await expect(secretsApi.getEntropy()).resolves.toEqual({ entropy: 'e' });
 
     mockGet.mockResolvedValueOnce({ data: { seeds: [{ seed: 's' }] } });
-    await expect(secretsApi.getSeed()).resolves.toEqual([{ seed: 's' }]);
+    await expect(secretsApi.getSeed()).resolves.toEqual({ seed: 's' });
+  });
+
+  it('returns null when a secret is not stored', async () => {
+    mockGet.mockResolvedValueOnce({ data: { entropies: [] } });
+    await expect(secretsApi.getEntropy()).resolves.toBeNull();
+
+    mockGet.mockResolvedValueOnce({ data: { seeds: [] } });
+    await expect(secretsApi.getSeed()).resolves.toBeNull();
   });
 });

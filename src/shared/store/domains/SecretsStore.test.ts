@@ -23,22 +23,22 @@ beforeEach(() => {
 });
 
 test('detects any existing remote seed or entropy record', async () => {
-  api.getSeed.mockResolvedValue([{ seed: CIPHERTEXT }]);
-  api.getEntropy.mockResolvedValue([]);
+  api.getSeed.mockResolvedValue({ seed: CIPHERTEXT });
+  api.getEntropy.mockResolvedValue(null);
 
   await expect(new SecretsStore().hasRemoteWallet()).resolves.toBe(true);
 });
 
-test('reports no remote wallet when both record sets are empty', async () => {
-  api.getSeed.mockResolvedValue([]);
-  api.getEntropy.mockResolvedValue([]);
+test('reports no remote wallet when neither value is stored', async () => {
+  api.getSeed.mockResolvedValue(null);
+  api.getEntropy.mockResolvedValue(null);
 
   await expect(new SecretsStore().hasRemoteWallet()).resolves.toBe(false);
 });
 
 test('writes ciphertext with version-only metadata', async () => {
-  api.getSeed.mockResolvedValue([]);
-  api.getEntropy.mockResolvedValue([]);
+  api.getSeed.mockResolvedValue(null);
+  api.getEntropy.mockResolvedValue(null);
   const store = new SecretsStore();
   await expect(
     store.ensureRemoteWalletSecrets({
@@ -63,8 +63,8 @@ test('writes ciphertext with version-only metadata', async () => {
 });
 
 test('returns the only complete valid recovery bundle', async () => {
-  api.getSeed.mockResolvedValue([{ seed: `${CIPHERTEXT}AAAA` }]);
-  api.getEntropy.mockResolvedValue([{ entropy: CIPHERTEXT }]);
+  api.getSeed.mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
 
   await expect(new SecretsStore().getRemoteRecoveryBundle()).resolves.toEqual({
     encryptedSeed: `${CIPHERTEXT}AAAA`,
@@ -73,17 +73,20 @@ test('returns the only complete valid recovery bundle', async () => {
 });
 
 test.each([
-  ['zero records', [], []],
-  ['missing seed', [], [{ entropy: CIPHERTEXT }]],
-  ['missing entropy', [{ seed: CIPHERTEXT }], []],
-])('rejects incomplete remote state: %s', async (_label, seeds, entropies) => {
-  api.getSeed.mockResolvedValue(seeds);
-  api.getEntropy.mockResolvedValue(entropies);
+  ['no values', null, null],
+  ['missing seed', null, { entropy: CIPHERTEXT }],
+  ['missing entropy', { seed: CIPHERTEXT }, null],
+] as const)(
+  'rejects incomplete remote state: %s',
+  async (_label, seed, entropy) => {
+    api.getSeed.mockResolvedValue(seed);
+    api.getEntropy.mockResolvedValue(entropy);
 
-  await expect(
-    new SecretsStore().getRemoteRecoveryBundle(),
-  ).rejects.toBeInstanceOf(RemoteRecoveryError);
-});
+    await expect(
+      new SecretsStore().getRemoteRecoveryBundle(),
+    ).rejects.toBeInstanceOf(RemoteRecoveryError);
+  },
+);
 
 test('rejects invalid credentials before reading or writing remote state', async () => {
   const store = new SecretsStore();
@@ -98,34 +101,9 @@ test('rejects invalid credentials before reading or writing remote state', async
   expect(api.storeSeed).not.toHaveBeenCalled();
 });
 
-test('rejects ambiguous records without consulting metadata keys', async () => {
-  api.getSeed.mockResolvedValue([
-    { seed: CIPHERTEXT, metadata: { encryptionKey: 'ignored' } },
-    { seed: OTHER_CIPHERTEXT },
-  ]);
-  api.getEntropy.mockResolvedValue([{ entropy: CIPHERTEXT }]);
-
-  await expect(
-    new SecretsStore().getRemoteRecoveryBundle(),
-  ).rejects.toBeInstanceOf(RemoteRecoveryError);
-});
-
-test('accepts repeated records when their ciphertext is identical', async () => {
-  api.getSeed.mockResolvedValue([{ seed: CIPHERTEXT }, { seed: CIPHERTEXT }]);
-  api.getEntropy.mockResolvedValue([
-    { entropy: OTHER_CIPHERTEXT },
-    { entropy: OTHER_CIPHERTEXT },
-  ]);
-
-  await expect(new SecretsStore().getRemoteRecoveryBundle()).resolves.toEqual({
-    encryptedSeed: CIPHERTEXT,
-    encryptedEntropy: OTHER_CIPHERTEXT,
-  });
-});
-
 test('returns a valid partial singleton state', async () => {
-  api.getSeed.mockResolvedValue([{ seed: CIPHERTEXT }]);
-  api.getEntropy.mockResolvedValue([]);
+  api.getSeed.mockResolvedValue({ seed: CIPHERTEXT });
+  api.getEntropy.mockResolvedValue(null);
 
   await expect(new SecretsStore().getRemoteCredentialState()).resolves.toEqual({
     encryptedSeed: CIPHERTEXT,
@@ -134,8 +112,8 @@ test('returns a valid partial singleton state', async () => {
 });
 
 test('posts only a missing value when the existing value matches', async () => {
-  api.getSeed.mockResolvedValue([{ seed: `${CIPHERTEXT}AAAA` }]);
-  api.getEntropy.mockResolvedValue([]);
+  api.getSeed.mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue(null);
   const store = new SecretsStore();
 
   await expect(
@@ -153,8 +131,8 @@ test('posts only a missing value when the existing value matches', async () => {
 });
 
 test('does not post byte-identical existing singleton values again', async () => {
-  api.getSeed.mockResolvedValue([{ seed: `${CIPHERTEXT}AAAA` }]);
-  api.getEntropy.mockResolvedValue([{ entropy: CIPHERTEXT }]);
+  api.getSeed.mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
   const store = new SecretsStore();
 
   await expect(
@@ -169,8 +147,8 @@ test('does not post byte-identical existing singleton values again', async () =>
 });
 
 test('rejects different existing ciphertext without appending records', async () => {
-  api.getSeed.mockResolvedValue([{ seed: OTHER_CIPHERTEXT }]);
-  api.getEntropy.mockResolvedValue([{ entropy: CIPHERTEXT }]);
+  api.getSeed.mockResolvedValue({ seed: OTHER_CIPHERTEXT });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
   const store = new SecretsStore();
 
   await expect(
@@ -186,9 +164,9 @@ test('rejects different existing ciphertext without appending records', async ()
 
 test('does not append the successful side when retrying a partial write', async () => {
   api.getSeed
-    .mockResolvedValueOnce([])
-    .mockResolvedValue([{ seed: `${CIPHERTEXT}AAAA` }]);
-  api.getEntropy.mockResolvedValue([]);
+    .mockResolvedValueOnce(null)
+    .mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue(null);
   api.storeEntropy
     .mockRejectedValueOnce(new Error('offline'))
     .mockResolvedValueOnce(undefined);
@@ -213,8 +191,8 @@ test.each([
   ['too small', 'AAAA'],
   ['oversized', `${'AAAA'.repeat(4000)}`],
 ])('rejects %s ciphertext', async (_label, ciphertext) => {
-  api.getSeed.mockResolvedValue([{ seed: ciphertext }]);
-  api.getEntropy.mockResolvedValue([{ entropy: CIPHERTEXT }]);
+  api.getSeed.mockResolvedValue({ seed: ciphertext });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
 
   await expect(
     new SecretsStore().getRemoteRecoveryBundle(),

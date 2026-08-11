@@ -1,7 +1,7 @@
 export { DEFAULT_WALLET_ID, MNEMONIC_WORD_COUNT } from './constants';
 export { useWalletSessionLock } from './useWalletSessionLock';
 export { useWallet } from './useWallet';
-export type { UseWalletResult } from './useWallet';
+export type { UseWalletResult, WalletCredentials } from './useWallet';
 export {
   useEnsureWdkReady,
   useIsWdkReady,

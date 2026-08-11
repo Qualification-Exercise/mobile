@@ -3,7 +3,7 @@ import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import type { RootStackNavigationProp } from '@app/navigation/types';
-import { getWalletBackupErrorMessage } from '@shared/lib';
+import { getWalletBackupErrorMessage, toWalletBackupError } from '@shared/lib';
 import { useWallet } from '@shared/lib/hooks/wallet';
 import { useStore } from '@shared/store';
 import {
@@ -17,64 +17,82 @@ import {
 
 export const WalletSetupScreen = observer(function WalletSetupScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { walletBackupStore } = useStore();
-  const { unlock } = useWallet();
-  const [checkingRecoveryOptions, setCheckingRecoveryOptions] = useState(true);
-  const actionRunning = walletBackupStore.busy;
+  const { biometryStore, walletBackupStore } = useStore();
+  const { restoreWalletCredentials } = useWallet();
+  const [restoring, setRestoring] = useState(false);
+  const actionRunning = walletBackupStore.status === 'loading' || restoring;
+  const checkingRecoveryOptions =
+    actionRunning && walletBackupStore.backendWalletAvailable == null;
 
   useFocusEffect(
     useCallback(() => {
-      let active = true;
-      setCheckingRecoveryOptions(true);
-      Promise.all([
-        walletBackupStore.checkBackendWalletPresence(),
-        walletBackupStore.checkLocalRecoveryKeyPresence(),
-        walletBackupStore.checkCloudRecoveryKeyPresence(),
-      ]).finally(() => {
-        if (active) {
-          setCheckingRecoveryOptions(false);
-        }
-      });
-
-      return () => {
-        active = false;
-      };
+      walletBackupStore.checkRecoveryOptions();
     }, [walletBackupStore]),
   );
 
   async function handleLocalBackupRestore() {
-    const succeeded = await walletBackupStore.restoreFromLocalBackup({
-      unlock,
-    });
-    if (succeeded) {
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    const outcome = await biometryStore.verify('Restore wallet backup');
+    if (outcome !== 'unlocked') {
       return;
     }
-
-    const error = walletBackupStore.error;
-    if (error) {
+    setRestoring(true);
+    try {
+      const credentials = await walletBackupStore.loadBackupCredentials(
+        'local',
+      );
+      if (credentials == null) {
+        const error = walletBackupStore.error;
+        if (error) {
+          Alert.alert(
+            'Could not restore wallet',
+            getWalletBackupErrorMessage(error),
+          );
+        }
+        return;
+      }
+      await restoreWalletCredentials(credentials);
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    } catch (error) {
       Alert.alert(
         'Could not restore wallet',
-        getWalletBackupErrorMessage(error),
+        getWalletBackupErrorMessage(toWalletBackupError(error)),
       );
+    } finally {
+      setRestoring(false);
     }
   }
 
   async function handleCloudBackupRestore() {
-    const succeeded = await walletBackupStore.restoreFromCloudBackup({
-      unlock,
-    });
-    if (succeeded) {
-      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    const outcome = await biometryStore.verify(
+      'Restore wallet from Google Drive',
+    );
+    if (outcome !== 'unlocked') {
       return;
     }
-
-    const error = walletBackupStore.error;
-    if (error) {
+    setRestoring(true);
+    try {
+      const credentials = await walletBackupStore.loadBackupCredentials(
+        'cloud',
+      );
+      if (credentials == null) {
+        const error = walletBackupStore.error;
+        if (error) {
+          Alert.alert(
+            'Could not restore wallet',
+            getWalletBackupErrorMessage(error),
+          );
+        }
+        return;
+      }
+      await restoreWalletCredentials(credentials);
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+    } catch (error) {
       Alert.alert(
         'Could not restore wallet',
-        getWalletBackupErrorMessage(error),
+        getWalletBackupErrorMessage(toWalletBackupError(error)),
       );
+    } finally {
+      setRestoring(false);
     }
   }
 
@@ -104,20 +122,19 @@ export const WalletSetupScreen = observer(function WalletSetupScreenView() {
             </View>
           ) : (
             <>
-              {walletBackupStore.backendWallet.available === false ? (
+              {walletBackupStore.backendWalletAvailable === false ? (
                 <PressableButton
                   title="Create new wallet"
                   onPress={() => navigation.navigate('CreateWallet')}
                   disabled={actionRunning}
                 />
-              ) : walletBackupStore.backendWallet.error ? (
+              ) : walletBackupStore.status === 'error' ? (
                 <SecondaryButton
                   title="Retry wallet backup check"
-                  onPress={walletBackupStore.checkBackendWalletPresence}
+                  onPress={() => walletBackupStore.checkRecoveryOptions()}
                   disabled={actionRunning}
                 />
-              ) : walletBackupStore.backendWallet.loading ||
-                walletBackupStore.backendWallet.available == null ? (
+              ) : walletBackupStore.backendWalletAvailable == null ? (
                 <ActivityIndicator
                   size="small"
                   color={colors.accentBright}
