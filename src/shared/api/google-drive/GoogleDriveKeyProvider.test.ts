@@ -3,13 +3,13 @@ import {
   type DriveAuthorization,
   type DriveHttpResponse,
   type DriveTransport,
-} from '@shared/api/google-drive';
+} from './GoogleDriveKeyProvider';
 import {
   DRIVE_KEY_ENVELOPE_FILE_NAME,
   MAX_DRIVE_KEY_ENVELOPE_BYTES,
   serializeDriveKeyEnvelope,
-} from '../driveKeyEnvelope';
-import type { DriveKeyEnvelopeV1 } from '../types';
+} from './driveKeyEnvelope';
+import type { DriveKeyEnvelopeV1 } from './types';
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {},
@@ -155,6 +155,33 @@ test('updates the existing singleton file instead of creating another', async ()
   });
 });
 
+test('validates duplicate files before updating every copy', async () => {
+  const transport = createTransport(
+    response(200, listBody([{ id: 'one' }, { id: 'two' }])),
+    response(200, SERIALIZED_ENVELOPE),
+    response(200, SERIALIZED_ENVELOPE),
+    response(200),
+    response(200),
+  );
+  const provider = new GoogleDriveKeyProvider(createAuthorization(), transport);
+
+  await provider.putEncryptionKey(ENVELOPE.encryptionKey);
+
+  expect(transport).toHaveBeenCalledTimes(5);
+  expect(transport.mock.calls[3][1].method).toBe('PATCH');
+  expect(transport.mock.calls[4][1].method).toBe('PATCH');
+});
+
+test('rejects an invalid encryption key before sending a request', async () => {
+  const transport = createTransport();
+  const provider = new GoogleDriveKeyProvider(createAuthorization(), transport);
+
+  await expect(provider.putEncryptionKey('invalid')).rejects.toMatchObject({
+    code: 'invalid_response',
+  });
+  expect(transport).not.toHaveBeenCalled();
+});
+
 test('accepts byte-identical duplicate files as one logical envelope', async () => {
   const transport = createTransport(
     response(200, listBody([{ id: 'one' }, { id: 'two' }])),
@@ -277,4 +304,85 @@ test('bounds pagination even when Drive keeps returning page tokens', async () =
     code: 'invalid_response',
   });
   expect(transport).toHaveBeenCalledTimes(10);
+});
+
+test('rejects more matching files than the singleton invariant permits', async () => {
+  const files = Array.from({ length: 21 }, (_, index) => ({
+    id: `file-${index}`,
+  }));
+  const provider = new GoogleDriveKeyProvider(
+    createAuthorization(),
+    createTransport(response(200, listBody(files))),
+  );
+
+  await expect(provider.getEncryptionKey()).rejects.toMatchObject({
+    code: 'remote_invariant',
+  });
+});
+
+test.each([
+  ['malformed JSON', '{'],
+  ['missing files', JSON.stringify({})],
+  ['invalid page token', JSON.stringify({ files: [], nextPageToken: 42 })],
+  ['invalid file metadata', JSON.stringify({ files: [null] })],
+])('rejects a listing with %s', async (_, body) => {
+  const provider = new GoogleDriveKeyProvider(
+    createAuthorization(),
+    createTransport(response(200, body)),
+  );
+
+  await expect(provider.getEncryptionKey()).rejects.toMatchObject({
+    code: 'invalid_response',
+  });
+});
+
+test('rejects transport, response-body, and non-success HTTP failures safely', async () => {
+  const rejectedTransport = jest.fn().mockRejectedValue(new Error('offline'));
+  const rejectedBody = response(200);
+  jest.mocked(rejectedBody.text).mockRejectedValue(new Error('stream failed'));
+
+  await expect(
+    new GoogleDriveKeyProvider(
+      createAuthorization(),
+      rejectedTransport,
+    ).getEncryptionKey(),
+  ).rejects.toMatchObject({ code: 'network_error' });
+  await expect(
+    new GoogleDriveKeyProvider(
+      createAuthorization(),
+      createTransport(rejectedBody),
+    ).getEncryptionKey(),
+  ).rejects.toMatchObject({ code: 'network_error' });
+  await expect(
+    new GoogleDriveKeyProvider(
+      createAuthorization(),
+      createTransport(response(500)),
+    ).getEncryptionKey(),
+  ).rejects.toMatchObject({ code: 'network_error' });
+});
+
+test('enforces the declared content length before reading the body', async () => {
+  const oversized = response(200, '', {
+    'content-length': String(64 * 1024 + 1),
+  });
+  const provider = new GoogleDriveKeyProvider(
+    createAuthorization(),
+    createTransport(oversized),
+  );
+
+  await expect(provider.getEncryptionKey()).rejects.toMatchObject({
+    code: 'response_too_large',
+  });
+  expect(oversized.text).not.toHaveBeenCalled();
+});
+
+test('measures multibyte response bodies in UTF-8 bytes', async () => {
+  const provider = new GoogleDriveKeyProvider(
+    createAuthorization(),
+    createTransport(response(200, 'é€😀')),
+  );
+
+  await expect(provider.getEncryptionKey()).rejects.toMatchObject({
+    code: 'invalid_response',
+  });
 });

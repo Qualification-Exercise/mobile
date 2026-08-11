@@ -4,8 +4,8 @@ import {
   createDriveKeyEnvelope,
   parseDriveKeyEnvelope,
   serializeDriveKeyEnvelope,
-} from '../driveKeyEnvelope';
-import type { DriveKeyEnvelopeV1 } from '../types';
+} from './driveKeyEnvelope';
+import type { DriveKeyEnvelopeV1 } from './types';
 
 const ENCRYPTION_KEY = Buffer.alloc(32, 7).toString('base64');
 
@@ -117,5 +117,29 @@ describe('Drive key envelope', () => {
         encryptionKey: Buffer.alloc(31).toString('base64'),
       }),
     ).toThrow(expect.objectContaining({ code: 'invalid_envelope' }));
+  });
+
+  it('rejects invalid envelopes during serialization', () => {
+    expect(() =>
+      serializeDriveKeyEnvelope({
+        schemaVersion: 1,
+        encryptionKey: 'invalid',
+      }),
+    ).toThrow(expect.objectContaining({ code: 'invalid_envelope' }));
+  });
+
+  it.each(['null', '[]'])(
+    'rejects the non-object JSON value %s',
+    serialized => {
+      expect(() => parseDriveKeyEnvelope(serialized)).toThrow(
+        expect.objectContaining({ code: 'invalid_envelope' }),
+      );
+    },
+  );
+
+  it('counts multibyte input by UTF-8 byte length', () => {
+    expect(() => parseDriveKeyEnvelope('é€😀')).toThrow(
+      expect.objectContaining({ code: 'invalid_envelope' }),
+    );
   });
 });

@@ -1,10 +1,16 @@
 import {
-  CloudKeyProviderError,
   getWalletBackupErrorMessage,
+  RemoteRecoveryError,
   toWalletBackupError,
-  type CloudKeyProviderErrorCode,
+  WalletBackupOperationError,
   type WalletBackupErrorCode,
-} from '@shared/lib/wallet-backup';
+} from './walletBackupError';
+import {
+  CloudKeyProviderError,
+  type CloudKeyProviderErrorCode,
+} from './CloudKeyProvider';
+import { InvalidLocalBackupKeyError } from '../localBackupKeyStorage';
+import { ApiError } from '@shared/api';
 
 jest.mock('expo-crypto', () => ({}));
 
@@ -41,3 +47,19 @@ test.each<[CloudKeyProviderErrorCode, WalletBackupErrorCode]>([
     code: backupCode,
   });
 });
+
+test.each([
+  [
+    new WalletBackupOperationError('remote_wallet_exists'),
+    'remote_wallet_exists',
+  ],
+  [new RemoteRecoveryError(), 'backup_unavailable'],
+  [new InvalidLocalBackupKeyError(), 'backup_unavailable'],
+  [new ApiError('offline'), 'connection_failed'],
+  [new Error('unknown'), 'restore_failed'],
+] as const)(
+  'maps operation failures by their public error type',
+  (error, code) => {
+    expect(toWalletBackupError(error)).toEqual({ code });
+  },
+);

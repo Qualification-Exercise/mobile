@@ -2,7 +2,7 @@ import {
   GOOGLE_DRIVE_APP_DATA_SCOPE,
   GoogleDriveAuthorization,
   type GoogleSignInAuthorizationClient,
-} from '@shared/api/google-drive';
+} from './GoogleDriveAuthorization';
 
 jest.mock('@react-native-google-signin/google-signin', () => ({
   GoogleSignin: {},
@@ -177,6 +177,78 @@ describe('Google Drive authorization', () => {
     expect(client.signInSilently).toHaveBeenCalledTimes(1);
     expect(client.addScopes).toHaveBeenCalledTimes(1);
   });
+
+  it('deduplicates concurrent noninteractive authorization checks', async () => {
+    const client = createClient();
+    let finishSilentSignIn!: (value: ReturnType<typeof success>) => void;
+    client.signInSilently.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          finishSilentSignIn = resolve;
+        }),
+    );
+    const authorization = new GoogleDriveAuthorization(client);
+
+    const first = authorization.authorize(false);
+    const second = authorization.authorize(false);
+    await Promise.resolve();
+    await Promise.resolve();
+    finishSilentSignIn(success([]));
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      { status: 'denied' },
+      { status: 'denied' },
+    ]);
+    expect(client.signInSilently).toHaveBeenCalledTimes(1);
+  });
+
+  it('upgrades an in-flight silent denial to an interactive request', async () => {
+    const client = createClient();
+    let finishSilentSignIn!: (value: ReturnType<typeof success>) => void;
+    client.signInSilently
+      .mockImplementationOnce(
+        () =>
+          new Promise(resolve => {
+            finishSilentSignIn = resolve;
+          }),
+      )
+      .mockResolvedValue(success([]));
+    const authorization = new GoogleDriveAuthorization(client);
+
+    const silent = authorization.authorize(false);
+    const interactive = authorization.authorize(true);
+    await Promise.resolve();
+    await Promise.resolve();
+    finishSilentSignIn(success([]));
+
+    await expect(silent).resolves.toEqual({ status: 'denied' });
+    await expect(interactive).resolves.toEqual({ status: 'authorized' });
+    expect(client.signInSilently).toHaveBeenCalledTimes(2);
+    expect(client.addScopes).toHaveBeenCalledTimes(1);
+  });
+
+  it('treats an empty scope response as signed out', async () => {
+    const client = createClient();
+    client.addScopes.mockResolvedValue(null);
+
+    await expect(
+      new GoogleDriveAuthorization(client).authorize(true),
+    ).resolves.toEqual({ status: 'signed_out' });
+  });
+
+  it.each([
+    ['SIGN_IN_REQUIRED', 'signed_out'],
+    ['SIGN_IN_CANCELLED', 'cancelled'],
+  ] as const)('maps native %s errors to %s', async (code, status) => {
+    const client = createClient();
+    client.signInSilently.mockRejectedValue(
+      Object.assign(new Error('native detail'), { code }),
+    );
+
+    await expect(
+      new GoogleDriveAuthorization(client).authorize(true),
+    ).resolves.toEqual({ status });
+  });
 });
 
 describe('Google Drive access tokens', () => {
@@ -227,4 +299,32 @@ describe('Google Drive access tokens', () => {
 
     expect(client.clearCachedAccessToken).toHaveBeenCalledWith('drive-token');
   });
+
+  it('rejects empty tokens without invoking the operation', async () => {
+    const client = createClient();
+    client.getTokens.mockResolvedValue({ accessToken: '' });
+    const operation = jest.fn();
+
+    await expect(
+      new GoogleDriveAuthorization(client).withAccessToken(operation),
+    ).rejects.toMatchObject({ code: 'token_unavailable' });
+    expect(operation).not.toHaveBeenCalled();
+  });
+
+  it.each(['empty input', 'native rejection'])(
+    'reports token_unavailable when clearing fails from %s',
+    async scenario => {
+      const client = createClient();
+      if (scenario === 'native rejection') {
+        client.clearCachedAccessToken.mockRejectedValue(new Error('native'));
+      }
+      const authorization = new GoogleDriveAuthorization(client);
+
+      await expect(
+        authorization.clearCachedAccessToken(
+          scenario === 'empty input' ? '' : 'drive-token',
+        ),
+      ).rejects.toMatchObject({ code: 'token_unavailable' });
+    },
+  );
 });

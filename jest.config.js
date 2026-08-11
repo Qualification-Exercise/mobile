@@ -1,6 +1,6 @@
 module.exports = {
   preset: '@react-native/jest-preset',
-  setupFiles: ['<rootDir>/test/setup.ts', '<rootDir>/jest.setup.js'],
+  setupFiles: ['<rootDir>/test/setup.ts'],
   clearMocks: true,
   moduleNameMapper: {
     '^mobx-react-lite$': 'mobx-react-lite/es/index.js',

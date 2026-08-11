@@ -4,7 +4,7 @@ import { RemoteRecoveryError } from '@shared/lib/wallet-backup';
 import {
   WalletBackupStore,
   type WalletBackupDependencies,
-} from '../WalletBackupStore';
+} from './WalletBackupStore';
 
 jest.mock('expo-local-authentication', () => ({}));
 jest.mock('expo-crypto', () => ({}));

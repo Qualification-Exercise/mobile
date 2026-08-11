@@ -3,7 +3,7 @@ import {
   InvalidLocalBackupKeyError,
   loadLocalBackupKey,
   saveLocalBackupKey,
-} from '../localBackupKeyStorage';
+} from './localBackupKeyStorage';
 
 jest.mock('react-native-keychain', () => ({
   ACCESSIBLE: {
@@ -90,4 +90,11 @@ test('uses a separate Keychain entry for each backend user', async () => {
   expect(keychain.getGenericPassword).toHaveBeenNthCalledWith(2, {
     service: 'com.wdkqualification.walletBackupKey.v1.user-2',
   });
+});
+
+test('rejects a blank backend user id', async () => {
+  await expect(loadLocalBackupKey('   ')).rejects.toThrow(
+    'A user id is required for local wallet backup storage.',
+  );
+  expect(keychain.getGenericPassword).not.toHaveBeenCalled();
 });

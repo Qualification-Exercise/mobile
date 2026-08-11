@@ -1,6 +1,6 @@
 import { secretsApi } from '@shared/api';
 import { RemoteRecoveryError } from '@shared/lib/wallet-backup';
-import { SecretsStore } from '../SecretsStore';
+import { SecretsStore } from './SecretsStore';
 
 jest.mock('expo-local-authentication', () => ({}));
 jest.mock('expo-crypto', () => ({}));
@@ -27,6 +27,13 @@ test('detects any existing remote seed or entropy record', async () => {
   api.getEntropy.mockResolvedValue([]);
 
   await expect(new SecretsStore().hasRemoteWallet()).resolves.toBe(true);
+});
+
+test('reports no remote wallet when both record sets are empty', async () => {
+  api.getSeed.mockResolvedValue([]);
+  api.getEntropy.mockResolvedValue([]);
+
+  await expect(new SecretsStore().hasRemoteWallet()).resolves.toBe(false);
 });
 
 test('writes ciphertext with version-only metadata', async () => {
@@ -76,6 +83,19 @@ test.each([
   await expect(
     new SecretsStore().getRemoteRecoveryBundle(),
   ).rejects.toBeInstanceOf(RemoteRecoveryError);
+});
+
+test('rejects invalid credentials before reading or writing remote state', async () => {
+  const store = new SecretsStore();
+
+  await expect(
+    store.ensureRemoteWalletSecrets({
+      encryptedSeed: 'invalid',
+      encryptedEntropy: CIPHERTEXT,
+    }),
+  ).rejects.toBeInstanceOf(RemoteRecoveryError);
+  expect(api.getSeed).not.toHaveBeenCalled();
+  expect(api.storeSeed).not.toHaveBeenCalled();
 });
 
 test('rejects ambiguous records without consulting metadata keys', async () => {
