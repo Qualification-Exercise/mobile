@@ -1,8 +1,9 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { observer } from 'mobx-react-lite';
 import type { RootStackNavigationProp } from '@app/navigation/types';
+import { getWalletBackupErrorMessage } from '@shared/lib';
 import { useWallet } from '@shared/lib/hooks/wallet';
 import { useStore } from '@shared/store';
 import {
@@ -13,24 +14,35 @@ import {
   radii,
   spacing,
 } from '@shared/ui';
-import { getLocalBackupRestoreErrorMessage } from './localBackupRestoreError';
 
 export const WalletSetupScreen = observer(function WalletSetupScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
   const { walletBackupStore } = useStore();
   const { unlock } = useWallet();
-  const restoring = !['idle', 'failed', 'complete'].includes(
-    walletBackupStore.restorePhase,
-  );
+  const [checkingRecoveryOptions, setCheckingRecoveryOptions] = useState(true);
+  const actionRunning = walletBackupStore.busy;
 
   useFocusEffect(
     useCallback(() => {
-      walletBackupStore.checkRemoteBackupPresence();
+      let active = true;
+      setCheckingRecoveryOptions(true);
+      Promise.all([
+        walletBackupStore.checkBackendWalletPresence(),
+        walletBackupStore.checkLocalRecoveryKeyPresence(),
+        walletBackupStore.checkCloudRecoveryKeyPresence(),
+      ]).finally(() => {
+        if (active) {
+          setCheckingRecoveryOptions(false);
+        }
+      });
+
+      return () => {
+        active = false;
+      };
     }, [walletBackupStore]),
   );
 
   async function handleLocalBackupRestore() {
-    walletBackupStore.resetRestoreState();
     const succeeded = await walletBackupStore.restoreFromLocalBackup({
       unlock,
     });
@@ -39,15 +51,29 @@ export const WalletSetupScreen = observer(function WalletSetupScreenView() {
       return;
     }
 
-    const error = walletBackupStore.restoreError;
+    const error = walletBackupStore.error;
     if (error) {
       Alert.alert(
         'Could not restore wallet',
-        getLocalBackupRestoreErrorMessage(
-          error,
-          walletBackupStore.restoreBackupIssue,
-          walletBackupStore.restoreDiagnostics,
-        ),
+        getWalletBackupErrorMessage(error),
+      );
+    }
+  }
+
+  async function handleCloudBackupRestore() {
+    const succeeded = await walletBackupStore.restoreFromCloudBackup({
+      unlock,
+    });
+    if (succeeded) {
+      navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+      return;
+    }
+
+    const error = walletBackupStore.error;
+    if (error) {
+      Alert.alert(
+        'Could not restore wallet',
+        getWalletBackupErrorMessage(error),
       );
     }
   }
@@ -68,41 +94,60 @@ export const WalletSetupScreen = observer(function WalletSetupScreenView() {
           </View>
         </View>
         <View style={styles.actions}>
-          {walletBackupStore.remoteBackupPresence === 'absent' ? (
-            <PressableButton
-              title="Create new wallet"
-              onPress={() => navigation.navigate('CreateWallet')}
-              disabled={restoring}
-            />
-          ) : walletBackupStore.remoteBackupPresence === 'error' ? (
-            <SecondaryButton
-              title="Retry wallet backup check"
-              onPress={walletBackupStore.checkRemoteBackupPresence}
-              disabled={restoring}
-            />
-          ) : walletBackupStore.remoteBackupPresence === 'checking' ||
-            walletBackupStore.remoteBackupPresence === 'unknown' ? (
-            <Text style={styles.backupCheckText}>
-              Checking wallet backup status…
-            </Text>
-          ) : null}
-          <SecondaryButton
-            title="Restore with recovery phrase"
-            onPress={() => navigation.navigate('RestoreWallet')}
-            disabled={restoring}
-          />
-          <SecondaryButton
-            title={
-              restoring
-                ? 'Restoring backup…'
-                : 'Restore from backup on this device'
-            }
-            onPress={handleLocalBackupRestore}
-            disabled={restoring}
-          />
-          <Text style={styles.footer}>
-            Your recovery phrase is the only way to recover this wallet.
-          </Text>
+          {checkingRecoveryOptions ? (
+            <View style={styles.optionsLoader}>
+              <ActivityIndicator
+                size="large"
+                color={colors.accentBright}
+                accessibilityLabel="Checking recovery options"
+              />
+            </View>
+          ) : (
+            <>
+              {walletBackupStore.backendWallet.available === false ? (
+                <PressableButton
+                  title="Create new wallet"
+                  onPress={() => navigation.navigate('CreateWallet')}
+                  disabled={actionRunning}
+                />
+              ) : walletBackupStore.backendWallet.error ? (
+                <SecondaryButton
+                  title="Retry wallet backup check"
+                  onPress={walletBackupStore.checkBackendWalletPresence}
+                  disabled={actionRunning}
+                />
+              ) : walletBackupStore.backendWallet.loading ||
+                walletBackupStore.backendWallet.available == null ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.accentBright}
+                  accessibilityLabel="Checking wallet backup"
+                />
+              ) : null}
+              <SecondaryButton
+                title="Restore with recovery phrase"
+                onPress={() => navigation.navigate('RestoreWallet')}
+                disabled={actionRunning}
+              />
+              {walletBackupStore.cloudRecoveryKeyAvailable ? (
+                <SecondaryButton
+                  title="Restore from Google Drive"
+                  onPress={handleCloudBackupRestore}
+                  disabled={actionRunning}
+                />
+              ) : null}
+              {walletBackupStore.localRecoveryKeyAvailable ? (
+                <SecondaryButton
+                  title="Restore from backup on this device"
+                  onPress={handleLocalBackupRestore}
+                  disabled={actionRunning}
+                />
+              ) : null}
+              <Text style={styles.footer}>
+                Choose an available recovery method or use your recovery phrase.
+              </Text>
+            </>
+          )}
         </View>
       </View>
     </ScreenContainer>
@@ -149,12 +194,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   actions: {
+    minHeight: 286,
+    justifyContent: 'flex-end',
     gap: spacing.md,
   },
-  backupCheckText: {
-    textAlign: 'center',
-    color: colors.textSecondary,
-    fontSize: 13,
+  optionsLoader: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     textAlign: 'center',

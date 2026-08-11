@@ -26,9 +26,9 @@ import {
 } from '@shared/ui';
 
 const BACKUP_STATUSES = [
-  { label: 'Device', status: 'Encrypted' },
-  { label: 'iCloud', status: 'Backed up' },
-  { label: 'Backend', status: 'Synced' },
+  { label: 'Device', status: 'Ready' },
+  { label: 'Backend', status: 'On continue' },
+  { label: 'Google Drive', status: 'On continue' },
 ];
 
 function splitMnemonic(mnemonic: string): string[] {
@@ -50,7 +50,7 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
-  const saving = walletBackupStore.backupStatus === 'running';
+  const saving = walletBackupStore.busy;
 
   const generate = useCallback(async () => {
     setGenerating(true);
@@ -70,7 +70,7 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
 
   useEffect(() => {
     if (!confirmed && words.length === 0 && !generating && !generateError) {
-      void generate();
+      generate().catch(() => undefined);
     }
   }, [confirmed, words.length, generating, generateError, generate]);
 
@@ -106,16 +106,16 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
     });
 
     if (!succeeded) {
-      if (walletBackupStore.backupMessage === 'remote_wallet_exists') {
+      if (walletBackupStore.error?.code === 'remote_wallet_exists') {
         Alert.alert(
           'Wallet already exists',
-          'You already have a wallet on this account. Restore it from your ' +
-            'recovery phrase instead.',
+          'You already have a wallet on this account. Use Google Drive ' +
+            'recovery, this device’s recovery key, or your recovery phrase.',
           [
             { text: 'Cancel', style: 'cancel' },
             {
-              text: 'Restore',
-              onPress: () => navigation.navigate('RestoreWallet'),
+              text: 'Restore options',
+              onPress: () => navigation.goBack(),
             },
           ],
         );
@@ -193,17 +193,17 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
               </View>
             ))}
           </View>
-          {walletBackupStore.backupMessage &&
-          walletBackupStore.backupMessage !== 'remote_wallet_exists' ? (
+          {walletBackupStore.creationMessage &&
+          walletBackupStore.error?.code !== 'remote_wallet_exists' ? (
             <Text style={styles.persistError}>
-              {walletBackupStore.backupMessage}
+              {walletBackupStore.creationMessage}
             </Text>
           ) : null}
           <PrimaryButton
             title={
               saving
                 ? 'Saving wallet…'
-                : walletBackupStore.backupStatus === 'incomplete'
+                : walletBackupStore.error
                 ? 'Retry backup'
                 : "I've saved it — Continue"
             }

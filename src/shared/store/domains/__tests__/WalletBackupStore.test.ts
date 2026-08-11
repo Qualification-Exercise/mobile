@@ -1,5 +1,6 @@
 import * as Keychain from 'react-native-keychain';
 import { createSecureStorage } from '@tetherto/wdk-react-native-secure-storage';
+import { RemoteRecoveryError } from '@shared/lib/wallet-backup';
 import {
   WalletBackupStore,
   type WalletBackupDependencies,
@@ -18,17 +19,16 @@ jest.mock('react-native-keychain', () => ({
   STORAGE_TYPE: { AES_GCM_NO_AUTH: 'KeystoreAESGCM_NoAuth' },
   setGenericPassword: jest.fn(),
   getGenericPassword: jest.fn(),
-  resetGenericPassword: jest.fn(),
 }));
 
 jest.mock('@tetherto/wdk-react-native-secure-storage', () => ({
   createSecureStorage: jest.fn(),
 }));
 
-const VALID_KEY = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=';
-const SEED = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
-const ENTROPY = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
-
+const VALID_KEY = Buffer.alloc(32, 0).toString('base64');
+const PREVIOUS_KEY = Buffer.alloc(32, 3).toString('base64');
+const SEED = Buffer.alloc(48, 0).toString('base64');
+const ENTROPY = Buffer.alloc(48, 1).toString('base64');
 const keychain = jest.mocked(Keychain);
 const createStorage = jest.mocked(createSecureStorage);
 
@@ -36,18 +36,39 @@ function createDependencies() {
   const biometryStore = { verify: jest.fn().mockResolvedValue('unlocked') };
   const secretsStore = {
     hasRemoteWallet: jest.fn().mockResolvedValue(false),
-    backupWalletSecrets: jest.fn().mockResolvedValue(undefined),
+    ensureRemoteWalletSecrets: jest.fn().mockResolvedValue(false),
+    getRemoteCredentialState: jest.fn().mockResolvedValue({
+      encryptedSeed: SEED,
+      encryptedEntropy: ENTROPY,
+    }),
     getRemoteRecoveryBundle: jest.fn().mockResolvedValue({
       encryptedSeed: SEED,
       encryptedEntropy: ENTROPY,
     }),
   };
+  const cloudKeyProvider = {
+    authorize: jest.fn().mockResolvedValue({ status: 'authorized' }),
+    getEncryptionKey: jest.fn().mockResolvedValue({
+      status: 'found',
+      encryptionKey: VALID_KEY,
+    }),
+    putEncryptionKey: jest.fn().mockResolvedValue(undefined),
+  };
+  const getUserId = jest.fn(() => 'user-1');
   const dependencies = {
     biometryStore,
     secretsStore,
+    cloudKeyProvider,
+    getUserId,
     isAuthenticated: jest.fn(() => true),
   } as unknown as WalletBackupDependencies;
-  return { dependencies, biometryStore, secretsStore };
+  return {
+    dependencies,
+    biometryStore,
+    secretsStore,
+    cloudKeyProvider,
+    getUserId,
+  };
 }
 
 function createStorageMock() {
@@ -61,33 +82,217 @@ function createStorageMock() {
   };
 }
 
+function createWalletReaders() {
+  return {
+    getEncryptionKey: jest.fn().mockResolvedValue(VALID_KEY),
+    getEncryptedSeed: jest.fn().mockResolvedValue(SEED),
+    getEncryptedEntropy: jest.fn().mockResolvedValue(ENTROPY),
+  };
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   keychain.setGenericPassword.mockResolvedValue(false);
+  keychain.getGenericPassword.mockResolvedValue({
+    username: 'wallet-backup-key',
+    password: PREVIOUS_KEY,
+    service: 'com.wdkqualification.walletBackupKey.v1.default',
+    storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
+  });
+});
+
+test('creates once and verifies the exact WDK credential set across cloud providers', async () => {
+  const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
+  const store = new WalletBackupStore(dependencies);
+  const wallet = {
+    restoreWallet: jest.fn().mockResolvedValue('default'),
+    ...createWalletReaders(),
+  };
+
+  await expect(
+    store.createAndBackupWallet('private mnemonic', wallet),
+  ).resolves.toBe(true);
+
+  expect(wallet.restoreWallet).toHaveBeenCalledTimes(1);
+  expect(secretsStore.ensureRemoteWalletSecrets).toHaveBeenCalledWith({
+    encryptedSeed: SEED,
+    encryptedEntropy: ENTROPY,
+  });
+  expect(cloudKeyProvider.putEncryptionKey).toHaveBeenCalledWith(VALID_KEY);
+  expect(secretsStore.getRemoteRecoveryBundle).toHaveBeenCalledTimes(1);
+  expect(cloudKeyProvider.getEncryptionKey).toHaveBeenCalledTimes(1);
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(store.cloudBackup.available).toBe(true);
+  expect(JSON.stringify(store)).not.toMatch(/private mnemonic|sensitive-token/);
+});
+
+test('preserves a created wallet and completes cloud backup without recreating it', async () => {
+  const { dependencies, cloudKeyProvider } = createDependencies();
+  cloudKeyProvider.putEncryptionKey
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(undefined);
+  const store = new WalletBackupStore(dependencies);
+  const wallet = {
+    restoreWallet: jest.fn().mockResolvedValue('default'),
+    ...createWalletReaders(),
+  };
+
+  await expect(
+    store.createAndBackupWallet('private mnemonic', wallet),
+  ).resolves.toBe(false);
+  expect(store.creationMessage).toBe(
+    'Wallet created, cloud recovery incomplete.',
+  );
+
+  await expect(
+    store.createAndBackupWallet('private mnemonic', wallet),
+  ).resolves.toBe(true);
+  expect(wallet.restoreWallet).toHaveBeenCalledTimes(1);
+  expect(cloudKeyProvider.putEncryptionKey).toHaveBeenCalledTimes(2);
+});
+
+test('creates a Drive backup when backend ciphertext already exists', async () => {
+  const { dependencies, biometryStore, secretsStore, cloudKeyProvider } =
+    createDependencies();
+  secretsStore.hasRemoteWallet.mockResolvedValue(true);
+  const store = new WalletBackupStore(dependencies);
+
+  await expect(store.backupExistingWallet(createWalletReaders())).resolves.toBe(
+    true,
+  );
+
+  expect(biometryStore.verify).toHaveBeenCalledWith(
+    'Enable Google Drive recovery',
+  );
+  expect(secretsStore.ensureRemoteWalletSecrets).toHaveBeenCalled();
+  expect(cloudKeyProvider.putEncryptionKey).toHaveBeenCalledWith(VALID_KEY);
+  expect(store.cloudMessage).toBe('Google Drive backup is ready.');
+});
+
+test.each([
+  [false, false],
+  [
+    {
+      username: 'wallet-backup-key',
+      password: VALID_KEY,
+      service: 'com.wdkqualification.walletBackupKey.v1.default',
+      storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
+    },
+    true,
+  ],
+] as const)(
+  'reports local recovery key presence as %s',
+  async (credentials, expected) => {
+    const { dependencies } = createDependencies();
+    keychain.getGenericPassword.mockResolvedValue(credentials);
+    const store = new WalletBackupStore(dependencies);
+
+    await store.checkLocalRecoveryKeyPresence();
+
+    expect(store.localRecoveryKeyAvailable).toBe(expected);
+  },
+);
+
+test('does not expose another backend user local recovery key', async () => {
+  const { dependencies, getUserId } = createDependencies();
+  keychain.getGenericPassword.mockImplementation(async options => {
+    const service = options?.service ?? '';
+    return service.endsWith('.user-1')
+      ? {
+          username: 'wallet-backup-key',
+          password: VALID_KEY,
+          service,
+          storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
+        }
+      : false;
+  });
+  const store = new WalletBackupStore(dependencies);
+
+  await store.checkLocalRecoveryKeyPresence();
+  expect(store.localRecoveryKeyAvailable).toBe(true);
+
+  getUserId.mockReturnValue('user-2');
+  await store.checkLocalRecoveryKeyPresence();
+  expect(store.localRecoveryKeyAvailable).toBe(false);
+});
+
+test('reports a Drive recovery key without reading backend data', async () => {
+  const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
+  const store = new WalletBackupStore(dependencies);
+
+  await store.checkCloudRecoveryKeyPresence();
+
+  expect(store.cloudRecoveryKeyAvailable).toBe(true);
+  expect(cloudKeyProvider.authorize).toHaveBeenCalledWith(false);
+  expect(cloudKeyProvider.getEncryptionKey).toHaveBeenCalledTimes(1);
+  expect(secretsStore.getRemoteCredentialState).not.toHaveBeenCalled();
+  expect(secretsStore.getRemoteRecoveryBundle).not.toHaveBeenCalled();
+});
+
+test('does not report a Drive recovery key without silent Drive access', async () => {
+  const { dependencies, cloudKeyProvider } = createDependencies();
+  cloudKeyProvider.authorize.mockResolvedValue({ status: 'denied' });
+  const store = new WalletBackupStore(dependencies);
+
+  await store.checkCloudRecoveryKeyPresence();
+
+  expect(store.cloudRecoveryKeyAvailable).toBe(false);
+  expect(cloudKeyProvider.getEncryptionKey).not.toHaveBeenCalled();
+});
+
+test.each([
+  [false, false],
+  [
+    {
+      username: 'wallet-backup-key',
+      password: VALID_KEY,
+      service: 'com.wdkqualification.walletBackupKey.v1.default',
+      storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
+    },
+    true,
+  ],
+] as const)(
+  'reports the local recovery key as %s',
+  async (credentials, expected) => {
+    const { dependencies } = createDependencies();
+    keychain.getGenericPassword.mockResolvedValue(credentials);
+    const store = new WalletBackupStore(dependencies);
+
+    await store.checkLocalBackup(createWalletReaders());
+
+    expect(store.localBackup.available).toBe(expected);
+  },
+);
+
+test('does not report a stale local key as a usable recovery backup', async () => {
+  const { dependencies } = createDependencies();
+  const store = new WalletBackupStore(dependencies);
+
+  await store.checkLocalBackup(createWalletReaders());
+
+  expect(store.localBackup.available).toBe(false);
+});
+
+test('saves and verifies local recovery independently of Drive', async () => {
+  const { dependencies, biometryStore, secretsStore, cloudKeyProvider } =
+    createDependencies();
+  secretsStore.ensureRemoteWalletSecrets.mockResolvedValue(true);
   keychain.getGenericPassword.mockResolvedValue({
     username: 'wallet-backup-key',
     password: VALID_KEY,
     service: 'com.wdkqualification.walletBackupKey.v1.default',
     storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
   });
-});
-
-test('creates once and backs up the exact WDK credential set', async () => {
-  const { dependencies, secretsStore } = createDependencies();
   const store = new WalletBackupStore(dependencies);
-  const wallet = {
-    restoreWallet: jest.fn().mockResolvedValue('default'),
-    getEncryptionKey: jest.fn().mockResolvedValue(VALID_KEY),
-    getEncryptedSeed: jest.fn().mockResolvedValue(SEED),
-    getEncryptedEntropy: jest.fn().mockResolvedValue(ENTROPY),
-  };
 
-  await expect(
-    store.createAndBackupWallet('private mnemonic', wallet),
-  ).resolves.toBe(true);
+  await expect(store.saveLocalBackup(createWalletReaders())).resolves.toBe(
+    true,
+  );
 
-  expect(wallet.restoreWallet).toHaveBeenCalledTimes(1);
-  expect(secretsStore.backupWalletSecrets).toHaveBeenCalledWith({
+  expect(biometryStore.verify).toHaveBeenCalledWith(
+    'Save backup on this device',
+  );
+  expect(secretsStore.ensureRemoteWalletSecrets).toHaveBeenCalledWith({
     encryptedSeed: SEED,
     encryptedEntropy: ENTROPY,
   });
@@ -96,115 +301,156 @@ test('creates once and backs up the exact WDK credential set', async () => {
     VALID_KEY,
     expect.any(Object),
   );
-  expect(
-    JSON.stringify(secretsStore.backupWalletSecrets.mock.calls),
-  ).not.toMatch(
-    /private mnemonic|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=/,
-  );
+  expect(cloudKeyProvider.authorize).not.toHaveBeenCalled();
+  expect(cloudKeyProvider.putEncryptionKey).not.toHaveBeenCalled();
+  expect(store.localBackup.available).toBe(true);
+  expect(store.cloudBackup.available).toBe(false);
 });
 
-test('preserves a created wallet and retries backup without restoring again', async () => {
+test('does not save a local key when backend credentials conflict', async () => {
   const { dependencies, secretsStore } = createDependencies();
-  secretsStore.backupWalletSecrets
-    .mockRejectedValueOnce(new Error('offline'))
-    .mockResolvedValueOnce(undefined);
-  const store = new WalletBackupStore(dependencies);
-  const wallet = {
-    restoreWallet: jest.fn().mockResolvedValue('default'),
-    getEncryptionKey: jest.fn().mockResolvedValue(VALID_KEY),
-    getEncryptedSeed: jest.fn().mockResolvedValue(SEED),
-    getEncryptedEntropy: jest.fn().mockResolvedValue(ENTROPY),
-  };
-
-  await expect(
-    store.createAndBackupWallet('private mnemonic', wallet),
-  ).resolves.toBe(false);
-  expect(store.backupMessage).toBe('Wallet created, backup incomplete.');
-
-  await expect(
-    store.createAndBackupWallet('private mnemonic', wallet),
-  ).resolves.toBe(true);
-  expect(wallet.restoreWallet).toHaveBeenCalledTimes(1);
-  expect(wallet.getEncryptedSeed).toHaveBeenCalledTimes(2);
-});
-
-test('creates a backup for an existing or manually restored wallet', async () => {
-  const { dependencies, biometryStore, secretsStore } = createDependencies();
-  const store = new WalletBackupStore(dependencies);
-  const wallet = {
-    getEncryptionKey: jest.fn().mockResolvedValue(VALID_KEY),
-    getEncryptedSeed: jest.fn().mockResolvedValue(SEED),
-    getEncryptedEntropy: jest.fn().mockResolvedValue(ENTROPY),
-  };
-
-  await expect(store.backupExistingWallet(wallet)).resolves.toBe(true);
-
-  expect(biometryStore.verify).toHaveBeenCalledWith('Create wallet backup');
-  expect(keychain.setGenericPassword).toHaveBeenCalledWith(
-    'wallet-backup-key',
-    VALID_KEY,
-    expect.any(Object),
+  secretsStore.ensureRemoteWalletSecrets.mockRejectedValue(
+    new RemoteRecoveryError(),
   );
-  expect(secretsStore.backupWalletSecrets).toHaveBeenCalledWith({
-    encryptedSeed: SEED,
-    encryptedEntropy: ENTROPY,
-  });
-  expect(store.backupMessage).toBe('Wallet backup created on this device.');
+  const store = new WalletBackupStore(dependencies);
+
+  await expect(store.saveLocalBackup(createWalletReaders())).resolves.toBe(
+    false,
+  );
+
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(store.localBackup.available).not.toBe(true);
+  expect(store.error).toEqual({ code: 'backup_unavailable' });
 });
 
-test('does not read wallet credentials when backup authentication is cancelled', async () => {
+test('does not read or save the local key when authentication is cancelled', async () => {
   const { dependencies, biometryStore, secretsStore } = createDependencies();
   biometryStore.verify.mockResolvedValue('failed');
+  const wallet = createWalletReaders();
   const store = new WalletBackupStore(dependencies);
-  const wallet = {
-    getEncryptionKey: jest.fn(),
-    getEncryptedSeed: jest.fn(),
-    getEncryptedEntropy: jest.fn(),
-  };
+
+  await expect(store.saveLocalBackup(wallet)).resolves.toBe(false);
+
+  expect(wallet.getEncryptionKey).not.toHaveBeenCalled();
+  expect(secretsStore.ensureRemoteWalletSecrets).not.toHaveBeenCalled();
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(store.localBackup.available).not.toBe(true);
+});
+
+test('does not read credentials or mutate providers when Drive consent is cancelled', async () => {
+  const { dependencies, secretsStore, cloudKeyProvider } = createDependencies();
+  cloudKeyProvider.authorize.mockResolvedValue({ status: 'cancelled' });
+  const wallet = createWalletReaders();
+  const store = new WalletBackupStore(dependencies);
+
+  await expect(store.backupExistingWallet(wallet)).resolves.toBe(false);
+
+  expect(wallet.getEncryptionKey).toHaveBeenCalledTimes(1);
+  expect(secretsStore.ensureRemoteWalletSecrets).not.toHaveBeenCalled();
+  expect(cloudKeyProvider.putEncryptionKey).not.toHaveBeenCalled();
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(store.error?.code).toBe('drive_access_required');
+});
+
+test('does not read wallet credentials when device authentication is cancelled', async () => {
+  const { dependencies, biometryStore, cloudKeyProvider } =
+    createDependencies();
+  biometryStore.verify.mockResolvedValue('failed');
+  const wallet = createWalletReaders();
+  const store = new WalletBackupStore(dependencies);
 
   await expect(store.backupExistingWallet(wallet)).resolves.toBe(false);
 
   expect(wallet.getEncryptionKey).not.toHaveBeenCalled();
-  expect(secretsStore.backupWalletSecrets).not.toHaveBeenCalled();
-  expect(store.backupMessage).toBe(
-    'Authentication is required to create a backup.',
-  );
+  expect(cloudKeyProvider.authorize).not.toHaveBeenCalled();
+  expect(store.error?.code).toBe('authentication_failed');
 });
 
-test('does not offer or create another backup when one exists remotely', async () => {
-  const { dependencies, secretsStore } = createDependencies();
-  secretsStore.hasRemoteWallet.mockResolvedValue(true);
-  const store = new WalletBackupStore(dependencies);
-  const wallet = {
-    getEncryptionKey: jest.fn(),
-    getEncryptedSeed: jest.fn(),
-    getEncryptedEntropy: jest.fn(),
-  };
+test.each([
+  [null, null, { status: 'not_found' }, false],
+  [SEED, ENTROPY, { status: 'not_found' }, false],
+  [null, null, { status: 'found', encryptionKey: VALID_KEY }, false],
+  [SEED, ENTROPY, { status: 'found', encryptionKey: VALID_KEY }, true],
+  [SEED, null, { status: 'found', encryptionKey: VALID_KEY }, false],
+] as const)(
+  'classifies backend %s/%s and Drive state as %s',
+  async (encryptedSeed, encryptedEntropy, drive, expected) => {
+    const { dependencies, secretsStore, cloudKeyProvider } =
+      createDependencies();
+    secretsStore.getRemoteCredentialState.mockResolvedValue({
+      encryptedSeed,
+      encryptedEntropy,
+    });
+    cloudKeyProvider.getEncryptionKey.mockResolvedValue(drive);
+    const store = new WalletBackupStore(dependencies);
 
-  await store.checkRemoteBackupPresence();
-  expect(store.remoteBackupPresence).toBe('present');
+    await store.checkCloudBackup();
 
-  await expect(store.backupExistingWallet(wallet)).resolves.toBe(false);
-  expect(wallet.getEncryptionKey).not.toHaveBeenCalled();
-  expect(secretsStore.backupWalletSecrets).not.toHaveBeenCalled();
-});
+    expect(store.cloudBackup.available).toBe(expected);
+  },
+);
 
-test('refuses backup restore when an operational wallet exists', async () => {
-  const { dependencies } = createDependencies();
+test('refuses cloud restore before authorization or download when a wallet exists', async () => {
+  const { dependencies, cloudKeyProvider } = createDependencies();
   const storage = createStorageMock();
   storage.hasWallet.mockResolvedValue(true);
   createStorage.mockReturnValue(storage as never);
-  const unlock = jest.fn();
+  const store = new WalletBackupStore(dependencies);
 
   await expect(
-    new WalletBackupStore(dependencies).restoreFromLocalBackup({ unlock }),
+    store.restoreFromCloudBackup({ unlock: jest.fn() }),
   ).resolves.toBe(false);
 
-  expect(unlock).not.toHaveBeenCalled();
+  expect(cloudKeyProvider.authorize).not.toHaveBeenCalled();
+  expect(cloudKeyProvider.getEncryptionKey).not.toHaveBeenCalled();
   expect(storage.setEncryptedSeed).not.toHaveBeenCalled();
+  expect(store.error?.code).toBe('wallet_already_exists');
 });
 
-test('writes the remote set in seed, entropy, key order and unlocks', async () => {
+test('relies on WDK unlock to reject a wrong Drive key and rolls back', async () => {
+  const { dependencies, cloudKeyProvider } = createDependencies();
+  cloudKeyProvider.getEncryptionKey.mockResolvedValue({
+    status: 'found',
+    encryptionKey: Buffer.alloc(32, 9).toString('base64'),
+  });
+  const storage = createStorageMock();
+  createStorage.mockReturnValue(storage as never);
+  const store = new WalletBackupStore(dependencies);
+  const unlock = jest.fn().mockRejectedValue(new Error('wrong-key'));
+
+  await expect(store.restoreFromCloudBackup({ unlock })).resolves.toBe(false);
+
+  expect(storage.setEncryptedSeed).toHaveBeenCalledWith(SEED, 'default');
+  expect(storage.setEncryptionKey).toHaveBeenCalledWith(
+    Buffer.alloc(32, 9).toString('base64'),
+    'default',
+    { requireBiometrics: false },
+  );
+  expect(unlock).toHaveBeenCalledTimes(1);
+  expect(storage.deleteWallet).toHaveBeenCalledWith('default');
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(store.error?.code).toBe('restore_failed');
+});
+
+test('leaves local storage untouched when cloud restore consent is cancelled', async () => {
+  const { dependencies, cloudKeyProvider, secretsStore } = createDependencies();
+  cloudKeyProvider.authorize.mockResolvedValue({ status: 'cancelled' });
+  const storage = createStorageMock();
+  createStorage.mockReturnValue(storage as never);
+  const store = new WalletBackupStore(dependencies);
+
+  await expect(
+    store.restoreFromCloudBackup({ unlock: jest.fn() }),
+  ).resolves.toBe(false);
+
+  expect(secretsStore.getRemoteRecoveryBundle).not.toHaveBeenCalled();
+  expect(cloudKeyProvider.getEncryptionKey).not.toHaveBeenCalled();
+  expect(storage.setEncryptedSeed).not.toHaveBeenCalled();
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(store.error?.code).toBe('drive_access_required');
+});
+
+test('writes seed, entropy and key before unlocking cloud restore', async () => {
   const { dependencies } = createDependencies();
   const storage = createStorageMock();
   const writes: string[] = [];
@@ -217,6 +463,59 @@ test('writes the remote set in seed, entropy, key order and unlocks', async () =
   storage.setEncryptionKey.mockImplementation(async () => {
     writes.push('key');
   });
+  const unlock = jest.fn().mockImplementation(async () => {
+    writes.push('unlock');
+  });
+  createStorage.mockReturnValue(storage as never);
+  const store = new WalletBackupStore(dependencies);
+
+  await expect(store.restoreFromCloudBackup({ unlock })).resolves.toBe(true);
+
+  expect(writes).toEqual(['seed', 'entropy', 'key', 'unlock']);
+  expect(keychain.setGenericPassword).not.toHaveBeenCalled();
+  expect(storage.setEncryptionKey).toHaveBeenCalledWith(VALID_KEY, 'default', {
+    requireBiometrics: false,
+  });
+  expect(store.busy).toBe(false);
+  expect(store.cloudBackup.available).toBe(true);
+});
+
+test.each(['seed', 'entropy', 'key', 'unlock'] as const)(
+  'rolls back a partial cloud restore when %s fails',
+  async boundary => {
+    const { dependencies } = createDependencies();
+    const storage = createStorageMock();
+    const unlock = jest.fn().mockResolvedValue(undefined);
+    if (boundary === 'seed') {
+      storage.setEncryptedSeed.mockRejectedValue(new Error('private-seed'));
+    } else if (boundary === 'entropy') {
+      storage.setEncryptedEntropy.mockRejectedValue(
+        new Error('private-entropy'),
+      );
+    } else if (boundary === 'key') {
+      storage.setEncryptionKey.mockRejectedValue(new Error('private-key'));
+    } else {
+      unlock.mockRejectedValue(new Error('private-unlock'));
+    }
+    createStorage.mockReturnValue(storage as never);
+    const store = new WalletBackupStore(dependencies);
+
+    await expect(store.restoreFromCloudBackup({ unlock })).resolves.toBe(false);
+
+    expect(storage.deleteWallet).toHaveBeenCalledWith('default');
+    expect(JSON.stringify(store)).not.toMatch(/private-/);
+  },
+);
+
+test('keeps the independent local-device restore flow working', async () => {
+  const { dependencies } = createDependencies();
+  keychain.getGenericPassword.mockResolvedValue({
+    username: 'wallet-backup-key',
+    password: VALID_KEY,
+    service: 'com.wdkqualification.walletBackupKey.v1.default',
+    storage: Keychain.STORAGE_TYPE.AES_GCM_NO_AUTH,
+  });
+  const storage = createStorageMock();
   createStorage.mockReturnValue(storage as never);
   const unlock = jest.fn().mockResolvedValue(undefined);
 
@@ -224,29 +523,9 @@ test('writes the remote set in seed, entropy, key order and unlocks', async () =
     new WalletBackupStore(dependencies).restoreFromLocalBackup({ unlock }),
   ).resolves.toBe(true);
 
-  expect(writes).toEqual(['seed', 'entropy', 'key']);
   expect(storage.setEncryptedSeed).toHaveBeenCalledWith(SEED, 'default');
-  expect(storage.setEncryptedEntropy).toHaveBeenCalledWith(ENTROPY, 'default');
   expect(storage.setEncryptionKey).toHaveBeenCalledWith(VALID_KEY, 'default', {
     requireBiometrics: false,
   });
   expect(unlock).toHaveBeenCalledTimes(1);
-});
-
-test('removes partial WDK credentials after unlock failure but keeps backup key', async () => {
-  const { dependencies } = createDependencies();
-  const storage = createStorageMock();
-  createStorage.mockReturnValue(storage as never);
-
-  const store = new WalletBackupStore(dependencies);
-  await expect(
-    store.restoreFromLocalBackup({
-      unlock: jest.fn().mockRejectedValue(new Error('secret details')),
-    }),
-  ).resolves.toBe(false);
-
-  expect(store.restoreError).toBe('restore_failed');
-  expect(storage.deleteWallet).toHaveBeenCalledWith('default');
-  expect(keychain.resetGenericPassword).not.toHaveBeenCalled();
-  expect(JSON.stringify(store)).not.toContain('secret details');
 });

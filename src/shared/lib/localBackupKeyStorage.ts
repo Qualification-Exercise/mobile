@@ -1,9 +1,20 @@
 import * as Keychain from 'react-native-keychain';
 import { isValidEncryptionKey } from './secretValidation';
 
-const LOCAL_BACKUP_KEY_SERVICE =
-  'com.wdkqualification.walletBackupKey.v1.default';
+const LOCAL_BACKUP_KEY_SERVICE_PREFIX =
+  'com.wdkqualification.walletBackupKey.v1';
 const LOCAL_BACKUP_KEY_USERNAME = 'wallet-backup-key';
+
+function localBackupKeyService(userId: string): string {
+  const normalizedUserId = userId.trim();
+  if (!normalizedUserId) {
+    throw new Error('A user id is required for local wallet backup storage.');
+  }
+
+  return `${LOCAL_BACKUP_KEY_SERVICE_PREFIX}.${encodeURIComponent(
+    normalizedUserId,
+  )}`;
+}
 
 export class InvalidLocalBackupKeyError extends Error {
   constructor() {
@@ -12,20 +23,25 @@ export class InvalidLocalBackupKeyError extends Error {
   }
 }
 
-export async function saveLocalBackupKey(key: string): Promise<void> {
+export async function saveLocalBackupKey(
+  userId: string,
+  key: string,
+): Promise<void> {
   if (!isValidEncryptionKey(key)) {
     throw new InvalidLocalBackupKeyError();
   }
 
   await Keychain.setGenericPassword(LOCAL_BACKUP_KEY_USERNAME, key, {
-    service: LOCAL_BACKUP_KEY_SERVICE,
+    service: localBackupKeyService(userId),
     accessible: Keychain.ACCESSIBLE.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
   });
 }
 
-export async function loadLocalBackupKey(): Promise<string | null> {
+export async function loadLocalBackupKey(
+  userId: string,
+): Promise<string | null> {
   const credentials = await Keychain.getGenericPassword({
-    service: LOCAL_BACKUP_KEY_SERVICE,
+    service: localBackupKeyService(userId),
   });
 
   if (!credentials) {
@@ -37,8 +53,4 @@ export async function loadLocalBackupKey(): Promise<string | null> {
   }
 
   return credentials.password;
-}
-
-export async function clearLocalBackupKey(): Promise<void> {
-  await Keychain.resetGenericPassword({ service: LOCAL_BACKUP_KEY_SERVICE });
 }

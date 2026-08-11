@@ -7,3 +7,4 @@ export * from './localBackupKeyStorage';
 export * from './mnemonicHash';
 export * from './secretValidation';
 export * from './showErrorToast';
+export * from './wallet-backup';

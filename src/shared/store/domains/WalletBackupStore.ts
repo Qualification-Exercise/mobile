@@ -1,8 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { createSecureStorage } from '@tetherto/wdk-react-native-secure-storage';
-import { ApiError } from '@shared/api';
 import {
-  InvalidLocalBackupKeyError,
   isValidEncryptedCredential,
   isValidEncryptionKey,
   loadLocalBackupKey,
@@ -10,72 +8,69 @@ import {
 } from '@shared/lib';
 import { DEFAULT_WALLET_ID } from '@shared/lib/hooks/wallet';
 import {
-  RemoteRecoveryError,
-  type RemoteRecoveryDiagnostics,
-} from './SecretsStore';
-import type { BiometryStore } from './BiometryStore';
+  getWalletBackupErrorMessage,
+  toWalletBackupError,
+  WalletBackupOperationError,
+  type CloudAuthorizationOutcome,
+  type CloudKeyProvider,
+  type WalletBackupError,
+} from '@shared/lib/wallet-backup';
+import type { BiometryOutcome } from './BiometryStore';
 import type { SecretsStore } from './SecretsStore';
 
-export type WalletBackupStatus = 'idle' | 'running' | 'complete' | 'incomplete';
+type BackupAvailability = {
+  available: boolean | null;
+  loading: boolean;
+  error: boolean;
+};
 
-export type RemoteBackupPresence =
-  | 'unknown'
-  | 'checking'
-  | 'absent'
-  | 'present'
-  | 'error';
-
-export type LocalBackupRestoreErrorCode =
-  | 'wallet_already_exists'
-  | 'authentication_failed'
-  | 'backup_unavailable'
-  | 'network_error'
-  | 'restore_failed';
-
-export type BackupIssue =
-  | 'local_key_missing'
-  | 'invalid_local_key'
-  | 'remote_missing'
-  | 'remote_ambiguous'
-  | 'remote_invalid';
-
-export type LocalBackupRestorePhase =
-  | 'idle'
-  | 'authenticating'
-  | 'loading'
-  | 'writing'
-  | 'unlocking'
-  | 'complete'
-  | 'failed';
-
-export type WalletCredentialReaders = {
-  restoreWallet: (mnemonic: string) => Promise<string>;
-} & ExistingWalletCredentialReaders;
-
-export type ExistingWalletCredentialReaders = {
+type ExistingWalletCredentialReaders = {
   getEncryptionKey: () => Promise<string | null>;
   getEncryptedSeed: () => Promise<string | null>;
   getEncryptedEntropy: () => Promise<string | null>;
 };
 
-export type WalletUnlocker = {
+type WalletCredentialReaders = {
+  restoreWallet: (mnemonic: string) => Promise<string>;
+} & ExistingWalletCredentialReaders;
+
+type WalletUnlocker = {
   unlock: () => Promise<void>;
 };
 
+type WalletCredentials = {
+  encryptionKey: string;
+  encryptedSeed: string;
+  encryptedEntropy: string;
+};
+
 export type WalletBackupDependencies = {
-  biometryStore: BiometryStore;
+  biometryStore: {
+    verify: (prompt: string) => Promise<BiometryOutcome>;
+  };
   secretsStore: SecretsStore;
+  cloudKeyProvider: CloudKeyProvider;
+  getUserId: () => string | null;
   isAuthenticated: () => boolean;
 };
 
+const UNKNOWN_AVAILABILITY: BackupAvailability = {
+  available: null,
+  loading: false,
+  error: false,
+};
+
 export class WalletBackupStore {
-  backupStatus: WalletBackupStatus = 'idle';
-  backupMessage = '';
-  remoteBackupPresence: RemoteBackupPresence = 'unknown';
-  restorePhase: LocalBackupRestorePhase = 'idle';
-  restoreError: LocalBackupRestoreErrorCode | null = null;
-  restoreBackupIssue: BackupIssue | null = null;
-  restoreDiagnostics: RemoteRecoveryDiagnostics | null = null;
+  busy = false;
+  creationMessage = '';
+  localMessage = '';
+  cloudMessage = '';
+  error: WalletBackupError | null = null;
+  localRecoveryKeyAvailable = false;
+  cloudRecoveryKeyAvailable = false;
+  backendWallet: BackupAvailability = { ...UNKNOWN_AVAILABILITY };
+  localBackup: BackupAvailability = { ...UNKNOWN_AVAILABILITY };
+  cloudBackup: BackupAvailability = { ...UNKNOWN_AVAILABILITY };
 
   private walletCreatedForPendingBackup = false;
 
@@ -85,7 +80,10 @@ export class WalletBackupStore {
       'dependencies' | 'walletCreatedForPendingBackup'
     >(
       this,
-      { dependencies: false, walletCreatedForPendingBackup: false },
+      {
+        dependencies: false,
+        walletCreatedForPendingBackup: false,
+      },
       { autoBind: true },
     );
   }
@@ -94,20 +92,17 @@ export class WalletBackupStore {
     mnemonic: string,
     wallet: WalletCredentialReaders,
   ): Promise<boolean> {
-    if (this.backupStatus === 'running') {
+    if (!this.beginOperation()) {
       return false;
     }
-
-    this.backupStatus = 'running';
-    this.backupMessage = '';
+    this.creationMessage = '';
 
     try {
       if (!this.walletCreatedForPendingBackup) {
         if (await this.dependencies.secretsStore.hasRemoteWallet()) {
           runInAction(() => {
-            this.backupStatus = 'idle';
-            this.backupMessage = 'remote_wallet_exists';
-            this.remoteBackupPresence = 'present';
+            this.backendWallet = available(true);
+            this.error = failure('remote_wallet_exists');
           });
           return false;
         }
@@ -115,238 +110,369 @@ export class WalletBackupStore {
         this.walletCreatedForPendingBackup = true;
       }
 
-      const [encryptionKey, encryptedSeed, encryptedEntropy] =
-        await Promise.all([
-          wallet.getEncryptionKey(),
-          wallet.getEncryptedSeed(),
-          wallet.getEncryptedEntropy(),
-        ]);
-
-      if (
-        encryptionKey == null ||
-        encryptedSeed == null ||
-        encryptedEntropy == null ||
-        !isValidEncryptionKey(encryptionKey) ||
-        !isValidEncryptedCredential(encryptedSeed) ||
-        !isValidEncryptedCredential(encryptedEntropy)
-      ) {
-        throw new Error('invalid_wallet_credentials');
-      }
-
-      await saveLocalBackupKey(encryptionKey);
-      await this.dependencies.secretsStore.backupWalletSecrets({
-        encryptedSeed,
-        encryptedEntropy,
-      });
-
+      await this.backupWallet(wallet);
       runInAction(() => {
-        this.backupStatus = 'complete';
-        this.backupMessage = '';
-        this.remoteBackupPresence = 'present';
+        this.backendWallet = available(true);
+        this.cloudBackup = available(true);
+        this.cloudRecoveryKeyAvailable = true;
         this.walletCreatedForPendingBackup = false;
       });
       return true;
-    } catch {
+    } catch (error) {
+      this.handleFailure(error);
       runInAction(() => {
-        if (this.walletCreatedForPendingBackup) {
-          this.backupStatus = 'incomplete';
-          this.backupMessage = 'Wallet created, backup incomplete.';
-        } else {
-          this.backupStatus = 'idle';
-          this.backupMessage = 'Could not create wallet. Please try again.';
-        }
+        this.creationMessage = this.walletCreatedForPendingBackup
+          ? 'Wallet created, cloud recovery incomplete.'
+          : 'Could not create wallet. Please try again.';
       });
       return false;
+    } finally {
+      this.endOperation();
     }
   }
 
   async backupExistingWallet(
     wallet: ExistingWalletCredentialReaders,
   ): Promise<boolean> {
-    if (this.backupStatus === 'running') {
+    if (!this.beginOperation()) {
       return false;
     }
-
-    this.backupStatus = 'running';
-    this.backupMessage = '';
+    this.cloudMessage = '';
 
     try {
-      if (await this.dependencies.secretsStore.hasRemoteWallet()) {
+      if (!(await this.authenticate('Enable Google Drive recovery'))) {
         runInAction(() => {
-          this.backupStatus = 'idle';
-          this.backupMessage =
-            'A wallet backup already exists in your account.';
-          this.remoteBackupPresence = 'present';
+          this.cloudMessage = getWalletBackupErrorMessage(this.error!);
         });
         return false;
       }
+      await this.backupWallet(wallet);
       runInAction(() => {
-        this.remoteBackupPresence = 'absent';
-      });
-    } catch {
-      runInAction(() => {
-        this.backupStatus = 'idle';
-        this.backupMessage = 'Could not check your wallet backup status.';
-        this.remoteBackupPresence = 'error';
-      });
-      return false;
-    }
-
-    if (!this.dependencies.isAuthenticated()) {
-      this.backupStatus = 'idle';
-      this.backupMessage = 'Sign in before creating a wallet backup.';
-      return false;
-    }
-
-    let authOutcome;
-    try {
-      authOutcome = await this.dependencies.biometryStore.verify(
-        'Create wallet backup',
-      );
-    } catch {
-      runInAction(() => {
-        this.backupStatus = 'idle';
-        this.backupMessage = 'Authentication is required to create a backup.';
-      });
-      return false;
-    }
-
-    if (authOutcome !== 'unlocked') {
-      runInAction(() => {
-        this.backupStatus = 'idle';
-        this.backupMessage = 'Authentication is required to create a backup.';
-      });
-      return false;
-    }
-
-    try {
-      const [encryptionKey, encryptedSeed, encryptedEntropy] =
-        await Promise.all([
-          wallet.getEncryptionKey(),
-          wallet.getEncryptedSeed(),
-          wallet.getEncryptedEntropy(),
-        ]);
-
-      if (
-        encryptionKey == null ||
-        encryptedSeed == null ||
-        encryptedEntropy == null ||
-        !isValidEncryptionKey(encryptionKey) ||
-        !isValidEncryptedCredential(encryptedSeed) ||
-        !isValidEncryptedCredential(encryptedEntropy)
-      ) {
-        throw new Error('invalid_wallet_credentials');
-      }
-
-      await saveLocalBackupKey(encryptionKey);
-      await this.dependencies.secretsStore.backupWalletSecrets({
-        encryptedSeed,
-        encryptedEntropy,
-      });
-
-      runInAction(() => {
-        this.backupStatus = 'complete';
-        this.backupMessage = 'Wallet backup created on this device.';
-        this.remoteBackupPresence = 'present';
+        this.backendWallet = available(true);
+        this.cloudBackup = available(true);
+        this.cloudRecoveryKeyAvailable = true;
+        this.cloudMessage = 'Google Drive backup is ready.';
       });
       return true;
-    } catch {
+    } catch (error) {
+      const backupError = this.handleFailure(error);
       runInAction(() => {
-        this.backupStatus = 'incomplete';
-        this.backupMessage =
-          'Wallet is safe, but its backup is incomplete. Please try again.';
+        this.cloudMessage = getWalletBackupErrorMessage(backupError);
       });
       return false;
+    } finally {
+      this.endOperation();
     }
   }
 
-  async checkRemoteBackupPresence(): Promise<void> {
-    if (this.remoteBackupPresence === 'checking') {
+  async checkBackendWalletPresence(): Promise<void> {
+    if (this.backendWallet.loading) {
       return;
     }
+    this.backendWallet = loading();
 
-    this.remoteBackupPresence = 'checking';
-    this.backupMessage = '';
     try {
       const exists = await this.dependencies.secretsStore.hasRemoteWallet();
       runInAction(() => {
-        this.remoteBackupPresence = exists ? 'present' : 'absent';
+        this.backendWallet = available(exists);
       });
     } catch {
       runInAction(() => {
-        this.remoteBackupPresence = 'error';
+        this.backendWallet = unavailable();
       });
+    }
+  }
+
+  async checkLocalBackup(
+    wallet: ExistingWalletCredentialReaders,
+  ): Promise<void> {
+    if (this.localBackup.loading) {
+      return;
+    }
+    this.localBackup = loading();
+    this.localMessage = '';
+
+    try {
+      const exists = await this.hasUsableLocalBackup(wallet);
+      runInAction(() => {
+        this.localBackup = available(exists);
+      });
+    } catch {
+      runInAction(() => {
+        this.localBackup = unavailable();
+      });
+    }
+  }
+
+  async checkLocalRecoveryKeyPresence(): Promise<void> {
+    try {
+      const userId = this.dependencies.getUserId();
+      const exists =
+        userId != null && (await loadLocalBackupKey(userId)) != null;
+      runInAction(() => {
+        this.localRecoveryKeyAvailable = exists;
+      });
+    } catch {
+      runInAction(() => {
+        this.localRecoveryKeyAvailable = false;
+      });
+    }
+  }
+
+  async checkCloudRecoveryKeyPresence(): Promise<void> {
+    try {
+      const authorization = await this.dependencies.cloudKeyProvider.authorize(
+        false,
+      );
+      const exists =
+        authorization.status === 'authorized' &&
+        (await this.dependencies.cloudKeyProvider.getEncryptionKey()).status ===
+          'found';
+      runInAction(() => {
+        this.cloudRecoveryKeyAvailable = exists;
+      });
+    } catch {
+      runInAction(() => {
+        this.cloudRecoveryKeyAvailable = false;
+      });
+    }
+  }
+
+  async checkCloudBackup(): Promise<void> {
+    if (this.cloudBackup.loading || this.busy) {
+      return;
+    }
+    this.cloudBackup = loading();
+    this.cloudMessage = '';
+
+    try {
+      const exists = await this.hasCompleteCloudBackup();
+      runInAction(() => {
+        this.cloudBackup = available(exists);
+      });
+    } catch {
+      runInAction(() => {
+        this.cloudBackup = unavailable();
+      });
+    }
+  }
+
+  async saveLocalBackup(
+    wallet: ExistingWalletCredentialReaders,
+  ): Promise<boolean> {
+    if (!this.beginOperation()) {
+      return false;
+    }
+    this.localMessage = '';
+
+    try {
+      if (!(await this.authenticate('Save backup on this device'))) {
+        runInAction(() => {
+          this.localMessage = getWalletBackupErrorMessage(this.error!);
+        });
+        return false;
+      }
+      const backendChanged = await this.saveLocalBackupCredentials(wallet);
+      runInAction(() => {
+        this.backendWallet = available(true);
+        this.localBackup = available(true);
+        this.localRecoveryKeyAvailable = true;
+        this.cloudBackup = backendChanged ? available(false) : this.cloudBackup;
+        this.localMessage = 'Saved on this device.';
+      });
+      return true;
+    } catch (error) {
+      const backupError = this.handleFailure(error);
+      runInAction(() => {
+        this.localMessage = getWalletBackupErrorMessage(backupError);
+      });
+      return false;
+    } finally {
+      this.endOperation();
+    }
+  }
+
+  async restoreFromCloudBackup(wallet: WalletUnlocker): Promise<boolean> {
+    if (!this.beginOperation()) {
+      return false;
+    }
+
+    try {
+      if (!(await this.authenticate('Restore wallet from Google Drive'))) {
+        return false;
+      }
+      await this.restoreFromCloud(wallet);
+      runInAction(() => {
+        this.backendWallet = available(true);
+        this.cloudBackup = available(true);
+        this.cloudRecoveryKeyAvailable = true;
+      });
+      return true;
+    } catch (error) {
+      this.handleFailure(error);
+      return false;
+    } finally {
+      this.endOperation();
     }
   }
 
   async restoreFromLocalBackup(wallet: WalletUnlocker): Promise<boolean> {
-    if (this.restorePhase !== 'idle' && this.restorePhase !== 'failed') {
+    if (!this.beginOperation()) {
       return false;
     }
 
-    this.restorePhase = 'authenticating';
-    this.restoreError = null;
-    this.restoreBackupIssue = null;
-    this.restoreDiagnostics = null;
-
-    if (!this.dependencies.isAuthenticated()) {
-      this.restorePhase = 'failed';
-      this.restoreError = 'authentication_failed';
-      return false;
-    }
-
-    let authOutcome;
     try {
-      authOutcome = await this.dependencies.biometryStore.verify(
-        'Restore wallet backup',
-      );
-    } catch {
-      runInAction(() => {
-        this.restorePhase = 'failed';
-        this.restoreError = 'authentication_failed';
-      });
+      if (!(await this.authenticate('Restore wallet backup'))) {
+        return false;
+      }
+      await this.restoreFromLocal(wallet);
+      return true;
+    } catch (error) {
+      this.handleFailure(error);
       return false;
+    } finally {
+      this.endOperation();
     }
-    if (authOutcome !== 'unlocked') {
-      runInAction(() => {
-        this.restorePhase = 'failed';
-        this.restoreError = 'authentication_failed';
-      });
+  }
+
+  private async hasUsableLocalBackup(
+    wallet: ExistingWalletCredentialReaders,
+  ): Promise<boolean> {
+    const userId = this.dependencies.getUserId();
+    if (userId == null) {
       return false;
     }
 
-    let storage: ReturnType<typeof createSecureStorage> | null = null;
+    const key = await loadLocalBackupKey(userId);
+    if (key == null) {
+      return false;
+    }
+
+    const [credentials, remote] = await Promise.all([
+      this.readWalletCredentials(wallet),
+      this.dependencies.secretsStore.getRemoteRecoveryBundle(),
+    ]);
+    return (
+      key === credentials.encryptionKey &&
+      remote.encryptedSeed === credentials.encryptedSeed &&
+      remote.encryptedEntropy === credentials.encryptedEntropy
+    );
+  }
+
+  private async hasCompleteCloudBackup(): Promise<boolean> {
+    const backend =
+      await this.dependencies.secretsStore.getRemoteCredentialState();
+    const authorization = await this.dependencies.cloudKeyProvider.authorize(
+      false,
+    );
+    if (authorization.status !== 'authorized') {
+      return false;
+    }
+
+    const drive = await this.dependencies.cloudKeyProvider.getEncryptionKey();
+    return (
+      backend.encryptedSeed != null &&
+      backend.encryptedEntropy != null &&
+      drive.status === 'found'
+    );
+  }
+
+  private async backupWallet(
+    wallet: ExistingWalletCredentialReaders,
+  ): Promise<void> {
+    const credentials = await this.readWalletCredentials(wallet);
+    await this.backupCredentials(credentials);
+  }
+
+  private async saveLocalBackupCredentials(
+    wallet: ExistingWalletCredentialReaders,
+  ): Promise<boolean> {
+    const userId = this.requireUserId();
+    const credentials = await this.readWalletCredentials(wallet);
+    const backendChanged =
+      await this.dependencies.secretsStore.ensureRemoteWalletSecrets({
+        encryptedSeed: credentials.encryptedSeed,
+        encryptedEntropy: credentials.encryptedEntropy,
+      });
+    await saveLocalBackupKey(userId, credentials.encryptionKey);
+
+    const [savedKey, remote] = await Promise.all([
+      loadLocalBackupKey(userId),
+      this.dependencies.secretsStore.getRemoteRecoveryBundle(),
+    ]);
+    if (
+      savedKey !== credentials.encryptionKey ||
+      remote.encryptedSeed !== credentials.encryptedSeed ||
+      remote.encryptedEntropy !== credentials.encryptedEntropy
+    ) {
+      throw new WalletBackupOperationError('backup_unavailable');
+    }
+    return backendChanged;
+  }
+
+  private async restoreFromCloud(wallet: WalletUnlocker): Promise<void> {
+    const storage = createSecureStorage();
     let wroteCredentials = false;
 
     try {
-      storage = createSecureStorage();
       if (await storage.hasWallet(DEFAULT_WALLET_ID)) {
-        throw new LocalBackupRestoreError('wallet_already_exists');
+        throw new WalletBackupOperationError('wallet_already_exists');
       }
 
-      runInAction(() => {
-        this.restorePhase = 'loading';
-      });
-      const encryptionKey = await loadLocalBackupKey();
-      if (encryptionKey == null) {
-        throw new LocalBackupRestoreError('local_key_missing');
+      const authorization = await this.dependencies.cloudKeyProvider.authorize(
+        true,
+      );
+      this.assertCloudAuthorized(authorization);
+
+      const bundle =
+        await this.dependencies.secretsStore.getRemoteRecoveryBundle();
+      const lookup =
+        await this.dependencies.cloudKeyProvider.getEncryptionKey();
+      if (
+        lookup.status === 'not_found' ||
+        !isValidEncryptionKey(lookup.encryptionKey)
+      ) {
+        throw new WalletBackupOperationError('backup_unavailable');
       }
-      if (!isValidEncryptionKey(encryptionKey)) {
-        throw new LocalBackupRestoreError('invalid_local_key');
+
+      wroteCredentials = true;
+      await storage.setEncryptedSeed(bundle.encryptedSeed, DEFAULT_WALLET_ID);
+      await storage.setEncryptedEntropy(
+        bundle.encryptedEntropy,
+        DEFAULT_WALLET_ID,
+      );
+      await storage.setEncryptionKey(lookup.encryptionKey, DEFAULT_WALLET_ID, {
+        requireBiometrics: false,
+      });
+
+      await wallet.unlock();
+    } catch (error) {
+      if (wroteCredentials) {
+        await this.rollback(storage);
+      }
+      throw error;
+    } finally {
+      storage.cleanup();
+    }
+  }
+
+  private async restoreFromLocal(wallet: WalletUnlocker): Promise<void> {
+    const storage = createSecureStorage();
+    let wroteCredentials = false;
+
+    try {
+      if (await storage.hasWallet(DEFAULT_WALLET_ID)) {
+        throw new WalletBackupOperationError('wallet_already_exists');
+      }
+
+      const encryptionKey = await loadLocalBackupKey(this.requireUserId());
+      if (encryptionKey == null) {
+        throw new WalletBackupOperationError('backup_unavailable');
       }
 
       const bundle =
         await this.dependencies.secretsStore.getRemoteRecoveryBundle();
-      if (
-        !isValidEncryptedCredential(bundle.encryptedSeed) ||
-        !isValidEncryptedCredential(bundle.encryptedEntropy)
-      ) {
-        throw new LocalBackupRestoreError('remote_invalid');
-      }
 
-      runInAction(() => {
-        this.restorePhase = 'writing';
-      });
       wroteCredentials = true;
       await storage.setEncryptedSeed(bundle.encryptedSeed, DEFAULT_WALLET_ID);
       await storage.setEncryptedEntropy(
@@ -357,97 +483,158 @@ export class WalletBackupStore {
         requireBiometrics: false,
       });
 
-      runInAction(() => {
-        this.restorePhase = 'unlocking';
-      });
       try {
         await wallet.unlock();
       } catch {
-        throw new LocalBackupRestoreError('wdk_initialization_failed');
+        throw new WalletBackupOperationError('restore_failed');
       }
-
-      runInAction(() => {
-        this.restorePhase = 'complete';
-      });
-      return true;
     } catch (error) {
       if (wroteCredentials) {
-        try {
-          await storage?.deleteWallet(DEFAULT_WALLET_ID);
-        } catch {
-          // The original safe error remains more useful than cleanup details.
-        }
+        await this.rollback(storage);
       }
+      throw error;
+    } finally {
+      storage.cleanup();
+    }
+  }
 
+  private async backupCredentials(
+    credentials: WalletCredentials,
+  ): Promise<void> {
+    const authorization = await this.dependencies.cloudKeyProvider.authorize(
+      true,
+    );
+    this.assertCloudAuthorized(authorization);
+
+    await this.dependencies.secretsStore.ensureRemoteWalletSecrets({
+      encryptedSeed: credentials.encryptedSeed,
+      encryptedEntropy: credentials.encryptedEntropy,
+    });
+    await this.dependencies.cloudKeyProvider.putEncryptionKey(
+      credentials.encryptionKey,
+    );
+
+    const [remote, drive] = await Promise.all([
+      this.dependencies.secretsStore.getRemoteRecoveryBundle(),
+      this.dependencies.cloudKeyProvider.getEncryptionKey(),
+    ]);
+    if (
+      remote.encryptedSeed !== credentials.encryptedSeed ||
+      remote.encryptedEntropy !== credentials.encryptedEntropy ||
+      drive.status !== 'found' ||
+      drive.encryptionKey !== credentials.encryptionKey
+    ) {
+      throw new WalletBackupOperationError('backup_unavailable');
+    }
+  }
+
+  private async readWalletCredentials(
+    wallet: ExistingWalletCredentialReaders,
+  ): Promise<WalletCredentials> {
+    const [encryptionKey, encryptedSeed, encryptedEntropy] = await Promise.all([
+      wallet.getEncryptionKey(),
+      wallet.getEncryptedSeed(),
+      wallet.getEncryptedEntropy(),
+    ]);
+    if (
+      encryptionKey == null ||
+      encryptedSeed == null ||
+      encryptedEntropy == null ||
+      !isValidEncryptionKey(encryptionKey) ||
+      !isValidEncryptedCredential(encryptedSeed) ||
+      !isValidEncryptedCredential(encryptedEntropy)
+    ) {
+      throw new WalletBackupOperationError('backup_unavailable');
+    }
+    return { encryptionKey, encryptedSeed, encryptedEntropy };
+  }
+
+  private assertCloudAuthorized(outcome: CloudAuthorizationOutcome): void {
+    if (outcome.status === 'authorized') {
+      return;
+    }
+    throw new WalletBackupOperationError(
+      outcome.status === 'signed_out' ? 'signed_out' : 'drive_access_required',
+    );
+  }
+
+  private requireUserId(): string {
+    const userId = this.dependencies.getUserId();
+    if (userId == null) {
+      throw new WalletBackupOperationError('signed_out');
+    }
+    return userId;
+  }
+
+  private async rollback(
+    storage: ReturnType<typeof createSecureStorage>,
+  ): Promise<void> {
+    try {
+      await storage.deleteWallet(DEFAULT_WALLET_ID);
+    } catch {
+      // Preserve the original restore error when cleanup also fails.
+    }
+  }
+
+  private beginOperation(): boolean {
+    if (this.busy) {
+      return false;
+    }
+    this.busy = true;
+    this.error = null;
+    return true;
+  }
+
+  private endOperation(): void {
+    runInAction(() => {
+      this.busy = false;
+    });
+  }
+
+  private async authenticate(prompt: string): Promise<boolean> {
+    if (!this.dependencies.isAuthenticated()) {
       runInAction(() => {
-        const outcome = this.toRestoreOutcome(error);
-        this.restorePhase = 'failed';
-        this.restoreDiagnostics =
-          error instanceof RemoteRecoveryError ? error.diagnostics : null;
-        this.restoreError = outcome.code;
-        this.restoreBackupIssue = outcome.backupIssue;
+        this.error = failure('signed_out');
       });
       return false;
-    } finally {
-      storage?.cleanup();
     }
+
+    try {
+      const outcome = await this.dependencies.biometryStore.verify(prompt);
+      if (outcome === 'unlocked') {
+        return true;
+      }
+    } catch {
+      // A rejected authentication prompt is handled like any failed attempt.
+    }
+
+    runInAction(() => {
+      this.error = failure('authentication_failed');
+    });
+    return false;
   }
 
-  resetRestoreState(): void {
-    if (this.restorePhase === 'failed' || this.restorePhase === 'complete') {
-      this.restorePhase = 'idle';
-      this.restoreError = null;
-      this.restoreBackupIssue = null;
-      this.restoreDiagnostics = null;
-    }
-  }
-
-  private toRestoreOutcome(error: unknown): RestoreOutcome {
-    if (error instanceof LocalBackupRestoreError) {
-      if (error.code === 'wallet_already_exists') {
-        return { code: 'wallet_already_exists', backupIssue: null };
-      }
-      if (error.code === 'wdk_initialization_failed') {
-        return { code: 'restore_failed', backupIssue: null };
-      }
-      return { code: 'backup_unavailable', backupIssue: error.code };
-    }
-    if (error instanceof InvalidLocalBackupKeyError) {
-      return {
-        code: 'backup_unavailable',
-        backupIssue: 'invalid_local_key',
-      };
-    }
-    if (error instanceof RemoteRecoveryError) {
-      if (error.code === 'not_found') {
-        return { code: 'backup_unavailable', backupIssue: 'remote_missing' };
-      }
-      return error.code === 'ambiguous_backup'
-        ? { code: 'backup_unavailable', backupIssue: 'remote_ambiguous' }
-        : { code: 'backup_unavailable', backupIssue: 'remote_invalid' };
-    }
-    if (error instanceof ApiError) {
-      return { code: 'network_error', backupIssue: null };
-    }
-    return { code: 'restore_failed', backupIssue: null };
+  private handleFailure(cause: unknown): WalletBackupError {
+    const error = toWalletBackupError(cause);
+    runInAction(() => {
+      this.error = error;
+    });
+    return error;
   }
 }
 
-type LocalBackupRestoreFailureCode =
-  | 'wallet_already_exists'
-  | 'local_key_missing'
-  | 'invalid_local_key'
-  | 'remote_invalid'
-  | 'wdk_initialization_failed';
+function loading(): BackupAvailability {
+  return { available: null, loading: true, error: false };
+}
 
-type RestoreOutcome = {
-  code: LocalBackupRestoreErrorCode;
-  backupIssue: BackupIssue | null;
-};
+function available(value: boolean): BackupAvailability {
+  return { available: value, loading: false, error: false };
+}
 
-class LocalBackupRestoreError extends Error {
-  constructor(readonly code: LocalBackupRestoreFailureCode) {
-    super(code);
-    this.name = 'LocalBackupRestoreError';
-  }
+function unavailable(): BackupAvailability {
+  return { available: null, loading: false, error: true };
+}
+
+function failure(code: WalletBackupError['code']): WalletBackupError {
+  return { code };
 }

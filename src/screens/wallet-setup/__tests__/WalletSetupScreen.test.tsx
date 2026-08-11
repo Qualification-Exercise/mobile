@@ -9,23 +9,37 @@ const mockNavigation = {
 };
 
 const mockWalletBackupStore = {
-  restorePhase: 'idle',
-  restoreError: null as string | null,
-  restoreBackupIssue: null as string | null,
-  restoreDiagnostics: null as null | Record<string, number>,
-  remoteBackupPresence: 'absent',
-  resetRestoreState: jest.fn(),
+  busy: false,
+  error: null as null | { code: string },
+  localRecoveryKeyAvailable: true,
+  cloudRecoveryKeyAvailable: true,
+  backendWallet: { available: false, loading: false, error: false },
   restoreFromLocalBackup: jest.fn(),
-  checkRemoteBackupPresence: jest.fn(),
+  restoreFromCloudBackup: jest.fn(),
+  checkBackendWalletPresence: jest.fn(),
+  checkLocalRecoveryKeyPresence: jest.fn(),
+  checkCloudRecoveryKeyPresence: jest.fn(),
 };
 
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => mockNavigation,
-  useFocusEffect: (callback: () => void) => callback(),
+  useFocusEffect: (callback: () => void) => {
+    const ReactRuntime = require('react');
+    ReactRuntime.useEffect(callback, [callback]);
+  },
 }));
 
 jest.mock('@shared/store', () => ({
   useStore: () => ({ walletBackupStore: mockWalletBackupStore }),
+}));
+
+jest.mock('@shared/lib', () => ({
+  getWalletBackupErrorMessage: (error: { code: string }) => {
+    if (error.code === 'wallet_already_exists') {
+      return 'A wallet already exists on this device.';
+    }
+    return 'This backup is unavailable. Try another recovery method.';
+  },
 }));
 
 jest.mock('@shared/lib/hooks/wallet', () => ({
@@ -61,12 +75,24 @@ jest.mock('@shared/ui', () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockWalletBackupStore.restorePhase = 'idle';
-  mockWalletBackupStore.restoreError = null;
-  mockWalletBackupStore.restoreBackupIssue = null;
-  mockWalletBackupStore.restoreDiagnostics = null;
-  mockWalletBackupStore.remoteBackupPresence = 'absent';
+  mockWalletBackupStore.busy = false;
+  mockWalletBackupStore.error = null;
+  mockWalletBackupStore.localRecoveryKeyAvailable = true;
+  mockWalletBackupStore.cloudRecoveryKeyAvailable = true;
+  mockWalletBackupStore.backendWallet = {
+    available: false,
+    loading: false,
+    error: false,
+  };
   mockWalletBackupStore.restoreFromLocalBackup.mockResolvedValue(false);
+  mockWalletBackupStore.restoreFromCloudBackup.mockResolvedValue(false);
+  mockWalletBackupStore.checkBackendWalletPresence.mockResolvedValue(undefined);
+  mockWalletBackupStore.checkLocalRecoveryKeyPresence.mockResolvedValue(
+    undefined,
+  );
+  mockWalletBackupStore.checkCloudRecoveryKeyPresence.mockResolvedValue(
+    undefined,
+  );
 });
 
 async function renderScreen() {
@@ -83,6 +109,13 @@ test('shows both restore actions and keeps manual recovery available', async () 
 
   expect(output).toContain('Restore with recovery phrase');
   expect(output).toContain('Restore from backup on this device');
+  expect(output).toContain('Restore from Google Drive');
+  expect(
+    mockWalletBackupStore.checkLocalRecoveryKeyPresence,
+  ).toHaveBeenCalled();
+  expect(
+    mockWalletBackupStore.checkCloudRecoveryKeyPresence,
+  ).toHaveBeenCalled();
 
   const manualButton = renderer.root.findByProps({
     accessibilityLabel: 'Restore with recovery phrase',
@@ -91,22 +124,71 @@ test('shows both restore actions and keeps manual recovery available', async () 
   expect(mockNavigation.navigate).toHaveBeenCalledWith('RestoreWallet');
 });
 
+test('shows one loader until every recovery option is checked', async () => {
+  let finishCloudCheck: (() => void) | undefined;
+  mockWalletBackupStore.checkCloudRecoveryKeyPresence.mockReturnValueOnce(
+    new Promise<void>(resolve => {
+      finishCloudCheck = resolve;
+    }),
+  );
+
+  const renderer = await renderScreen();
+  expect(
+    renderer.root.findByProps({
+      accessibilityLabel: 'Checking recovery options',
+    }),
+  ).toBeDefined();
+  expect(JSON.stringify(renderer.toJSON())).not.toContain(
+    'Restore with recovery phrase',
+  );
+
+  await ReactTestRenderer.act(async () => {
+    finishCloudCheck?.();
+  });
+
+  expect(JSON.stringify(renderer.toJSON())).toContain(
+    'Restore with recovery phrase',
+  );
+});
+
+test('hides device restore when no local recovery key exists', async () => {
+  mockWalletBackupStore.localRecoveryKeyAvailable = false;
+
+  const renderer = await renderScreen();
+  const output = JSON.stringify(renderer.toJSON());
+
+  expect(output).not.toContain('Restore from backup on this device');
+  expect(output).toContain('Restore with recovery phrase');
+  expect(output).toContain('Restore from Google Drive');
+});
+
+test('hides Google Drive restore when no Drive recovery key exists', async () => {
+  mockWalletBackupStore.cloudRecoveryKeyAvailable = false;
+
+  const renderer = await renderScreen();
+  const output = JSON.stringify(renderer.toJSON());
+
+  expect(output).not.toContain('Restore from Google Drive');
+  expect(output).toContain('Restore with recovery phrase');
+  expect(output).toContain('Restore from backup on this device');
+});
+
 test('hides wallet creation when a backend backup exists', async () => {
-  mockWalletBackupStore.remoteBackupPresence = 'present';
+  mockWalletBackupStore.backendWallet.available = true;
   const renderer = await renderScreen();
   const output = JSON.stringify(renderer.toJSON());
 
   expect(output).not.toContain('Create new wallet');
   expect(output).toContain('Restore with recovery phrase');
   expect(output).toContain('Restore from backup on this device');
-  expect(mockWalletBackupStore.checkRemoteBackupPresence).toHaveBeenCalled();
+  expect(output).toContain('Restore from Google Drive');
+  expect(mockWalletBackupStore.checkBackendWalletPresence).toHaveBeenCalled();
 });
 
-test('shows restore progress and disables every setup action', async () => {
-  mockWalletBackupStore.restorePhase = 'loading';
+test('disables every setup action while recovery is running', async () => {
+  mockWalletBackupStore.busy = true;
   const renderer = await renderScreen();
 
-  expect(JSON.stringify(renderer.toJSON())).toContain('Restoring backup');
   expect(
     renderer.root
       .findAllByProps({ testID: 'mock-button' })
@@ -115,14 +197,10 @@ test('shows restore progress and disables every setup action', async () => {
 });
 
 test.each([
-  ['backup_unavailable', 'local_key_missing', 'The wallet backup is missing'],
-  ['backup_unavailable', 'remote_missing', 'The wallet backup is missing'],
-  ['backup_unavailable', 'remote_ambiguous', 'The wallet backup is missing'],
-  ['wallet_already_exists', null, 'A wallet already exists on this device'],
-])('shows a safe %s error', async (code, issue, expectedMessage) => {
-  mockWalletBackupStore.restorePhase = 'failed';
-  mockWalletBackupStore.restoreError = code;
-  mockWalletBackupStore.restoreBackupIssue = issue;
+  ['backup_unavailable', 'This backup is unavailable'],
+  ['wallet_already_exists', 'A wallet already exists on this device'],
+])('shows a safe %s error', async (code, expectedMessage) => {
+  mockWalletBackupStore.error = { code };
   const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
 
   const renderer = await renderScreen();
@@ -147,34 +225,40 @@ test('navigates to Home after local backup restore succeeds', async () => {
 
   await ReactTestRenderer.act(() => localRestoreButton.props.onPress());
 
-  expect(mockWalletBackupStore.resetRestoreState).toHaveBeenCalled();
   expect(mockNavigation.reset).toHaveBeenCalledWith({
     index: 0,
     routes: [{ name: 'Home' }],
   });
 });
 
-test('shows exact record counts for genuinely different backups', async () => {
-  mockWalletBackupStore.restorePhase = 'failed';
-  mockWalletBackupStore.restoreError = 'backup_unavailable';
-  mockWalletBackupStore.restoreBackupIssue = 'remote_ambiguous';
-  mockWalletBackupStore.restoreDiagnostics = {
-    seedRecordCount: 3,
-    distinctSeedCount: 2,
-    entropyRecordCount: 2,
-    distinctEntropyCount: 2,
-  };
-  const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
-
+test('navigates to Home only after cloud restore succeeds', async () => {
+  mockWalletBackupStore.restoreFromCloudBackup.mockResolvedValue(true);
   const renderer = await renderScreen();
-  const localRestoreButton = renderer.root.findByProps({
-    accessibilityLabel: 'Restore from backup on this device',
+  const cloudRestoreButton = renderer.root.findByProps({
+    accessibilityLabel: 'Restore from Google Drive',
   });
-  await ReactTestRenderer.act(() => localRestoreButton.props.onPress());
+
+  await ReactTestRenderer.act(() => cloudRestoreButton.props.onPress());
+
+  expect(mockNavigation.reset).toHaveBeenCalledWith({
+    index: 0,
+    routes: [{ name: 'Home' }],
+  });
+});
+
+test('does not expose cloud backup details', async () => {
+  mockWalletBackupStore.error = { code: 'backup_unavailable' };
+  const alert = jest.spyOn(Alert, 'alert').mockImplementation(jest.fn());
+  const renderer = await renderScreen();
+  const cloudRestoreButton = renderer.root.findByProps({
+    accessibilityLabel: 'Restore from Google Drive',
+  });
+
+  await ReactTestRenderer.act(() => cloudRestoreButton.props.onPress());
 
   expect(alert).toHaveBeenCalledWith(
     'Could not restore wallet',
-    'Backend returned 3 seed records (2 distinct) and 2 entropy records (2 distinct).',
+    'This backup is unavailable. Try another recovery method.',
   );
   alert.mockRestore();
 });

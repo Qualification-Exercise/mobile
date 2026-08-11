@@ -48,11 +48,29 @@ export const WalletSettingsScreen = observer(
     const [revealError, setRevealError] = useState('');
     const [deleting, setDeleting] = useState(false);
     const [deleteError, setDeleteError] = useState('');
-    const backupRunning = walletBackupStore.backupStatus === 'running';
+    const recoveryOperationRunning = walletBackupStore.busy;
 
     useEffect(() => {
-      walletBackupStore.checkRemoteBackupPresence();
-    }, [walletBackupStore]);
+      walletBackupStore.checkLocalBackup({
+        getEncryptionKey,
+        getEncryptedSeed,
+        getEncryptedEntropy,
+      });
+      walletBackupStore.checkCloudBackup();
+    }, [
+      getEncryptedEntropy,
+      getEncryptedSeed,
+      getEncryptionKey,
+      walletBackupStore,
+    ]);
+
+    async function handleSaveLocalBackup() {
+      await walletBackupStore.saveLocalBackup({
+        getEncryptionKey,
+        getEncryptedSeed,
+        getEncryptedEntropy,
+      });
+    }
 
     async function handleCreateBackup() {
       await walletBackupStore.backupExistingWallet({
@@ -73,14 +91,11 @@ export const WalletSettingsScreen = observer(
       try {
         const mnemonic = await getMnemonic();
         if (!mnemonic) {
-          throw new Error('Could not read recovery phrase');
+          throw new Error();
         }
         setRevealedWords(splitMnemonic(mnemonic));
-      } catch (err) {
-        setRevealError(
-          (err instanceof Error && err.message) ||
-            'Could not reveal recovery phrase',
-        );
+      } catch {
+        setRevealError('Could not show recovery phrase. Try again.');
       } finally {
         setRevealing(false);
       }
@@ -124,11 +139,8 @@ export const WalletSettingsScreen = observer(
                 await deleteWallet();
                 await authStore.signOut();
                 navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
-              } catch (err) {
-                setDeleteError(
-                  (err instanceof Error && err.message) ||
-                    'Could not delete wallet',
-                );
+              } catch {
+                setDeleteError('Could not delete wallet. Try again.');
               } finally {
                 setDeleting(false);
               }
@@ -142,18 +154,15 @@ export const WalletSettingsScreen = observer(
       <ScreenContainer>
         <View style={styles.header}>
           <HeaderBackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.headerTitle}>Wallet settings</Text>
+          <Text style={styles.headerTitle}>Settings</Text>
           <View style={styles.headerSpacer} />
         </View>
         <ScrollView
           contentContainerStyle={styles.container}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.sectionTitle}>Security</Text>
+          <Text style={styles.sectionTitle}>Recovery phrase</Text>
           <View style={styles.section}>
-            <Text style={styles.sectionDescription}>
-              View your recovery phrase on this device.
-            </Text>
             <SecondaryButton
               title={
                 revealing
@@ -169,13 +178,13 @@ export const WalletSettingsScreen = observer(
                 }
                 await handleRevealPhrase();
               }}
-              disabled={revealing || backupRunning || deleting}
+              disabled={revealing || recoveryOperationRunning || deleting}
             />
             {revealing ? (
               <View style={styles.revealLoading}>
                 <ActivityIndicator size="small" color={colors.accentBright} />
                 <Text style={styles.revealLoadingText}>
-                  Confirm with biometrics to view your phrase
+                  Confirm to continue
                 </Text>
               </View>
             ) : null}
@@ -207,64 +216,92 @@ export const WalletSettingsScreen = observer(
             ) : null}
           </View>
 
-          <Text style={styles.sectionTitle}>Device backup</Text>
+          <Text style={styles.sectionTitle}>On-device backup</Text>
           <View style={styles.section}>
             <Text style={styles.sectionDescription}>
-              Save this wallet’s recovery key on this device and sync its
-              encrypted backup to your account. This also enables backup restore
-              for wallets recovered with a phrase or created by older versions.
+              Keep a recovery key on this device.
             </Text>
-            {walletBackupStore.remoteBackupPresence === 'checking' ||
-            walletBackupStore.remoteBackupPresence === 'unknown' ? (
+            {walletBackupStore.localBackup.loading ||
+            (walletBackupStore.localBackup.available == null &&
+              !walletBackupStore.localBackup.error) ? (
               <View style={styles.revealLoading}>
                 <ActivityIndicator size="small" color={colors.accentBright} />
-                <Text style={styles.revealLoadingText}>
-                  Checking backup status…
-                </Text>
+                <Text style={styles.revealLoadingText}>Checking…</Text>
               </View>
-            ) : walletBackupStore.remoteBackupPresence === 'present' ? (
+            ) : walletBackupStore.localBackup.available ? (
               <Text style={styles.successText}>
-                {walletBackupStore.backupMessage ||
-                  'A wallet backup already exists in your account.'}
+                {walletBackupStore.localMessage || 'Saved on this device.'}
               </Text>
-            ) : walletBackupStore.remoteBackupPresence === 'error' ? (
-              <SecondaryButton
-                title="Retry backup status check"
-                onPress={walletBackupStore.checkRemoteBackupPresence}
-                disabled={backupRunning || revealing || deleting}
-              />
             ) : (
               <SecondaryButton
                 title={
-                  backupRunning ? 'Creating backup…' : 'Create wallet backup'
+                  recoveryOperationRunning ? 'Saving…' : 'Save on this device'
                 }
-                onPress={handleCreateBackup}
-                disabled={backupRunning || revealing || deleting}
+                onPress={handleSaveLocalBackup}
+                disabled={recoveryOperationRunning || revealing || deleting}
               />
             )}
-            {walletBackupStore.backupMessage &&
-            walletBackupStore.remoteBackupPresence !== 'present' ? (
-              <Text
-                style={
-                  walletBackupStore.backupStatus === 'complete'
-                    ? styles.successText
-                    : styles.errorText
-                }
-              >
-                {walletBackupStore.backupMessage}
+            {walletBackupStore.localMessage &&
+            !walletBackupStore.localBackup.available ? (
+              <Text style={styles.errorText}>
+                {walletBackupStore.localMessage}
               </Text>
             ) : null}
           </View>
 
-          <Text style={styles.sectionTitle}>Danger zone</Text>
+          <Text style={styles.sectionTitle}>Google Drive</Text>
           <View style={styles.section}>
             <Text style={styles.sectionDescription}>
-              Permanently remove this wallet from secure storage on this device.
+              Back up your recovery key to Google Drive.
+            </Text>
+            {walletBackupStore.cloudBackup.loading ||
+            (walletBackupStore.cloudBackup.available == null &&
+              !walletBackupStore.cloudBackup.error) ? (
+              <View style={styles.revealLoading}>
+                <ActivityIndicator size="small" color={colors.accentBright} />
+                <Text style={styles.revealLoadingText}>Checking…</Text>
+              </View>
+            ) : walletBackupStore.cloudBackup.available ? (
+              <Text style={styles.successText}>
+                {walletBackupStore.cloudMessage ||
+                  'Google Drive backup is ready.'}
+              </Text>
+            ) : walletBackupStore.cloudBackup.error ? (
+              <SecondaryButton
+                title="Retry"
+                onPress={walletBackupStore.checkCloudBackup}
+                disabled={recoveryOperationRunning || revealing || deleting}
+              />
+            ) : (
+              <SecondaryButton
+                title="Back up to Google Drive"
+                onPress={handleCreateBackup}
+                disabled={recoveryOperationRunning || revealing || deleting}
+              />
+            )}
+            {walletBackupStore.cloudMessage &&
+            !walletBackupStore.cloudBackup.available ? (
+              <Text
+                style={
+                  walletBackupStore.error
+                    ? styles.errorText
+                    : styles.successText
+                }
+              >
+                {walletBackupStore.cloudMessage}
+              </Text>
+            ) : null}
+          </View>
+
+          <Text style={styles.sectionTitle}>Delete wallet</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionDescription}>
+              Remove this wallet and sign out on this device.
             </Text>
             <PrimaryButton
               title={deleting ? 'Deleting…' : 'Delete wallet'}
               onPress={handleDeleteWallet}
-              disabled={deleting || backupRunning || revealing}
+              disabled={deleting || recoveryOperationRunning || revealing}
               style={styles.deleteButton}
             />
             {deleteError ? (
