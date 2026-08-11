@@ -1,0 +1,182 @@
+# name in GitHub "Actions"
+name: CD
+
+on:
+  # run cd on every tag push
+  push:
+    tags: ['v*']
+  # all starting manually
+  workflow_dispatch:
+
+# don't interrupt a running deploy if a new one starts
+concurrency:
+  # group runs together by tag/branch.
+  group: cd-${{ github.ref }}
+  # let a running deploy finish, don't cancel it
+  cancel-in-progress: false
+
+# in our case reading files is enough
+permissions:
+  contents: read
+
+jobs:
+  android:
+    name: Android → Play Console (internal)
+    # run on a fresh Linux machine provided by GitHub.
+    runs-on: ubuntu-latest
+    steps:
+      # download a copy of the repository's code onto the machine
+      - uses: actions/checkout@v4
+
+      # install Node.js so we can run the npm commands.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      # needed to build android
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # needed to run Fastlane
+      - uses: ruby/setup-ruby@v1
+        with:
+          # Automatically install and cache the Ruby packages (gems)
+          bundler-cache: true
+
+      # Figure out the app's version number from the tag.
+      # A tag like "v1.2.3" becomes the version "1.2.3".
+      # If someone started this manually (no tag), we leave it empty and
+      # Fastlane just keeps whatever version the app already has.
+      - name: Derive marketing version from tag
+        # Give this step an id so a later step can read its result.
+        id: version
+        run: |
+          # Did this run start from a tag?
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            # Yes: take the tag name, drop the leading "v", and save it.
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            # No: save an empty version.
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install JS dependencies (generates the WDK worklet bundle)
+        run: npm ci
+
+      # The app reads its settings from a ".env" file, and those settings get
+      # baked into the app when it's built. We don't store that file in the
+      # repository for safety, so we recreate it here from a stored secret.
+      - name: Write .env
+        env:
+          # Pull the file's contents from GitHub's encrypted secrets.
+          DOTENV: ${{ secrets.DOTENV_PRODUCTION }}
+        # Write those contents into the .env file.
+        run: printf '%s' "$DOTENV" > .env
+
+      # A "keystore" is the file used to sign the Android app so the store
+      # trusts it. It's a binary file, so we store it as text (base64) in a
+      # secret and turn it back into the real file here.
+      - name: Decode upload keystore
+        env:
+          # The keystore, stored as base64 text.
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        # Decode the text back into the real keystore file in its expected spot.
+        run: printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload.keystore
+
+      # Build the final Android app file (an ".aab") and upload it to the
+      # Play Console's internal testing track.
+      - name: Build AAB and upload to Play Console
+        env:
+          # Just the file name; the build looks for it inside android/app,
+          # which is where we placed it in the step above.
+          ANDROID_KEYSTORE_FILE: upload.keystore
+          # The password that unlocks the keystore.
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          # The name of the signing key inside the keystore.
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          # The password for that specific key.
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          # The credentials that let us upload to Google Play automatically.
+          PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+          # A unique, always-increasing build number (the run's counter).
+          BUILD_NUMBER: ${{ github.run_number }}
+          # The version we worked out earlier from the tag.
+          MARKETING_VERSION: ${{ steps.version.outputs.version }}
+        # Run Fastlane's "beta" task to build and upload.
+        run: bundle exec fastlane android beta
+
+  ios:
+    name: iOS → TestFlight
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Install Xcode, Apple's tool for building iOS apps.
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          bundler-cache: true
+
+      # Same version logic as the Android job: turn a tag like "v1.2.3" into
+      # "1.2.3", or leave it empty for manual runs.
+      - name: Derive marketing version from tag
+        # Give this step an id so a later step can read its result.
+        id: version
+        run: |
+          # Did this run start from a tag?
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            # Yes: take the tag name, drop the leading "v", and save it.
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            # No: save an empty version.
+            echo "version=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Install JS dependencies (generates the WDK worklet bundle)
+        run: npm ci
+
+      # Same as the Android job: recreate the .env settings file from a secret
+      # so its values can be baked into the build.
+      - name: Write .env
+        env:
+          # Pull the file's contents from GitHub's encrypted secrets.
+          DOTENV: ${{ secrets.DOTENV_PRODUCTION }}
+        # Write those contents into the .env file.
+        run: printf '%s' "$DOTENV" > .env
+
+      - name: Install CocoaPods
+        run: bundle exec pod install --project-directory=ios
+
+      - name: Build IPA and upload to TestFlight
+        env:
+          # the App Store Connect key details used to log in and upload.
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          # the private key file contents for that login
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+          # apple developer team's identifier.
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # where the app's signing certificates are stored (a git repo),
+          # used by Fastlane's "match" tool.
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          # the password that unlocks those stored certificates.
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          # login details (as base64 "username:token") for downloading the
+          # certificates repo.
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          # A unique, always-increasing build number (the run's counter).
+          BUILD_NUMBER: ${{ github.run_number }}
+          # The version we worked out earlier from the tag.
+          MARKETING_VERSION: ${{ steps.version.outputs.version }}
+        # run Fastlane's "beta" task to build and upload.
+        run: bundle exec fastlane ios beta
