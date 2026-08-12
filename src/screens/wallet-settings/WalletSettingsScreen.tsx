@@ -64,7 +64,9 @@ export const WalletSettingsScreen = observer(
     }, [getWalletCredentials, walletBackupStore]);
 
     async function handleSaveLocalBackup() {
-      const outcome = await biometryStore.verify('Save backup on this device');
+      const outcome = await biometryStore.verify(
+        'Save recovery key on this device',
+      );
       if (outcome !== 'unlocked') {
         return;
       }
@@ -233,10 +235,11 @@ export const WalletSettingsScreen = observer(
             </Text>
           ) : null}
 
-          <Text style={styles.sectionTitle}>On-device backup</Text>
+          <Text style={styles.sectionTitle}>Device recovery key</Text>
           <View style={styles.section}>
             <Text style={styles.sectionDescription}>
-              Keep a recovery key on this device.
+              Keep a recovery key on this device so you can restore the wallet
+              here without your recovery phrase.
             </Text>
             {walletBackupStore.localBackupAvailable == null &&
             recoveryOperationRunning ? (
@@ -245,11 +248,15 @@ export const WalletSettingsScreen = observer(
                 <Text style={styles.revealLoadingText}>Checking…</Text>
               </View>
             ) : walletBackupStore.localBackupAvailable ? (
-              <Text style={styles.successText}>Saved on this device.</Text>
+              <Text style={styles.successText}>
+                Recovery key saved on this device.
+              </Text>
             ) : (
               <SecondaryButton
                 title={
-                  recoveryOperationRunning ? 'Saving…' : 'Save on this device'
+                  recoveryOperationRunning
+                    ? 'Saving…'
+                    : 'Save recovery key on this device'
                 }
                 onPress={handleSaveLocalBackup}
                 disabled={recoveryOperationRunning || revealing || deleting}

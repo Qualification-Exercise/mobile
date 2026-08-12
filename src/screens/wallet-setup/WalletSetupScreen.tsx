@@ -30,6 +30,26 @@ export const WalletSetupScreen = observer(function WalletSetupScreenView() {
     }, [walletBackupStore]),
   );
 
+  function handleStartFromZero() {
+    Alert.alert(
+      'Start from zero?',
+      'This creates a brand-new wallet. The wallet already backed up on this ' +
+        'account stays put, and you can only recover the new one with its ' +
+        'recovery phrase.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Create new wallet',
+          style: 'destructive',
+          onPress: () =>
+            navigation.navigate('CreateWallet', {
+              discardExistingWallet: true,
+            }),
+        },
+      ],
+    );
+  }
+
   async function handleLocalBackupRestore() {
     const outcome = await biometryStore.verify('Restore wallet backup');
     if (outcome !== 'unlocked') {
@@ -155,8 +175,15 @@ export const WalletSetupScreen = observer(function WalletSetupScreenView() {
               ) : null}
               {walletBackupStore.localRecoveryKeyAvailable ? (
                 <SecondaryButton
-                  title="Restore from backup on this device"
+                  title="Restore with device recovery key"
                   onPress={handleLocalBackupRestore}
+                  disabled={actionRunning}
+                />
+              ) : null}
+              {walletBackupStore.backendWalletAvailable ? (
+                <SecondaryButton
+                  title="Create a new wallet"
+                  onPress={handleStartFromZero}
                   disabled={actionRunning}
                 />
               ) : null}

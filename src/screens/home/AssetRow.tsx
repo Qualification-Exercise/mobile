@@ -1,14 +1,8 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { formatAmount } from '@shared/lib';
-import {
-  formatFiat,
-  getAssetColor,
-  getAssetGlyphColor,
-  getAssetIcon,
-  getFiatValue,
-} from '@shared/store/models/asset';
+import { formatFiat, getFiatValue } from '@shared/store/models/asset';
 import type { Asset } from '@shared/store/models/asset';
-import { colors, radii, spacing } from '@shared/ui';
+import { AssetIcon, colors, spacing, typography } from '@shared/ui';
 
 type AssetRowProps = {
   asset: Asset;
@@ -17,6 +11,7 @@ type AssetRowProps = {
   balanceBaseUnits?: string;
   // USD per whole unit, or null when the feed has no market for the asset.
   price?: number | null;
+  divided?: boolean;
   onPress?: () => void;
 };
 
@@ -24,6 +19,7 @@ export function AssetRow({
   asset,
   balanceBaseUnits,
   price = null,
+  divided,
   onPress,
 }: AssetRowProps) {
   const balanceDisplay =
@@ -34,16 +30,12 @@ export function AssetRow({
 
   return (
     <TouchableOpacity
-      style={styles.row}
+      style={[styles.row, divided && styles.rowDivided]}
       onPress={onPress}
       disabled={!onPress}
       activeOpacity={0.85}
     >
-      <View style={[styles.icon, { backgroundColor: getAssetColor(asset) }]}>
-        <Text style={[styles.iconGlyph, { color: getAssetGlyphColor(asset) }]}>
-          {getAssetIcon(asset)}
-        </Text>
-      </View>
+      <AssetIcon symbol={asset.symbol} />
       <View style={styles.info}>
         <Text style={styles.name}>{asset.name}</Text>
         {/* The network is the group heading on the list, so the row shows the
@@ -67,45 +59,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: radii.sm,
-    padding: spacing.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  icon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  iconGlyph: {
-    fontWeight: '700',
-    fontSize: 16,
+  rowDivided: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   info: {
     flex: 1,
   },
   name: {
-    fontSize: 14.5,
-    fontWeight: '700',
+    ...typography.body,
+    fontWeight: '600',
     color: colors.textPrimary,
   },
   network: {
-    fontSize: 11.5,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
   },
   fiat: {
-    fontSize: 11.5,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
+    fontVariant: ['tabular-nums'],
   },
   values: {
     alignItems: 'flex-end',
   },
   balance: {
-    fontSize: 14.5,
-    fontWeight: '700',
+    ...typography.body,
+    fontWeight: '600',
     color: colors.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
 });

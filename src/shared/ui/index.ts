@@ -1,5 +1,6 @@
 export * from './tokens';
 export * from './AppIcon';
+export * from './AssetIcon';
 export * from './HeaderBackButton';
 export * from './HeaderCloseButton';
 export * from './PrimaryButton';

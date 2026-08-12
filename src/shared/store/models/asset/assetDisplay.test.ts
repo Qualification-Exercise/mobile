@@ -4,6 +4,7 @@ import {
   getAssetColor,
   getAssetGlyphColor,
   getAssetIcon,
+  getAssetIconUrl,
   getFiatValue,
 } from './assetDisplay';
 
@@ -18,6 +19,19 @@ describe('asset glyph/colour lookup', () => {
     expect(getAssetIcon({ symbol: 'XRP' })).toBe('X');
     expect(getAssetColor({ symbol: 'XRP' })).toBe(colors.textSecondary);
     expect(getAssetGlyphColor({ symbol: 'XRP' })).toBe(colors.textPrimary);
+  });
+});
+
+describe('getAssetIconUrl', () => {
+  it('returns the logo URL for a symbol with a remote icon', () => {
+    expect(getAssetIconUrl({ symbol: 'ETH' })).toBe(
+      'https://s2.coinmarketcap.com/static/img/coins/64x64/1027.png',
+    );
+  });
+
+  it('is null for symbols without a remote icon', () => {
+    expect(getAssetIconUrl({ symbol: 'UTL' })).toBeNull();
+    expect(getAssetIconUrl({ symbol: 'XRP' })).toBeNull();
   });
 });
 

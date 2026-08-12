@@ -7,11 +7,15 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
 import { observer } from 'mobx-react-lite';
-import type { RootStackNavigationProp } from '@app/navigation/types';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { useStore } from '@shared/store';
 import { getWalletBackupErrorMessage, toWalletBackupError } from '@shared/lib';
 import { MNEMONIC_WORD_COUNT, useWallet } from '@shared/lib/hooks/wallet';
@@ -39,6 +43,10 @@ function splitMnemonic(mnemonic: string): string[] {
 
 export const CreateWalletScreen = observer(function CreateWalletScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
+  const route = useRoute<RouteProp<RootStackParamList, 'CreateWallet'>>();
+  // Set when the user chose to start over from the setup screen: the account's
+  // existing backup is knowingly abandoned, so skip the "wallet exists" gate.
+  const discardExistingWallet = route.params?.discardExistingWallet === true;
   const { secretsStore, walletBackupStore } = useStore();
   const { generateMnemonic, restoreWallet, getWalletCredentials } = useWallet();
 
@@ -113,7 +121,7 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
 
     try {
       if (!walletCreatedForPendingBackup) {
-        if (await secretsStore.hasRemoteWallet()) {
+        if (!discardExistingWallet && (await secretsStore.hasRemoteWallet())) {
           Alert.alert(
             'Wallet already exists',
             'You already have a wallet on this account. Use Google Drive ' +
@@ -229,7 +237,10 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
           </View>
           <View style={styles.spacer} />
           <Text style={styles.backupHint}>
-            Optional recovery backups — choose what to create.
+            {discardExistingWallet
+              ? 'Your account still holds the previous wallet’s recovery data, ' +
+                'so backups are unavailable for this one. Keep the phrase safe.'
+              : 'Optional recovery backups — choose what to create.'}
           </Text>
           <View style={styles.statusRow}>
             <View style={[styles.statusCard, styles.statusCardSelected]}>
@@ -243,37 +254,43 @@ export const CreateWalletScreen = observer(function CreateWalletScreenView() {
                 />
               </View>
             </View>
-            {BACKUP_OPTIONS.map(({ id, label }) => {
-              const selected = selectedBackups[id];
-              return (
-                <TouchableOpacity
-                  key={id}
-                  style={[
-                    styles.statusCard,
-                    selected && styles.statusCardSelected,
-                  ]}
-                  onPress={() => toggleBackup(id)}
-                  disabled={saving}
-                  activeOpacity={0.75}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: selected }}
-                >
-                  <Text style={styles.statusLabel}>{label}</Text>
-                  <View style={styles.statusValueRow}>
-                    <Text style={styles.statusValue}>
-                      {selected ? 'Selected' : 'Optional'}
-                    </Text>
-                    <AppIcon
-                      name={selected ? 'checkmark-circle' : 'ellipse-outline'}
-                      size={12}
-                      color={
-                        selected ? colors.accentBright : colors.textSecondary
-                      }
-                    />
-                  </View>
-                </TouchableOpacity>
-              );
-            })}
+            {discardExistingWallet
+              ? null
+              : BACKUP_OPTIONS.map(({ id, label }) => {
+                  const selected = selectedBackups[id];
+                  return (
+                    <TouchableOpacity
+                      key={id}
+                      style={[
+                        styles.statusCard,
+                        selected && styles.statusCardSelected,
+                      ]}
+                      onPress={() => toggleBackup(id)}
+                      disabled={saving}
+                      activeOpacity={0.75}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                    >
+                      <Text style={styles.statusLabel}>{label}</Text>
+                      <View style={styles.statusValueRow}>
+                        <Text style={styles.statusValue}>
+                          {selected ? 'Selected' : 'Optional'}
+                        </Text>
+                        <AppIcon
+                          name={
+                            selected ? 'checkmark-circle' : 'ellipse-outline'
+                          }
+                          size={12}
+                          color={
+                            selected
+                              ? colors.accentBright
+                              : colors.textSecondary
+                          }
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
           </View>
           {creationMessage ? (
             <Text style={styles.persistError}>{creationMessage}</Text>

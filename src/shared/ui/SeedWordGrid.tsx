@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { colors, spacing } from '@shared/ui';
+import { colors, radii, spacing, typography } from '@shared/ui';
 
 type SeedWordGridProps = {
   words: string[];
@@ -31,18 +31,18 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     backgroundColor: colors.surfaceAlt,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    borderRadius: 11,
+    borderColor: colors.border,
+    borderRadius: radii.xs,
     paddingVertical: 11,
-    paddingHorizontal: 12,
+    paddingHorizontal: spacing.md,
   },
   index: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textTertiary,
     width: 16,
   },
   word: {
-    fontSize: 14,
+    ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
   },

@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from 'react-native';
-import { colors, radii, spacing } from './tokens';
+import { colors, radii, spacing, typography } from './tokens';
 
 type LightButtonProps = {
   title: string;
@@ -35,7 +35,7 @@ export function LightButton({
 const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.textPrimary,
-    borderRadius: radii.xl,
+    borderRadius: radii.pill,
     paddingVertical: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -44,8 +44,8 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   label: {
+    ...typography.heading,
     color: colors.background,
-    fontSize: 16,
-    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });

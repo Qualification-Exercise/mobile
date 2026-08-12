@@ -6,17 +6,18 @@ import {
   getTransactionTitle,
 } from '@shared/store/models/transaction';
 import type { Transaction } from '@shared/store/models/transaction';
-import { AppIcon, colors, radii, spacing } from '@shared/ui';
+import { AppIcon, colors, radii, spacing, typography } from '@shared/ui';
 
 type TransactionRowProps = {
   transaction: Transaction;
+  divided?: boolean;
 };
 
-export function TransactionRow({ transaction }: TransactionRowProps) {
+export function TransactionRow({ transaction, divided }: TransactionRowProps) {
   const color = getTransactionColor(transaction);
 
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, divided && styles.rowDivided]}>
       <View style={styles.icon}>
         <AppIcon
           name={getTransactionIconName(transaction)}
@@ -43,15 +44,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    paddingVertical: spacing.md,
+    paddingVertical: spacing.lg,
+  },
+  rowDivided: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   icon: {
-    width: 38,
-    height: 38,
-    borderRadius: radii.xs,
+    width: 40,
+    height: 40,
+    borderRadius: radii.sm,
     backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -59,12 +64,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 14,
+    ...typography.body,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   subtitle: {
-    fontSize: 11.5,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
   },
@@ -72,12 +77,13 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   amount: {
-    fontSize: 14,
+    ...typography.body,
     fontWeight: '700',
+    fontVariant: ['tabular-nums'],
   },
   date: {
-    fontSize: 11,
-    color: colors.textSecondary,
+    ...typography.caption,
+    color: colors.textTertiary,
     marginTop: 2,
   },
 });
