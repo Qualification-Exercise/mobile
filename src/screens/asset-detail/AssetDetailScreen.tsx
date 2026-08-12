@@ -105,7 +105,7 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
         />
         <SecondaryButton
           title="Receive"
-          onPress={() => navigation.navigate('Receive')}
+          onPress={() => navigation.navigate('Receive', { assetId })}
           style={styles.actionButton}
         />
       </View>
