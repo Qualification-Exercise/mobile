@@ -9,7 +9,7 @@ export type RootStackParamList = {
   CreateWallet: { discardExistingWallet?: boolean } | undefined;
   Home: undefined;
   AssetDetail: { assetId: string };
-  Receive: undefined;
+  Receive: { assetId?: string } | undefined;
   Send: { assetId: string; destination?: string };
   ApproveTransaction: {
     assetId: string;

@@ -1,4 +1,5 @@
-import { useNavigation } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { observer } from 'mobx-react-lite';
 import { useState } from 'react';
 import {
@@ -9,7 +10,10 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import type { RootStackNavigationProp } from '@app/navigation/types';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { getNetworkLabel } from '@shared/config';
 import { buildPaymentUri } from '@shared/lib';
 import { useReceiveAddress } from '@shared/lib/hooks/wallet';
@@ -30,10 +34,14 @@ const DEFAULT_ASSET_ID = 'usdt-arbitrum';
 
 export const ReceiveScreen = observer(function ReceiveScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
+  const params = useRoute<RouteProp<RootStackParamList, 'Receive'>>().params;
   const { walletStore } = useStore();
   const assets = walletStore.assets;
 
-  const [selectedAssetId, setSelectedAssetId] = useState(DEFAULT_ASSET_ID);
+  // Opening from an asset shows that asset's address straight away.
+  const [selectedAssetId, setSelectedAssetId] = useState(
+    params?.assetId ?? DEFAULT_ASSET_ID,
+  );
   const [pickerOpen, setPickerOpen] = useState(false);
   const asset = assets.find(a => a.id === selectedAssetId) ?? assets[0];
 
