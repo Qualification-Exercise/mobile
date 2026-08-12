@@ -11,6 +11,7 @@ import { sumClaimableUtl, toCoupon, type Coupon } from '../models/coupon';
 import { toTransaction, type Transaction } from '../models/transaction';
 import type { Wallet } from '../models/wallet';
 import { TypedRequest } from '../typedRequest';
+import { Logger } from '../../lib/logger';
 
 // Build the wallet's asset list from the asset registry so token metadata has
 // a single source of truth. Balances are intentionally left at zero here:
@@ -43,6 +44,8 @@ const PRICED_TICKERS: string[] = [
 ];
 
 export class WalletStore {
+  private readonly logger = new Logger('WalletStore');
+
   wallet: Wallet = {
     displayName: 'Main Wallet',
   };
@@ -101,9 +104,9 @@ export class WalletStore {
       // An asset the feed cannot quote drops out of the fiat total, which is
       // invisible on screen — the total just reads low. Name it instead.
       if (unpriced.length > 0) {
-        console.warn('[WalletStore] no price for', unpriced.join(', '));
+        this.logger.warn('no price for', unpriced.join(', '));
       }
-      console.log('[WalletStore] prices', Object.fromEntries(prices));
+      this.logger.log('prices', Object.fromEntries(prices));
 
       return prices;
     },
@@ -196,7 +199,7 @@ export class WalletStore {
     try {
       await transactionsApi.report(dto, dto.txHash);
     } catch (error) {
-      console.warn('Transaction report failed; queued for retry', error);
+      this.logger.warn('Transaction report failed; queued for retry', error);
       runInAction(() => {
         this.pendingReports.push(dto);
       });

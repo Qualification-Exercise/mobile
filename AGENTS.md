@@ -38,6 +38,23 @@ JSDoc (`/** */`) comments. For a multi-line note, prefix each line with `//`:
 export async function loadGoogleAccount(): Promise<GoogleAccount | null> {
 ```
 
+## Logging
+
+Use the `Logger` from `@shared/lib` instead of raw `console.*`. Each instance
+takes a context label prefixed to every message, e.g. `[AuthStore]: ...`.
+
+Always pass a **string literal** as the context — never `ClassName.name`. Class
+names get mangled by the release minifier, so `.name` would emit a meaningless
+prefix like `[t]:` in production builds:
+
+```ts
+// Correct — survives minification.
+private readonly logger = new Logger('AuthStore');
+
+// Wrong — becomes `[t]:` (or similar) in minified builds.
+private readonly logger = new Logger(AuthStore.name);
+```
+
 ## Architecture
 
 Source lives under `src/`, organized into layers:
@@ -70,10 +87,9 @@ WDK core internals. Use these instead of relative `../../../` imports.
   `useStore()`.
 - Consider the four kinds of stores: root store, feature stores, domain stores,
   and domain objects.
-- Wrap any async call in the generic MobX wrapper `Request<R>`
-  (`src/shared/store/request.ts`, plus `typedRequest.ts`).
 - Wrap any component that reads observable state in `observer()` from
-  `mobx-react-lite`. Always pass a **named** function — never an anonymous
+  `mobx-react-lite`. Always pass a **named** function with same name as
+  a component — never an anonymous
   arrow: `const App = observer(function App() { … })`, not
   `observer(() => …)`, so the component has a display name in React DevTools
   and stack traces.

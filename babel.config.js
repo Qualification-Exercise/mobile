@@ -47,7 +47,10 @@ module.exports = {
       plugins: [dotenv],
     },
     production: {
-      plugins: [dotenv, 'transform-remove-console'],
+      plugins: [dotenv],
+      // don't remove logs for debug purpose
+      // not critical we never reach "prod" in reality
+      // plugins: [dotenv, 'transform-remove-console'],
     },
   },
 };

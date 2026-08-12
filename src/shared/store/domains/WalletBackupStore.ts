@@ -7,7 +7,9 @@ import {
   WalletBackupOperationError,
   type WalletBackupError,
 } from '@shared/lib';
+import { type CloudKeyProvider } from '@shared/lib/cloudKeyProvider';
 import { type WalletCredentials } from '@shared/lib/hooks/wallet';
+import { GoogleDriveClient } from '@shared/api';
 import type { RootStore } from '@app/providers/RootStore';
 
 type WalletBackupStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -23,7 +25,10 @@ export class WalletBackupStore {
   localRecoveryKeyAvailable: boolean | null = null;
   cloudRecoveryKeyAvailable: boolean | null = null;
 
-  constructor(private readonly root: RootStore) {
+  constructor(
+    private readonly root: RootStore,
+    private readonly googleDriveClient: CloudKeyProvider = new GoogleDriveClient(),
+  ) {
     makeAutoObservable(this);
   }
 
@@ -35,9 +40,7 @@ export class WalletBackupStore {
     this.error = null;
 
     try {
-      const authorization = await this.root.googleDriveKeyProvider.authorize(
-        true,
-      );
+      const authorization = await this.googleDriveClient.authorize(true);
       if (authorization.status !== 'authorized') {
         throw new WalletBackupOperationError(
           authorization.status === 'signed_out'
@@ -49,13 +52,11 @@ export class WalletBackupStore {
         encryptedSeed: credentials.encryptedSeed,
         encryptedEntropy: credentials.encryptedEntropy,
       });
-      await this.root.googleDriveKeyProvider.putEncryptionKey(
-        credentials.encryptionKey,
-      );
+      await this.googleDriveClient.putEncryptionKey(credentials.encryptionKey);
 
       const [remote, drive] = await Promise.all([
         this.root.secretsStore.getRemoteRecoveryBundle(),
-        this.root.googleDriveKeyProvider.getEncryptionKey(),
+        this.googleDriveClient.getEncryptionKey(),
       ]);
       if (
         remote.encryptedSeed !== credentials.encryptedSeed ||
@@ -93,11 +94,11 @@ export class WalletBackupStore {
       const [localKey, remote, authorization] = await Promise.all([
         userId == null ? null : loadLocalBackupKey(userId),
         this.root.secretsStore.getRemoteCredentialState(),
-        this.root.googleDriveKeyProvider.authorize(false),
+        this.googleDriveClient.authorize(false),
       ]);
       const drive =
         authorization.status === 'authorized'
-          ? await this.root.googleDriveKeyProvider.getEncryptionKey()
+          ? await this.googleDriveClient.getEncryptionKey()
           : null;
 
       const hasRemoteCredentials =
@@ -151,13 +152,10 @@ export class WalletBackupStore {
       let cloudRecoveryAvailable = false;
 
       if (backendBackupAvailable) {
-        const authorization = await this.root.googleDriveKeyProvider.authorize(
-          false,
-        );
+        const authorization = await this.googleDriveClient.authorize(false);
         cloudRecoveryAvailable =
           authorization.status === 'authorized' &&
-          (await this.root.googleDriveKeyProvider.getEncryptionKey()).status ===
-            'found';
+          (await this.googleDriveClient.getEncryptionKey()).status === 'found';
       }
 
       runInAction(() => {
@@ -240,9 +238,7 @@ export class WalletBackupStore {
     try {
       let encryptionKey: string | null;
       if (source === 'cloud') {
-        const authorization = await this.root.googleDriveKeyProvider.authorize(
-          true,
-        );
+        const authorization = await this.googleDriveClient.authorize(true);
         if (authorization.status !== 'authorized') {
           throw new WalletBackupOperationError(
             authorization.status === 'signed_out'
@@ -250,8 +246,7 @@ export class WalletBackupStore {
               : 'drive_access_required',
           );
         }
-        const lookup =
-          await this.root.googleDriveKeyProvider.getEncryptionKey();
+        const lookup = await this.googleDriveClient.getEncryptionKey();
         encryptionKey = lookup.status === 'found' ? lookup.encryptionKey : null;
       } else {
         const userId = this.root.authStore.user?.id ?? null;

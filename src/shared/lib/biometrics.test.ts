@@ -1,8 +1,14 @@
 import * as LocalAuthentication from 'expo-local-authentication';
-import { authenticateWithBiometrics, isBiometricAvailable } from './biometrics';
+import {
+  authenticateWithBiometrics,
+  isBiometricAvailable,
+  isDevicePasscodeAvailable,
+} from './biometrics';
 
 const hasHardwareAsync = LocalAuthentication.hasHardwareAsync as jest.Mock;
 const isEnrolledAsync = LocalAuthentication.isEnrolledAsync as jest.Mock;
+const getEnrolledLevelAsync =
+  LocalAuthentication.getEnrolledLevelAsync as jest.Mock;
 const authenticateAsync = LocalAuthentication.authenticateAsync as jest.Mock;
 
 describe('isBiometricAvailable', () => {
@@ -21,6 +27,27 @@ describe('isBiometricAvailable', () => {
   it('is false when the native check throws', async () => {
     hasHardwareAsync.mockRejectedValueOnce(new Error('native'));
     await expect(isBiometricAvailable()).resolves.toBe(false);
+  });
+});
+
+describe('isDevicePasscodeAvailable', () => {
+  it('is true when the enrolled level is at least a device secret', async () => {
+    getEnrolledLevelAsync.mockResolvedValueOnce(
+      LocalAuthentication.SecurityLevel.SECRET,
+    );
+    await expect(isDevicePasscodeAvailable()).resolves.toBe(true);
+  });
+
+  it('is false when no secret is enrolled', async () => {
+    getEnrolledLevelAsync.mockResolvedValueOnce(
+      LocalAuthentication.SecurityLevel.NONE,
+    );
+    await expect(isDevicePasscodeAvailable()).resolves.toBe(false);
+  });
+
+  it('is false when the native check throws', async () => {
+    getEnrolledLevelAsync.mockRejectedValueOnce(new Error('native'));
+    await expect(isDevicePasscodeAvailable()).resolves.toBe(false);
   });
 });
 
