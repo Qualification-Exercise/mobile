@@ -4,7 +4,6 @@ export * from './authStorage';
 export * from './biometrics';
 export * from './biometryStorage';
 export * from './cloudKeyProvider';
-export * from './driveKeyEnvelope';
 export * from './feeError';
 export * from './installGlobalErrorHandlers';
 export * from './localBackupKeyStorage';

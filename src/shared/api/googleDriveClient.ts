@@ -14,14 +14,7 @@ import {
   type CloudKeyLookupResult,
   type CloudKeyProvider,
 } from '@shared/lib/cloudKeyProvider';
-import {
-  DRIVE_KEY_ENVELOPE_FILE_NAME,
-  MAX_DRIVE_KEY_ENVELOPE_BYTES,
-  createDriveKeyEnvelope,
-  parseDriveKeyEnvelope,
-  serializeDriveKeyEnvelope,
-  type DriveKeyEnvelopeV1,
-} from '@shared/lib/driveKeyEnvelope';
+import { isValidEncryptionKey } from '@shared/lib/secretValidation';
 
 export const GOOGLE_DRIVE_APP_DATA_SCOPE =
   'https://www.googleapis.com/auth/drive.appdata';
@@ -141,6 +134,111 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value != null && typeof value === 'object' && !Array.isArray(value);
 }
 
+// ---- Drive key envelope ----
+
+// The wallet backup encryption key is stored on Drive as a small JSON
+// envelope. These helpers build, serialize, and parse it, tolerating a legacy
+// shape that also carried per-secret hash fields. A malformed envelope always
+// surfaces as CloudKeyProviderError('invalid_response').
+
+const DRIVE_KEY_ENVELOPE_SCHEMA_VERSION = 1 as const;
+const DRIVE_KEY_ENVELOPE_FILE_NAME = 'wallet-backup-key.json';
+const MAX_DRIVE_KEY_ENVELOPE_BYTES = 8 * 1024;
+
+type DriveKeyEnvelopeV1 = {
+  schemaVersion: typeof DRIVE_KEY_ENVELOPE_SCHEMA_VERSION;
+  encryptionKey: string;
+};
+
+const ENVELOPE_KEYS = ['schemaVersion', 'encryptionKey'] as const;
+const LEGACY_ENVELOPE_KEYS = [
+  'schemaVersion',
+  'encryptedSeedSha256',
+  'encryptedEntropySha256',
+  'encryptionKey',
+] as const;
+
+function hasExactEnvelopeKeys(
+  value: Record<string, unknown>,
+  expectedKeys: readonly string[],
+): boolean {
+  const keys = Object.keys(value);
+  return (
+    keys.length === expectedKeys.length &&
+    expectedKeys.every(key => Object.prototype.hasOwnProperty.call(value, key))
+  );
+}
+
+function hasValidKeyEnvelopeFields(envelope: Record<string, unknown>): boolean {
+  return (
+    envelope.schemaVersion === DRIVE_KEY_ENVELOPE_SCHEMA_VERSION &&
+    typeof envelope.encryptionKey === 'string' &&
+    isValidEncryptionKey(envelope.encryptionKey)
+  );
+}
+
+function isCurrentEnvelopeShape(value: unknown): value is DriveKeyEnvelopeV1 {
+  return (
+    isRecord(value) &&
+    hasExactEnvelopeKeys(value, ENVELOPE_KEYS) &&
+    hasValidKeyEnvelopeFields(value)
+  );
+}
+
+function isLegacyEnvelopeShape(value: unknown): value is DriveKeyEnvelopeV1 {
+  return (
+    isRecord(value) &&
+    hasExactEnvelopeKeys(value, LEGACY_ENVELOPE_KEYS) &&
+    hasValidKeyEnvelopeFields(value)
+  );
+}
+
+function canonicalEnvelope(envelope: DriveKeyEnvelopeV1): DriveKeyEnvelopeV1 {
+  return {
+    schemaVersion: envelope.schemaVersion,
+    encryptionKey: envelope.encryptionKey,
+  };
+}
+
+function createDriveKeyEnvelope(input: {
+  encryptionKey: string;
+}): DriveKeyEnvelopeV1 {
+  if (!isValidEncryptionKey(input.encryptionKey)) {
+    throw new CloudKeyProviderError('invalid_response');
+  }
+
+  return {
+    schemaVersion: DRIVE_KEY_ENVELOPE_SCHEMA_VERSION,
+    encryptionKey: input.encryptionKey,
+  };
+}
+
+// Serialize an envelope to its canonical JSON form, dropping any extra fields.
+function serializeDriveKeyEnvelope(envelope: DriveKeyEnvelopeV1): string {
+  if (!isCurrentEnvelopeShape(envelope)) {
+    throw new CloudKeyProviderError('invalid_response');
+  }
+
+  return JSON.stringify(canonicalEnvelope(envelope));
+}
+
+// Parse a serialized envelope, accepting the current or legacy shape and
+// returning the canonical form.
+function parseDriveKeyEnvelope(serializedEnvelope: string): DriveKeyEnvelopeV1 {
+  let value: unknown;
+  try {
+    value = JSON.parse(serializedEnvelope);
+  } catch {
+    throw new CloudKeyProviderError('invalid_response');
+  }
+
+  if (!isCurrentEnvelopeShape(value) && !isLegacyEnvelopeShape(value)) {
+    throw new CloudKeyProviderError('invalid_response');
+  }
+
+  return canonicalEnvelope(value);
+}
+
 // Reads and writes the wallet backup encryption key as a single JSON envelope
 // in the caller's Google Drive appDataFolder. Owns both the Google sign-in
 // authorization flow and the Drive REST calls.
@@ -191,13 +289,8 @@ export class GoogleDriveClient implements CloudKeyProvider {
   }
 
   async putEncryptionKey(encryptionKey: string): Promise<void> {
-    let serialized: string;
-    try {
-      const envelope = createDriveKeyEnvelope({ encryptionKey });
-      serialized = serializeDriveKeyEnvelope(envelope);
-    } catch {
-      throw new CloudKeyProviderError('invalid_response');
-    }
+    const envelope = createDriveKeyEnvelope({ encryptionKey });
+    const serialized = serializeDriveKeyEnvelope(envelope);
     const files = await this.listKeyFiles();
     if (files.length === 0) {
       await this.createKeyFile(serialized);
@@ -420,15 +513,11 @@ export class GoogleDriveClient implements CloudKeyProvider {
       url: `${DRIVE_API_URL}/files/${encodeURIComponent(file.id)}?alt=media`,
     });
     const serialized = this.boundedBody(response, MAX_DRIVE_KEY_ENVELOPE_BYTES);
-    try {
-      const envelope = parseDriveKeyEnvelope(serialized);
-      return {
-        serialized: serializeDriveKeyEnvelope(envelope),
-        envelope,
-      };
-    } catch {
-      throw new CloudKeyProviderError('invalid_response');
-    }
+    const envelope = parseDriveKeyEnvelope(serialized);
+    return {
+      serialized: serializeDriveKeyEnvelope(envelope),
+      envelope,
+    };
   }
 
   private async createKeyFile(serialized: string): Promise<void> {
