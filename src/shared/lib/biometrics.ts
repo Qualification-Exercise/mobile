@@ -19,6 +19,20 @@ export async function isBiometricAvailable(): Promise<boolean> {
   return hasHardware && isEnrolled;
 }
 
+// Whether the device has *any* enrolled authentication that can back a prompt —
+// biometrics OR a device passcode/PIN/pattern. `getEnrolledLevelAsync` returns a
+// `SecurityLevel`, where `SECRET` (>= 1) means a non-biometric secret is set, so
+// this is true whenever `authenticateWithBiometrics` can fall back to the passcode
+// even when no biometric credential is enrolled.
+export async function isDevicePasscodeAvailable(): Promise<boolean> {
+  try {
+    const level = await LocalAuthentication.getEnrolledLevelAsync();
+    return level >= LocalAuthentication.SecurityLevel.SECRET;
+  } catch {
+    return false;
+  }
+}
+
 // Outcome of a biometric prompt. We keep the failure `error` code rather than
 // collapsing to a boolean so callers can distinguish a revoked app permission
 // (route to Settings) from a transient cancel/lockout (just retry). `'unknown'`

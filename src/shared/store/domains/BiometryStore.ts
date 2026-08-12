@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import {
   authenticateWithBiometrics,
   isBiometricAvailable,
+  isDevicePasscodeAvailable,
 } from '../../lib/biometrics';
 import {
   loadBiometryEnabled,
@@ -67,7 +68,7 @@ export class BiometryStore {
 
     this.isAvailable = isAvailable;
 
-    if (!isAvailable) {
+    if (!isAvailable && !(await isDevicePasscodeAvailable())) {
       return 'unavailable';
     }
 

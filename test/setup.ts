@@ -27,6 +27,19 @@ jest.mock('@react-native-google-signin/google-signin', () => ({
   },
   isSuccessResponse: jest.fn().mockReturnValue(true),
   isErrorWithCode: jest.fn().mockReturnValue(false),
+  statusCodes: {
+    SIGN_IN_CANCELLED: 'SIGN_IN_CANCELLED',
+    IN_PROGRESS: 'IN_PROGRESS',
+    PLAY_SERVICES_NOT_AVAILABLE: 'PLAY_SERVICES_NOT_AVAILABLE',
+    SIGN_IN_REQUIRED: 'SIGN_IN_REQUIRED',
+  },
+}));
+
+// Network connectivity (@react-native-community/netinfo). Defaults to online;
+// individual tests override to simulate an offline device.
+jest.mock('@react-native-community/netinfo', () => ({
+  __esModule: true,
+  default: { fetch: jest.fn().mockResolvedValue({ isConnected: true }) },
 }));
 
 // Secure storage (react-native-keychain).
@@ -42,6 +55,8 @@ jest.mock('expo-local-authentication', () => ({
   __esModule: true,
   hasHardwareAsync: jest.fn().mockResolvedValue(true),
   isEnrolledAsync: jest.fn().mockResolvedValue(true),
+  getEnrolledLevelAsync: jest.fn().mockResolvedValue(3),
+  SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
   authenticateAsync: jest.fn().mockResolvedValue({ success: true }),
 }));
 

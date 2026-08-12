@@ -1,5 +1,6 @@
 import { makeAutoObservable } from 'mobx';
 import { Platform } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import {
   GoogleSignin,
   isErrorWithCode,
@@ -106,6 +107,13 @@ export class AuthStore {
       // Ensure Play Services are available (Android)
       this.logger.debug('Checking Google Play Services availability');
       await GoogleSignin.hasPlayServices();
+
+      this.logger.debug('Checking network connectivity');
+      const { isConnected } = await NetInfo.fetch();
+      if (!isConnected) {
+        return false;
+      }
+
       // Prompt user sign in
       this.logger.debug('Prompting user for Google sign-in');
       const response = await GoogleSignin.signIn();

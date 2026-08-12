@@ -3,6 +3,7 @@ import {
   isErrorWithCode,
   isSuccessResponse,
 } from '@react-native-google-signin/google-signin';
+import NetInfo from '@react-native-community/netinfo';
 import { authApi, configureAuth } from '@shared/api';
 import { clearSession, loadSession, saveSession } from '../../lib/authStorage';
 import { AuthStore } from './AuthStore';
@@ -26,6 +27,7 @@ const signIn = GoogleSignin.signIn as jest.Mock;
 const getTokens = GoogleSignin.getTokens as jest.Mock;
 const googleSignOut = GoogleSignin.signOut as jest.Mock;
 const mockIsSuccess = isSuccessResponse as unknown as jest.Mock;
+const netInfoFetch = NetInfo.fetch as jest.Mock;
 
 const session = {
   accessToken: 'a',
@@ -99,17 +101,40 @@ describe('signInWithGoogle', () => {
     await expect(store.signInWithGoogle()).resolves.toBe(false);
   });
 
-  it('returns false when the flow throws', async () => {
+  it('returns false when the flow fails for a non-cancellation reason', async () => {
     signIn.mockRejectedValueOnce(new Error('play services'));
     const store = new AuthStore();
     await expect(store.signInWithGoogle()).resolves.toBe(false);
   });
 
-  it('logs a coded Google error and returns false', async () => {
+  it('returns false when Google reports the user cancelled', async () => {
     (isErrorWithCode as unknown as jest.Mock).mockReturnValueOnce(true);
     signIn.mockRejectedValueOnce({ code: 'SIGN_IN_CANCELLED', message: 'x' });
     const store = new AuthStore();
     await expect(store.signInWithGoogle()).resolves.toBe(false);
+  });
+
+  it('logs and returns false for a coded non-cancellation error', async () => {
+    const isCoded = isErrorWithCode as unknown as jest.Mock;
+    isCoded.mockReturnValue(true);
+    signIn.mockRejectedValueOnce({ code: 'DEVELOPER_ERROR', message: 'bad' });
+    const store = new AuthStore();
+    await expect(store.signInWithGoogle()).resolves.toBe(false);
+    isCoded.mockReturnValue(false);
+  });
+
+  it('returns false without prompting sign-in when the device is offline', async () => {
+    netInfoFetch.mockResolvedValueOnce({ isConnected: false });
+    const store = new AuthStore();
+    await expect(store.signInWithGoogle()).resolves.toBe(false);
+    expect(signIn).not.toHaveBeenCalled();
+  });
+
+  it('returns false without prompting sign-in when connectivity is unknown (isConnected null)', async () => {
+    netInfoFetch.mockResolvedValueOnce({ isConnected: null });
+    const store = new AuthStore();
+    await expect(store.signInWithGoogle()).resolves.toBe(false);
+    expect(signIn).not.toHaveBeenCalled();
   });
 });
 

@@ -1,6 +1,7 @@
 import {
   authenticateWithBiometrics,
   isBiometricAvailable,
+  isDevicePasscodeAvailable,
 } from '../../lib/biometrics';
 import {
   loadBiometryEnabled,
@@ -10,6 +11,7 @@ import { BiometryStore } from './BiometryStore';
 
 jest.mock('../../lib/biometrics', () => ({
   isBiometricAvailable: jest.fn(),
+  isDevicePasscodeAvailable: jest.fn(),
   authenticateWithBiometrics: jest.fn(),
 }));
 jest.mock('../../lib/biometryStorage', () => ({
@@ -18,9 +20,16 @@ jest.mock('../../lib/biometryStorage', () => ({
 }));
 
 const mockAvailable = isBiometricAvailable as jest.Mock;
+const mockPasscode = isDevicePasscodeAvailable as jest.Mock;
 const mockAuthenticate = authenticateWithBiometrics as jest.Mock;
 const mockLoad = loadBiometryEnabled as jest.Mock;
 const mockSave = saveBiometryEnabled as jest.Mock;
+
+beforeEach(() => {
+  // Default: no device passcode enrolled, so the biometric checks drive the
+  // outcome unless a test opts into the passcode fallback.
+  mockPasscode.mockResolvedValue(false);
+});
 
 describe('BiometryStore.hydrate', () => {
   it('loads the enrolment flag and hardware availability', async () => {
@@ -47,13 +56,25 @@ describe('BiometryStore.enableBiometric', () => {
     expect(store.isEnrolled).toBe(true);
   });
 
-  it('does not enrol when biometrics are unavailable', async () => {
+  it('does not enrol when neither biometrics nor a passcode are available', async () => {
     mockAvailable.mockResolvedValue(false);
+    mockPasscode.mockResolvedValue(false);
 
     const store = new BiometryStore();
     await expect(store.enableBiometric('unlock')).resolves.toBe('unavailable');
     expect(mockSave).not.toHaveBeenCalled();
     expect(store.isEnrolled).toBe(false);
+  });
+
+  it('enrols via the device passcode when biometrics are unavailable', async () => {
+    mockAvailable.mockResolvedValue(false);
+    mockPasscode.mockResolvedValue(true);
+    mockAuthenticate.mockResolvedValue({ success: true });
+
+    const store = new BiometryStore();
+    await expect(store.enableBiometric('unlock')).resolves.toBe('unlocked');
+    expect(mockSave).toHaveBeenCalledWith(true);
+    expect(store.isEnrolled).toBe(true);
   });
 });
 
@@ -73,6 +94,25 @@ describe('BiometryStore.verify', () => {
       error: 'user_cancel',
     });
     await expect(store.verify('unlock')).resolves.toBe('failed');
+  });
+
+  it('falls back to the device passcode when biometrics are unavailable', async () => {
+    mockAvailable.mockResolvedValue(false);
+    mockPasscode.mockResolvedValue(true);
+    mockAuthenticate.mockResolvedValue({ success: true });
+
+    const store = new BiometryStore();
+    await expect(store.verify('unlock')).resolves.toBe('unlocked');
+    expect(mockAuthenticate).toHaveBeenCalledWith('unlock');
+  });
+
+  it('is unavailable when neither biometrics nor a passcode are set', async () => {
+    mockAvailable.mockResolvedValue(false);
+    mockPasscode.mockResolvedValue(false);
+
+    const store = new BiometryStore();
+    await expect(store.verify('unlock')).resolves.toBe('unavailable');
+    expect(mockAuthenticate).not.toHaveBeenCalled();
   });
 });
 
