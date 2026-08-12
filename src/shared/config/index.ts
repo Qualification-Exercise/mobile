@@ -33,5 +33,5 @@ export const anySecret = ANY_SECRET;
 export const apiBaseUrl: string =
   API_BASE_URL ??
   (Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000/api'
-    : 'http://localhost:3000/api');
+    ? 'http://10.0.2.2:3001/api'
+    : 'http://localhost:3001/api');

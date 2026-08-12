@@ -8,6 +8,7 @@ export * from './driveKeyEnvelope';
 export * from './feeError';
 export * from './installGlobalErrorHandlers';
 export * from './localBackupKeyStorage';
+export * from './logger';
 export * from './mnemonicHash';
 export * from './secretValidation';
 export * from './showErrorToast';

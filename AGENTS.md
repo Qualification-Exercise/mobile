@@ -38,6 +38,23 @@ JSDoc (`/** */`) comments. For a multi-line note, prefix each line with `//`:
 export async function loadGoogleAccount(): Promise<GoogleAccount | null> {
 ```
 
+## Logging
+
+Use the `Logger` from `@shared/lib` instead of raw `console.*`. Each instance
+takes a context label prefixed to every message, e.g. `[AuthStore]: ...`.
+
+Always pass a **string literal** as the context — never `ClassName.name`. Class
+names get mangled by the release minifier, so `.name` would emit a meaningless
+prefix like `[t]:` in production builds:
+
+```ts
+// Correct — survives minification.
+private readonly logger = new Logger('AuthStore');
+
+// Wrong — becomes `[t]:` (or similar) in minified builds.
+private readonly logger = new Logger(AuthStore.name);
+```
+
 ## Architecture
 
 Source lives under `src/`, organized into layers:
