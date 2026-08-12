@@ -31,7 +31,7 @@ function isShapeValid(words: string[]): boolean {
 
 export function RestoreWalletScreen() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { biometryStore, secretsStore } = useStore();
+  const { biometryStore } = useStore();
   const { restoreWallet, unlock } = useWallet();
   const [words, setWords] = useState<string[]>(EMPTY_PHRASE);
   const [restoring, setRestoring] = useState(false);
@@ -73,15 +73,7 @@ export function RestoreWalletScreen() {
 
     setRestoring(true);
     try {
-      // 3. The server is the source of truth. Only accept a phrase that matches
-      // the wallet stored for this account; fail closed on any lookup error.
-      const matches = await secretsStore.matchMnemonic(mnemonic);
-      if (!matches) {
-        Alert.alert('Something went wrong!', 'Could not restore wallet');
-        return;
-      }
-
-      // 4. Attempt the restore; surface any failure below.
+      // Manual recovery is deliberately independent of remote backup state.
       await restoreWallet(mnemonic);
 
       navigation.reset({

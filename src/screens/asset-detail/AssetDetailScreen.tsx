@@ -20,22 +20,19 @@ import type {
 import { getNetworkLabel } from '@shared/config';
 import { formatAmount } from '@shared/lib';
 import { useAssetBalances } from '@shared/lib/hooks/wallet';
-import {
-  formatFiat,
-  getAssetColor,
-  getAssetGlyphColor,
-  getAssetIcon,
-  getFiatValue,
-} from '@shared/store/models/asset';
+import { formatFiat, getFiatValue } from '@shared/store/models/asset';
 import { useStore } from '@shared/store';
 import {
   AppIcon,
+  AssetIcon,
   HeaderBackButton,
   PrimaryButton,
   ScreenContainer,
   SecondaryButton,
   colors,
+  radii,
   spacing,
+  typography,
 } from '@shared/ui';
 import { TransactionRow } from './TransactionRow';
 
@@ -80,12 +77,8 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
         />
       </View>
       <View style={styles.summary}>
-        <View style={[styles.icon, { backgroundColor: getAssetColor(asset) }]}>
-          <Text
-            style={[styles.iconGlyph, { color: getAssetGlyphColor(asset) }]}
-          >
-            {getAssetIcon(asset)}
-          </Text>
+        <View style={styles.icon}>
+          <AssetIcon symbol={asset.symbol} size={56} />
         </View>
         <Text style={styles.balance}>
           {balanceBaseUnits != null
@@ -100,9 +93,9 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
               asset.decimals,
               walletStore.priceOf(asset.symbol),
             ),
-          )}{' '}
-          · {getNetworkLabel(asset.network)}
+          )}
         </Text>
+        <Text style={styles.networkChip}>{getNetworkLabel(asset.network)}</Text>
       </View>
       <View style={styles.actionsRow}>
         <PrimaryButton
@@ -119,6 +112,7 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
       <Text style={styles.activityTitle}>Activity</Text>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.activityContent}
         refreshControl={
           <RefreshControl
             refreshing={walletStore.transactionsRequest.loading}
@@ -130,10 +124,17 @@ export const AssetDetailScreen = observer(function AssetDetailScreenView() {
         {transactions.length === 0 &&
         !walletStore.transactionsRequest.loading ? (
           <Text style={styles.empty}>No activity yet.</Text>
-        ) : null}
-        {transactions.map(transaction => (
-          <TransactionRow key={transaction.id} transaction={transaction} />
-        ))}
+        ) : (
+          <View style={styles.activityList}>
+            {transactions.map((transaction, index) => (
+              <TransactionRow
+                key={transaction.id}
+                transaction={transaction}
+                divided={index < transactions.length - 1}
+              />
+            ))}
+          </View>
+        )}
       </ScrollView>
     </ScreenContainer>
   );
@@ -147,54 +148,69 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xxl,
   },
   headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.heading,
     color: colors.textPrimary,
   },
   summary: {
     alignItems: 'center',
   },
   icon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
-  },
-  iconGlyph: {
-    fontSize: 26,
-    fontWeight: '700',
+    marginBottom: spacing.lg,
   },
   balance: {
-    fontSize: 34,
-    fontWeight: '800',
+    fontSize: 36,
+    fontWeight: '700',
+    letterSpacing: -1.2,
     color: colors.textPrimary,
+    fontVariant: ['tabular-nums'],
   },
   fiatValue: {
-    fontSize: 14,
+    ...typography.body,
     color: colors.textSecondary,
     marginTop: spacing.xs,
+    fontVariant: ['tabular-nums'],
+  },
+  networkChip: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
+    marginTop: spacing.md,
+    overflow: 'hidden',
   },
   actionsRow: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xxl,
+    gap: spacing.md,
+    marginTop: spacing.xxxl,
     marginBottom: spacing.xxl,
   },
   actionButton: {
     flex: 1,
   },
   empty: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.body,
+    color: colors.textTertiary,
     textAlign: 'center',
-    paddingVertical: spacing.xl,
+    paddingVertical: spacing.xxxl,
   },
   activityTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#C4CCD4',
-    marginBottom: spacing.sm,
+    ...typography.overline,
+    color: colors.textTertiary,
+    marginBottom: spacing.md,
+  },
+  activityContent: {
+    paddingBottom: spacing.xxl,
+  },
+  activityList: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: spacing.lg,
+    overflow: 'hidden',
   },
 });

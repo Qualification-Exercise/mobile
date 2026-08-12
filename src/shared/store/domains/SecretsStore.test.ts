@@ -1,78 +1,200 @@
 import { secretsApi } from '@shared/api';
-import { hashMnemonic } from '@shared/lib';
+import { RemoteRecoveryError } from '@shared/lib';
 import { SecretsStore } from './SecretsStore';
+
+jest.mock('expo-local-authentication', () => ({}));
+jest.mock('expo-crypto', () => ({}));
 
 jest.mock('@shared/api', () => ({
   secretsApi: {
+    getSeed: jest.fn(),
     getEntropy: jest.fn(),
-    storeEntropy: jest.fn().mockResolvedValue(undefined),
-    storeSeed: jest.fn().mockResolvedValue(undefined),
+    storeSeed: jest.fn(),
+    storeEntropy: jest.fn(),
   },
 }));
-jest.mock('@shared/lib', () => ({ hashMnemonic: jest.fn() }));
 
-const getEntropy = secretsApi.getEntropy as jest.Mock;
-const storeEntropy = secretsApi.storeEntropy as jest.Mock;
-const storeSeed = secretsApi.storeSeed as jest.Mock;
-const mockHash = hashMnemonic as jest.Mock;
+const api = jest.mocked(secretsApi);
+const CIPHERTEXT = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+const OTHER_CIPHERTEXT = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
 
-describe('hasRemoteWallet', () => {
-  it('is true only when the backend holds entropy', async () => {
-    const store = new SecretsStore();
-    getEntropy.mockResolvedValueOnce([]);
-    await expect(store.hasRemoteWallet()).resolves.toBe(false);
-    getEntropy.mockResolvedValueOnce([{ entropy: 'e' }]);
-    await expect(store.hasRemoteWallet()).resolves.toBe(true);
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+test('detects any existing remote seed or entropy record', async () => {
+  api.getSeed.mockResolvedValue({ seed: CIPHERTEXT });
+  api.getEntropy.mockResolvedValue(null);
+
+  await expect(new SecretsStore().hasRemoteWallet()).resolves.toBe(true);
+});
+
+test('reports no remote wallet when neither value is stored', async () => {
+  api.getSeed.mockResolvedValue(null);
+  api.getEntropy.mockResolvedValue(null);
+
+  await expect(new SecretsStore().hasRemoteWallet()).resolves.toBe(false);
+});
+
+test('writes ciphertext with version-only metadata', async () => {
+  api.getSeed.mockResolvedValue(null);
+  api.getEntropy.mockResolvedValue(null);
+  const store = new SecretsStore();
+  await expect(
+    store.ensureRemoteWalletSecrets({
+      encryptedSeed: `${CIPHERTEXT}AAAA`,
+      encryptedEntropy: CIPHERTEXT,
+    }),
+  ).resolves.toBe(true);
+
+  expect(api.storeSeed).toHaveBeenCalledWith({
+    seed: `${CIPHERTEXT}AAAA`,
+    metadata: { version: 1 },
+  });
+  expect(api.storeEntropy).toHaveBeenCalledWith({
+    entropy: CIPHERTEXT,
+    metadata: { version: 1 },
+  });
+  const serializedWrites = JSON.stringify([
+    api.storeSeed.mock.calls,
+    api.storeEntropy.mock.calls,
+  ]);
+  expect(serializedWrites).not.toMatch(/encryptionKey|mnemonicHash|mnemonic/i);
+});
+
+test('returns the only complete valid recovery bundle', async () => {
+  api.getSeed.mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
+
+  await expect(new SecretsStore().getRemoteRecoveryBundle()).resolves.toEqual({
+    encryptedSeed: `${CIPHERTEXT}AAAA`,
+    encryptedEntropy: CIPHERTEXT,
   });
 });
 
-describe('backupWalletSecrets', () => {
-  it('stores seed and entropy under a mnemonic-hash metadata', async () => {
-    mockHash.mockResolvedValue('hash-1');
-    const store = new SecretsStore();
+test.each([
+  ['no values', null, null],
+  ['missing seed', null, { entropy: CIPHERTEXT }],
+  ['missing entropy', { seed: CIPHERTEXT }, null],
+] as const)(
+  'rejects incomplete remote state: %s',
+  async (_label, seed, entropy) => {
+    api.getSeed.mockResolvedValue(seed);
+    api.getEntropy.mockResolvedValue(entropy);
 
-    await store.backupWalletSecrets({
-      encryptedEntropy: 'enc-e',
-      encryptedSeed: 'enc-s',
-      encryptionKey: 'key',
-      mnemonic: 'phrase',
-    });
+    await expect(
+      new SecretsStore().getRemoteRecoveryBundle(),
+    ).rejects.toBeInstanceOf(RemoteRecoveryError);
+  },
+);
 
-    const metadata = {
-      mnemonicHash: 'hash-1',
-      encryptionKey: 'key',
-      version: 1,
-    };
-    expect(storeSeed).toHaveBeenCalledWith({ seed: 'enc-s', metadata });
-    expect(storeEntropy).toHaveBeenCalledWith({ entropy: 'enc-e', metadata });
+test('rejects invalid credentials before reading or writing remote state', async () => {
+  const store = new SecretsStore();
+
+  await expect(
+    store.ensureRemoteWalletSecrets({
+      encryptedSeed: 'invalid',
+      encryptedEntropy: CIPHERTEXT,
+    }),
+  ).rejects.toBeInstanceOf(RemoteRecoveryError);
+  expect(api.getSeed).not.toHaveBeenCalled();
+  expect(api.storeSeed).not.toHaveBeenCalled();
+});
+
+test('returns a valid partial singleton state', async () => {
+  api.getSeed.mockResolvedValue({ seed: CIPHERTEXT });
+  api.getEntropy.mockResolvedValue(null);
+
+  await expect(new SecretsStore().getRemoteCredentialState()).resolves.toEqual({
+    encryptedSeed: CIPHERTEXT,
+    encryptedEntropy: null,
   });
 });
 
-describe('matchMnemonic', () => {
-  it('is false when the backend has no entropy', async () => {
-    getEntropy.mockResolvedValueOnce([]);
-    await expect(new SecretsStore().matchMnemonic('phrase')).resolves.toBe(
-      false,
-    );
+test('posts only a missing value when the existing value matches', async () => {
+  api.getSeed.mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue(null);
+  const store = new SecretsStore();
+
+  await expect(
+    store.ensureRemoteWalletSecrets({
+      encryptedSeed: `${CIPHERTEXT}AAAA`,
+      encryptedEntropy: CIPHERTEXT,
+    }),
+  ).resolves.toBe(true);
+
+  expect(api.storeSeed).not.toHaveBeenCalled();
+  expect(api.storeEntropy).toHaveBeenCalledWith({
+    entropy: CIPHERTEXT,
+    metadata: { version: 1 },
   });
+});
 
-  it('accepts a legacy entry that carries no verifier hash', async () => {
-    getEntropy.mockResolvedValueOnce([{ entropy: 'e', metadata: {} }]);
-    await expect(new SecretsStore().matchMnemonic('phrase')).resolves.toBe(
-      true,
-    );
-  });
+test('does not post byte-identical existing singleton values again', async () => {
+  api.getSeed.mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
+  const store = new SecretsStore();
 
-  it('compares the candidate hash against the stored ones', async () => {
-    getEntropy.mockResolvedValue([
-      { entropy: 'e', metadata: { mnemonicHash: 'stored' } },
-    ]);
-    const store = new SecretsStore();
+  await expect(
+    store.ensureRemoteWalletSecrets({
+      encryptedSeed: `${CIPHERTEXT}AAAA`,
+      encryptedEntropy: CIPHERTEXT,
+    }),
+  ).resolves.toBe(false);
 
-    mockHash.mockResolvedValueOnce('stored');
-    await expect(store.matchMnemonic('right')).resolves.toBe(true);
+  expect(api.storeSeed).not.toHaveBeenCalled();
+  expect(api.storeEntropy).not.toHaveBeenCalled();
+});
 
-    mockHash.mockResolvedValueOnce('other');
-    await expect(store.matchMnemonic('wrong')).resolves.toBe(false);
-  });
+test('rejects different existing ciphertext without appending records', async () => {
+  api.getSeed.mockResolvedValue({ seed: OTHER_CIPHERTEXT });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
+  const store = new SecretsStore();
+
+  await expect(
+    store.ensureRemoteWalletSecrets({
+      encryptedSeed: `${CIPHERTEXT}AAAA`,
+      encryptedEntropy: CIPHERTEXT,
+    }),
+  ).rejects.toBeInstanceOf(RemoteRecoveryError);
+
+  expect(api.storeSeed).not.toHaveBeenCalled();
+  expect(api.storeEntropy).not.toHaveBeenCalled();
+});
+
+test('does not append the successful side when retrying a partial write', async () => {
+  api.getSeed
+    .mockResolvedValueOnce(null)
+    .mockResolvedValue({ seed: `${CIPHERTEXT}AAAA` });
+  api.getEntropy.mockResolvedValue(null);
+  api.storeEntropy
+    .mockRejectedValueOnce(new Error('offline'))
+    .mockResolvedValueOnce(undefined);
+  const store = new SecretsStore();
+  const expected = {
+    encryptedSeed: `${CIPHERTEXT}AAAA`,
+    encryptedEntropy: CIPHERTEXT,
+  };
+
+  await expect(store.ensureRemoteWalletSecrets(expected)).rejects.toThrow(
+    'offline',
+  );
+  await expect(store.ensureRemoteWalletSecrets(expected)).resolves.toBe(true);
+
+  expect(api.storeSeed).toHaveBeenCalledTimes(1);
+  expect(api.storeEntropy).toHaveBeenCalledTimes(2);
+});
+
+test.each([
+  ['empty', ''],
+  ['malformed', 'not-base64'],
+  ['too small', 'AAAA'],
+  ['oversized', `${'AAAA'.repeat(4000)}`],
+])('rejects %s ciphertext', async (_label, ciphertext) => {
+  api.getSeed.mockResolvedValue({ seed: ciphertext });
+  api.getEntropy.mockResolvedValue({ entropy: CIPHERTEXT });
+
+  await expect(
+    new SecretsStore().getRemoteRecoveryBundle(),
+  ).rejects.toBeInstanceOf(RemoteRecoveryError);
 });

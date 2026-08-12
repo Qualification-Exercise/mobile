@@ -3,25 +3,38 @@ import {
   ErrorToast,
   type ToastConfig,
 } from 'react-native-toast-message';
-import { colors, radii } from './tokens';
+import { colors, radii, shadows, typography } from './tokens';
 
 const cardStyle = {
-  backgroundColor: colors.surface,
-  borderLeftWidth: 4,
+  backgroundColor: colors.surfaceAlt,
+  borderLeftWidth: 3,
+  borderWidth: 1,
+  borderColor: colors.border,
   borderRadius: radii.md,
   height: 'auto' as const,
   paddingVertical: 12,
+  ...shadows.floating,
+};
+
+const successCardStyle = {
+  ...cardStyle,
+  borderLeftColor: colors.accentBright,
+};
+
+const errorCardStyle = {
+  ...cardStyle,
+  borderLeftColor: '#E0715A',
 };
 
 const text1Style = {
-  color: colors.textPrimary,
-  fontSize: 14,
+  ...typography.body,
   fontWeight: '600' as const,
+  color: colors.textPrimary,
 };
 
 const text2Style = {
+  ...typography.caption,
   color: colors.textSecondary,
-  fontSize: 12,
 };
 
 /**
@@ -32,7 +45,7 @@ export const toastConfig: ToastConfig = {
   success: props => (
     <BaseToast
       {...props}
-      style={[cardStyle, { borderLeftColor: colors.accentBright }]}
+      style={successCardStyle}
       text1Style={text1Style}
       text2Style={text2Style}
     />
@@ -40,7 +53,7 @@ export const toastConfig: ToastConfig = {
   error: props => (
     <ErrorToast
       {...props}
-      style={[cardStyle, { borderLeftColor: '#E0715A' }]}
+      style={errorCardStyle}
       text1Style={text1Style}
       text2Style={text2Style}
       // Error messages (plus the dev-only source tag) routinely run past the

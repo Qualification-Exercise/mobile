@@ -14,19 +14,32 @@ jest.mock('./httpClient', () => ({
 describe('secretsApi', () => {
   it('stores entropy and seed at their endpoints', async () => {
     mockPost.mockResolvedValue({ data: undefined });
-    await secretsApi.storeEntropy({ entropy: 'e1' });
-    await secretsApi.storeSeed({ seed: 's1' });
+    const metadata = { version: 1 } as const;
+    await secretsApi.storeEntropy({ entropy: 'e1', metadata });
+    await secretsApi.storeSeed({ seed: 's1', metadata });
     expect(mockPost).toHaveBeenCalledWith('/secrets/entropy', {
       entropy: 'e1',
+      metadata,
     });
-    expect(mockPost).toHaveBeenCalledWith('/secrets/seed', { seed: 's1' });
+    expect(mockPost).toHaveBeenCalledWith('/secrets/seed', {
+      seed: 's1',
+      metadata,
+    });
   });
 
-  it('unwraps the entropies and seeds arrays', async () => {
+  it('unwraps the single entropy and seed records', async () => {
     mockGet.mockResolvedValueOnce({ data: { entropies: [{ entropy: 'e' }] } });
-    await expect(secretsApi.getEntropy()).resolves.toEqual([{ entropy: 'e' }]);
+    await expect(secretsApi.getEntropy()).resolves.toEqual({ entropy: 'e' });
 
     mockGet.mockResolvedValueOnce({ data: { seeds: [{ seed: 's' }] } });
-    await expect(secretsApi.getSeed()).resolves.toEqual([{ seed: 's' }]);
+    await expect(secretsApi.getSeed()).resolves.toEqual({ seed: 's' });
+  });
+
+  it('returns null when a secret is not stored', async () => {
+    mockGet.mockResolvedValueOnce({ data: { entropies: [] } });
+    await expect(secretsApi.getEntropy()).resolves.toBeNull();
+
+    mockGet.mockResolvedValueOnce({ data: { seeds: [] } });
+    await expect(secretsApi.getSeed()).resolves.toBeNull();
   });
 });

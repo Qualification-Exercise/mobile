@@ -20,7 +20,14 @@ import {
 import { formatFiat, getFiatValue } from '@shared/store/models/asset';
 import { shortenAddress } from '@shared/store/models/transaction';
 import { useStore } from '@shared/store';
-import { AppIcon, ScreenContainer, colors, radii, spacing } from '@shared/ui';
+import {
+  AppIcon,
+  ScreenContainer,
+  colors,
+  radii,
+  spacing,
+  typography,
+} from '@shared/ui';
 import { AssetRow } from './AssetRow';
 
 const DEFAULT_ASSET_ID = 'usdt-arbitrum';
@@ -105,7 +112,10 @@ export const HomeScreen = observer(function HomeScreenView() {
   // time. A stale enough focus, and pull-to-refresh below, still refresh.
   useFocusEffect(
     useCallback(() => {
-      if (Date.now() - lastRefreshRef.current >= FOCUS_REFRESH_MIN_INTERVAL_MS) {
+      if (
+        Date.now() - lastRefreshRef.current >=
+        FOCUS_REFRESH_MIN_INTERVAL_MS
+      ) {
         refresh();
       }
     }, [refresh]),
@@ -223,12 +233,13 @@ export const HomeScreen = observer(function HomeScreenView() {
               {getNetworkLabel(group.network)}
             </Text>
             <View style={styles.assetsList}>
-              {group.assets.map(asset => (
+              {group.assets.map((asset, index) => (
                 <AssetRow
                   key={asset.id}
                   asset={asset}
                   balanceBaseUnits={balances.get(asset.id)}
                   price={walletStore.priceOf(asset.symbol)}
+                  divided={index < group.assets.length - 1}
                   onPress={() =>
                     navigation.navigate('AssetDetail', { assetId: asset.id })
                   }
@@ -255,95 +266,108 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   avatar: {
-    width: 38,
-    height: 38,
-    borderRadius: radii.xs,
-    backgroundColor: '#22285A',
+    width: 40,
+    height: 40,
+    borderRadius: radii.sm,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   avatarLabel: {
+    ...typography.label,
     fontSize: 15,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   walletName: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...typography.heading,
     color: colors.textPrimary,
   },
   walletAddress: {
     fontFamily: 'Menlo',
     fontSize: 11,
-    color: colors.textSecondary,
+    letterSpacing: 0.2,
+    color: colors.textTertiary,
   },
   balanceBlock: {
     alignItems: 'center',
-    marginTop: spacing.xxl,
+    marginTop: spacing.xxxl,
   },
   balanceLabel: {
-    fontSize: 13,
-    color: colors.textSecondary,
+    ...typography.overline,
+    color: colors.textTertiary,
   },
   balanceValue: {
-    fontSize: 42,
-    fontWeight: '800',
+    fontSize: 46,
+    fontWeight: '700',
+    letterSpacing: -1.6,
     color: colors.textPrimary,
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
+    fontVariant: ['tabular-nums'],
   },
   actionsRow: {
     flexDirection: 'row',
     gap: spacing.sm,
-    marginTop: spacing.xxl,
+    marginTop: spacing.xxxl,
   },
   quickAction: {
     flex: 1,
     alignItems: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
   quickActionIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: radii.md,
-    backgroundColor: colors.surfaceAlt,
+    width: 54,
+    height: 54,
+    borderRadius: radii.lg,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
   quickActionIconHighlighted: {
     backgroundColor: colors.accent,
+    borderColor: colors.accentBright,
   },
   quickActionLabel: {
-    fontSize: 12,
-    color: '#C4CCD4',
+    ...typography.caption,
+    color: colors.textSecondary,
   },
   assetsHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: spacing.xxl,
-    marginBottom: spacing.sm,
+    gap: spacing.sm,
+    marginTop: spacing.xxxl,
+    marginBottom: spacing.xs,
   },
   assetsTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.heading,
     color: colors.textPrimary,
   },
   assetsCount: {
-    fontSize: 13,
+    ...typography.caption,
     color: colors.textSecondary,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    overflow: 'hidden',
   },
   networkGroup: {
-    marginTop: spacing.md,
+    marginTop: spacing.lg,
   },
   networkTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
+    ...typography.overline,
+    color: colors.textTertiary,
+    marginBottom: spacing.sm,
   },
   assetsList: {
-    gap: spacing.xs,
+    backgroundColor: colors.surface,
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
   },
 });

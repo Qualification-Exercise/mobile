@@ -25,7 +25,7 @@ export const EnableBiometricScreen = observer(
 
     useEffect(() => {
       if (biometryStore.isEnrolled) {
-        navigation.reset({ index: 0, routes: [{ name: 'WalletSetup' }] });
+        navigation.reset({ index: 0, routes: [{ name: 'BiometricUnlock' }] });
       }
     }, [biometryStore.isEnrolled, navigation]);
 

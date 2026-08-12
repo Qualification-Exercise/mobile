@@ -5,8 +5,20 @@ import {
   type UseWalletManagerResult,
   type WalletInfo,
 } from '@tetherto/wdk-react-native-core';
+import { createSecureStorage } from '@tetherto/wdk-react-native-secure-storage';
 import { DEFAULT_WALLET_ID, MNEMONIC_WORD_COUNT } from './constants';
 import { useEnsureWdkReady, type WdkStatus } from './useEnsureWdkReady';
+import {
+  isValidEncryptedCredential,
+  isValidEncryptionKey,
+} from '../../secretValidation';
+import { WalletBackupOperationError } from '../../walletBackupError';
+
+export type WalletCredentials = {
+  encryptionKey: string;
+  encryptedSeed: string;
+  encryptedEntropy: string;
+};
 
 /**
  * Whether the default wallet is present in the given wallet list.
@@ -102,6 +114,9 @@ export interface UseWalletResult {
    * @throws If the mnemonic cannot be processed by the worklet.
    */
   getSeedAndEntropyFromMnemonic: UseWalletManagerResult['getSeedAndEntropyFromMnemonic'];
+
+  getWalletCredentials: () => Promise<WalletCredentials>;
+  restoreWalletCredentials: (credentials: WalletCredentials) => Promise<void>;
 }
 
 /**
@@ -116,6 +131,9 @@ export function useWallet(): UseWalletResult {
     deleteWallet: deleteWalletRaw,
     getMnemonic: getMnemonicRaw,
     getSeedAndEntropyFromMnemonic: getSeedAndEntropyFromMnemonicRaw,
+    getEncryptionKey: getEncryptionKeyRaw,
+    getEncryptedSeed: getEncryptedSeedRaw,
+    getEncryptedEntropy: getEncryptedEntropyRaw,
   } = useWalletManager();
   const { state } = useWdkApp();
 
@@ -181,6 +199,94 @@ export function useWallet(): UseWalletResult {
     [ensureWdkReady, getSeedAndEntropyFromMnemonicRaw],
   );
 
+  const getWalletCredentials = useCallback(async () => {
+    try {
+      ensureWdkReady();
+      const [encryptionKey, encryptedSeed, encryptedEntropy] =
+        await Promise.all([
+          getEncryptionKeyRaw(DEFAULT_WALLET_ID),
+          getEncryptedSeedRaw(DEFAULT_WALLET_ID),
+          getEncryptedEntropyRaw(DEFAULT_WALLET_ID),
+        ]);
+      if (
+        encryptionKey == null ||
+        encryptedSeed == null ||
+        encryptedEntropy == null ||
+        !isValidEncryptionKey(encryptionKey) ||
+        !isValidEncryptedCredential(encryptedSeed) ||
+        !isValidEncryptedCredential(encryptedEntropy)
+      ) {
+        throw new WalletBackupOperationError('backup_unavailable');
+      }
+      return { encryptionKey, encryptedSeed, encryptedEntropy };
+    } catch (error) {
+      if (error instanceof WalletBackupOperationError) {
+        throw error;
+      }
+      throw new WalletBackupOperationError('backup_unavailable');
+    }
+  }, [
+    ensureWdkReady,
+    getEncryptedEntropyRaw,
+    getEncryptedSeedRaw,
+    getEncryptionKeyRaw,
+  ]);
+
+  const restoreWalletCredentials = useCallback(
+    async (credentials: WalletCredentials) => {
+      ensureWdkReady();
+      if (
+        !isValidEncryptionKey(credentials.encryptionKey) ||
+        !isValidEncryptedCredential(credentials.encryptedSeed) ||
+        !isValidEncryptedCredential(credentials.encryptedEntropy)
+      ) {
+        throw new WalletBackupOperationError('backup_unavailable');
+      }
+
+      const storage = createSecureStorage();
+      let wroteCredentials = false;
+
+      try {
+        if (await storage.hasWallet(DEFAULT_WALLET_ID)) {
+          throw new WalletBackupOperationError('wallet_already_exists');
+        }
+
+        wroteCredentials = true;
+        await storage.setEncryptedSeed(
+          credentials.encryptedSeed,
+          DEFAULT_WALLET_ID,
+        );
+        await storage.setEncryptedEntropy(
+          credentials.encryptedEntropy,
+          DEFAULT_WALLET_ID,
+        );
+        await storage.setEncryptionKey(
+          credentials.encryptionKey,
+          DEFAULT_WALLET_ID,
+          { requireBiometrics: false },
+        );
+
+        try {
+          await unlockRaw(DEFAULT_WALLET_ID);
+        } catch {
+          throw new WalletBackupOperationError('restore_failed');
+        }
+      } catch (error) {
+        if (wroteCredentials) {
+          try {
+            await storage.deleteWallet(DEFAULT_WALLET_ID);
+          } catch {
+            // Preserve the original restore error when cleanup also fails.
+          }
+        }
+        throw error;
+      } finally {
+        storage.cleanup();
+      }
+    },
+    [ensureWdkReady, unlockRaw],
+  );
+
   return useMemo(
     () => ({
       wallets,
@@ -193,6 +299,8 @@ export function useWallet(): UseWalletResult {
       deleteWallet,
       getMnemonic,
       getSeedAndEntropyFromMnemonic,
+      getWalletCredentials,
+      restoreWalletCredentials,
     }),
     [
       wallets,
@@ -205,6 +313,8 @@ export function useWallet(): UseWalletResult {
       deleteWallet,
       getMnemonic,
       getSeedAndEntropyFromMnemonic,
+      getWalletCredentials,
+      restoreWalletCredentials,
     ],
   );
 }

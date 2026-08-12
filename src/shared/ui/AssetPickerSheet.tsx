@@ -10,7 +10,7 @@ import {
 import type { NetworkName } from '../../../.wdk';
 import { getNetworkLabel, groupAssetsByNetwork } from '@shared/config';
 import { AppIcon } from './AppIcon';
-import { colors, radii, spacing } from './tokens';
+import { colors, radii, spacing, typography } from './tokens';
 
 // The minimum an entry needs to be listed. Both the registry config and the
 // store's asset model satisfy it, so neither screen has to convert.
@@ -93,36 +93,34 @@ export function AssetPickerSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(3,5,7,0.55)',
+    backgroundColor: 'rgba(6,9,13,0.66)',
     justifyContent: 'flex-end',
   },
   sheet: {
     maxHeight: '75%',
     backgroundColor: colors.surface,
+    borderTopWidth: 1,
+    borderColor: colors.border,
     borderTopLeftRadius: radii.xxl,
     borderTopRightRadius: radii.xxl,
     padding: spacing.xl,
   },
   handle: {
-    width: 40,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: colors.textTertiary,
+    width: 36,
+    height: 4,
+    borderRadius: radii.pill,
+    backgroundColor: colors.borderStrong,
     alignSelf: 'center',
     marginBottom: spacing.lg,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.heading,
     color: colors.textPrimary,
     marginBottom: spacing.md,
   },
   network: {
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.6,
-    textTransform: 'uppercase',
-    color: colors.textSecondary,
+    ...typography.overline,
+    color: colors.textTertiary,
     marginTop: spacing.md,
     marginBottom: spacing.xs,
   },
@@ -131,25 +129,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: colors.surfaceAlt,
-    borderRadius: radii.sm,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    borderRadius: radii.md,
     paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
     marginBottom: spacing.xs,
   },
   rowSelected: {
-    borderWidth: 1,
+    backgroundColor: colors.accentMuted,
     borderColor: colors.accent,
   },
   rowText: {
     flex: 1,
   },
   symbol: {
-    fontSize: 14.5,
+    ...typography.body,
     fontWeight: '700',
     color: colors.textPrimary,
   },
   name: {
-    fontSize: 12,
+    ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,
   },

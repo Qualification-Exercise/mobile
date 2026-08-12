@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import {
   ActivityIndicator,
   Alert,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -10,8 +11,10 @@ import {
 } from 'react-native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
+import { observer } from 'mobx-react-lite';
 import type { RootStackNavigationProp } from '@app/navigation/types';
 import { useStore } from '@shared/store';
+import { getWalletBackupErrorMessage } from '@shared/lib';
 import { useWallet } from '@shared/lib/hooks/wallet';
 import {
   AppIcon,
@@ -29,178 +32,286 @@ function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
 }
 
-export function WalletSettingsScreen() {
-  const navigation = useNavigation<RootStackNavigationProp>();
-  const { authStore, biometryStore } = useStore();
-  const { getMnemonic, deleteWallet } = useWallet();
+function showWalletCredentialsError() {
+  Toast.show({
+    type: 'error',
+    text1: 'Backup unavailable',
+    text2: 'Could not read wallet credentials.',
+  });
+}
 
-  const [revealedWords, setRevealedWords] = useState<string[]>([]);
-  const [revealing, setRevealing] = useState(false);
-  const [revealError, setRevealError] = useState('');
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState('');
+export const WalletSettingsScreen = observer(
+  function WalletSettingsScreenView() {
+    const navigation = useNavigation<RootStackNavigationProp>();
+    const { authStore, biometryStore, walletBackupStore } = useStore();
+    const { getMnemonic, deleteWallet, getWalletCredentials } = useWallet();
 
-  async function handleRevealPhrase() {
-    const outcome = await biometryStore.verify('View recovery phrase');
-    if (outcome !== 'unlocked') {
-      return;
-    }
+    const [revealedWords, setRevealedWords] = useState<string[]>([]);
+    const [revealing, setRevealing] = useState(false);
+    const [revealError, setRevealError] = useState('');
+    const [deleting, setDeleting] = useState(false);
+    const [deleteError, setDeleteError] = useState('');
+    const recoveryOperationRunning = walletBackupStore.status === 'loading';
 
-    setRevealing(true);
-    setRevealError('');
-    try {
-      const mnemonic = await getMnemonic();
-      if (!mnemonic) {
-        throw new Error('Could not read recovery phrase');
-      }
-      setRevealedWords(splitMnemonic(mnemonic));
-    } catch (err) {
-      setRevealError(
-        (err instanceof Error && err.message) ||
-          'Could not reveal recovery phrase',
+    useEffect(() => {
+      getWalletCredentials()
+        .then(credentials => {
+          walletBackupStore.checkBackupAvailability(credentials);
+        })
+        .catch(() => {
+          walletBackupStore.checkBackupAvailability();
+        });
+    }, [getWalletCredentials, walletBackupStore]);
+
+    async function handleSaveLocalBackup() {
+      const outcome = await biometryStore.verify(
+        'Save recovery key on this device',
       );
-    } finally {
-      setRevealing(false);
+      if (outcome !== 'unlocked') {
+        return;
+      }
+      try {
+        const credentials = await getWalletCredentials();
+        await walletBackupStore.saveLocalBackup(credentials);
+      } catch {
+        showWalletCredentialsError();
+      }
     }
-  }
 
-  async function handleCopy() {
-    try {
-      await Clipboard.setStringAsync(revealedWords.join(' '));
-      Toast.show({
-        type: 'success',
-        text1: 'Copied',
-        text2: 'Recovery phrase copied to clipboard',
-      });
-    } catch {
-      Toast.show({
-        type: 'error',
-        text1: 'Copy failed',
-        text2: 'Could not copy recovery phrase',
-      });
+    async function handleCreateBackup() {
+      const outcome = await biometryStore.verify(
+        'Enable Google Drive recovery',
+      );
+      if (outcome !== 'unlocked') {
+        return;
+      }
+      try {
+        const credentials = await getWalletCredentials();
+        await walletBackupStore.backupToCloud(credentials);
+      } catch {
+        showWalletCredentialsError();
+      }
     }
-  }
 
-  function handleDeleteWallet() {
-    Alert.alert(
-      'Delete wallet?',
-      'This removes your wallet and signs you out on this device. You will need your recovery phrase to restore it.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            const outcome = await biometryStore.verify('Delete wallet');
-            if (outcome !== 'unlocked') {
-              return;
-            }
+    async function handleRevealPhrase() {
+      const outcome = await biometryStore.verify('View recovery phrase');
+      if (outcome !== 'unlocked') {
+        return;
+      }
 
-            setDeleting(true);
-            setDeleteError('');
-            try {
-              await deleteWallet();
-              await authStore.signOut();
-              navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
-            } catch (err) {
-              setDeleteError(
-                (err instanceof Error && err.message) ||
-                  'Could not delete wallet',
-              );
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ],
-    );
-  }
+      setRevealing(true);
+      setRevealError('');
+      try {
+        const mnemonic = await getMnemonic();
+        if (!mnemonic) {
+          throw new Error();
+        }
+        setRevealedWords(splitMnemonic(mnemonic));
+      } catch {
+        setRevealError('Could not show recovery phrase. Try again.');
+      } finally {
+        setRevealing(false);
+      }
+    }
 
-  return (
-    <ScreenContainer>
-      <View style={styles.header}>
-        <HeaderBackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>Wallet settings</Text>
-        <View style={styles.headerSpacer} />
-      </View>
-      <View style={styles.container}>
-        <Text style={styles.sectionTitle}>Security</Text>
-        <View style={styles.section}>
-          <Text style={styles.sectionDescription}>
-            View your recovery phrase on this device.
-          </Text>
-          <SecondaryButton
-            title={
-              revealing
-                ? 'Authenticating…'
-                : revealedWords.length === 12
-                ? 'Hide recovery phrase'
-                : 'View recovery phrase'
-            }
-            onPress={() => {
-              if (revealedWords.length === 12) {
-                setRevealedWords([]);
+    async function handleCopy() {
+      try {
+        await Clipboard.setStringAsync(revealedWords.join(' '));
+        Toast.show({
+          type: 'success',
+          text1: 'Copied',
+          text2: 'Recovery phrase copied to clipboard',
+        });
+      } catch {
+        Toast.show({
+          type: 'error',
+          text1: 'Copy failed',
+          text2: 'Could not copy recovery phrase',
+        });
+      }
+    }
+
+    function handleDeleteWallet() {
+      Alert.alert(
+        'Delete wallet?',
+        'This removes your wallet and signs you out on this device. You will need your recovery phrase to restore it.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              const outcome = await biometryStore.verify('Delete wallet');
+              if (outcome !== 'unlocked') {
                 return;
               }
-              void handleRevealPhrase();
-            }}
-            disabled={revealing}
-          />
-          {revealing ? (
-            <View style={styles.revealLoading}>
-              <ActivityIndicator size="small" color={colors.accentBright} />
-              <Text style={styles.revealLoadingText}>
-                Confirm with biometrics to view your phrase
-              </Text>
-            </View>
-          ) : null}
-          {revealError ? (
-            <Text style={styles.errorText}>{revealError}</Text>
-          ) : null}
-          {revealedWords.length === 12 ? (
-            <View style={styles.revealBlock}>
-              <View style={styles.warning}>
-                <Text style={styles.warningText}>
-                  Never share your phrase. Anyone with these words can access
-                  your funds.
+
+              setDeleting(true);
+              setDeleteError('');
+              try {
+                await deleteWallet();
+                await authStore.signOut();
+                navigation.reset({ index: 0, routes: [{ name: 'SignIn' }] });
+              } catch {
+                setDeleteError('Could not delete wallet. Try again.');
+              } finally {
+                setDeleting(false);
+              }
+            },
+          },
+        ],
+      );
+    }
+
+    return (
+      <ScreenContainer>
+        <View style={styles.header}>
+          <HeaderBackButton onPress={() => navigation.goBack()} />
+          <Text style={styles.headerTitle}>Settings</Text>
+          <View style={styles.headerSpacer} />
+        </View>
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.sectionTitle}>Recovery phrase</Text>
+          <View style={styles.section}>
+            <SecondaryButton
+              title={
+                revealing
+                  ? 'Authenticating…'
+                  : revealedWords.length === 12
+                  ? 'Hide recovery phrase'
+                  : 'View recovery phrase'
+              }
+              onPress={async () => {
+                if (revealedWords.length === 12) {
+                  setRevealedWords([]);
+                  return;
+                }
+                await handleRevealPhrase();
+              }}
+              disabled={revealing || recoveryOperationRunning || deleting}
+            />
+            {revealing ? (
+              <View style={styles.revealLoading}>
+                <ActivityIndicator size="small" color={colors.accentBright} />
+                <Text style={styles.revealLoadingText}>
+                  Confirm to continue
                 </Text>
               </View>
-              <SeedWordGrid words={revealedWords} />
-              <TouchableOpacity
-                style={styles.copyButton}
-                onPress={handleCopy}
-                activeOpacity={0.7}
-              >
-                <AppIcon
-                  name="copy-outline"
-                  size={16}
-                  color={colors.accentBright}
-                />
-                <Text style={styles.copyButtonText}>Copy to clipboard</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-        </View>
+            ) : null}
+            {revealError ? (
+              <Text style={styles.errorText}>{revealError}</Text>
+            ) : null}
+            {revealedWords.length === 12 ? (
+              <View style={styles.revealBlock}>
+                <View style={styles.warning}>
+                  <Text style={styles.warningText}>
+                    Never share your phrase. Anyone with these words can access
+                    your funds.
+                  </Text>
+                </View>
+                <SeedWordGrid words={revealedWords} />
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={handleCopy}
+                  activeOpacity={0.7}
+                >
+                  <AppIcon
+                    name="copy-outline"
+                    size={16}
+                    color={colors.accentBright}
+                  />
+                  <Text style={styles.copyButtonText}>Copy to clipboard</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
 
-        <Text style={styles.sectionTitle}>Danger zone</Text>
-        <View style={styles.section}>
-          <Text style={styles.sectionDescription}>
-            Permanently remove this wallet from secure storage on this device.
-          </Text>
-          <PrimaryButton
-            title={deleting ? 'Deleting…' : 'Delete wallet'}
-            onPress={handleDeleteWallet}
-            disabled={deleting}
-            style={styles.deleteButton}
-          />
-          {deleteError ? (
-            <Text style={styles.errorText}>{deleteError}</Text>
+          {walletBackupStore.status === 'error' && walletBackupStore.error ? (
+            <Text style={styles.errorText}>
+              {getWalletBackupErrorMessage(walletBackupStore.error)}
+            </Text>
           ) : null}
-        </View>
-      </View>
-    </ScreenContainer>
-  );
-}
+
+          <Text style={styles.sectionTitle}>Device recovery key</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionDescription}>
+              Keep a recovery key on this device so you can restore the wallet
+              here without your recovery phrase.
+            </Text>
+            {walletBackupStore.localBackupAvailable == null &&
+            recoveryOperationRunning ? (
+              <View style={styles.revealLoading}>
+                <ActivityIndicator size="small" color={colors.accentBright} />
+                <Text style={styles.revealLoadingText}>Checking…</Text>
+              </View>
+            ) : walletBackupStore.localBackupAvailable ? (
+              <Text style={styles.successText}>
+                Recovery key saved on this device.
+              </Text>
+            ) : (
+              <SecondaryButton
+                title={
+                  recoveryOperationRunning
+                    ? 'Saving…'
+                    : 'Save recovery key on this device'
+                }
+                onPress={handleSaveLocalBackup}
+                disabled={recoveryOperationRunning || revealing || deleting}
+              />
+            )}
+          </View>
+
+          <Text style={styles.sectionTitle}>Google Drive</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionDescription}>
+              Back up your recovery key to Google Drive.
+            </Text>
+            {walletBackupStore.cloudBackupAvailable == null &&
+            recoveryOperationRunning ? (
+              <View style={styles.revealLoading}>
+                <ActivityIndicator size="small" color={colors.accentBright} />
+                <Text style={styles.revealLoadingText}>Checking…</Text>
+              </View>
+            ) : walletBackupStore.cloudBackupAvailable ? (
+              <Text style={styles.successText}>
+                Google Drive backup is ready.
+              </Text>
+            ) : (
+              <SecondaryButton
+                title={
+                  recoveryOperationRunning
+                    ? 'Saving…'
+                    : 'Back up to Google Drive'
+                }
+                onPress={handleCreateBackup}
+                disabled={recoveryOperationRunning || revealing || deleting}
+              />
+            )}
+          </View>
+
+          <Text style={styles.sectionTitle}>Delete wallet</Text>
+          <View style={styles.section}>
+            <Text style={styles.sectionDescription}>
+              Remove this wallet and sign out on this device.
+            </Text>
+            <PrimaryButton
+              title={deleting ? 'Deleting…' : 'Delete wallet'}
+              onPress={handleDeleteWallet}
+              disabled={deleting || recoveryOperationRunning || revealing}
+              style={styles.deleteButton}
+            />
+            {deleteError ? (
+              <Text style={styles.errorText}>{deleteError}</Text>
+            ) : null}
+          </View>
+        </ScrollView>
+      </ScreenContainer>
+    );
+  },
+);
 
 const styles = StyleSheet.create({
   header: {
@@ -218,8 +329,9 @@ const styles = StyleSheet.create({
     width: 24,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     gap: spacing.lg,
+    paddingBottom: spacing.xxl,
   },
   sectionTitle: {
     fontSize: 13,
@@ -282,6 +394,11 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 12.5,
     color: '#E0715A',
+    lineHeight: 18,
+  },
+  successText: {
+    fontSize: 12.5,
+    color: colors.positive,
     lineHeight: 18,
   },
   deleteButton: {

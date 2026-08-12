@@ -5,7 +5,7 @@ import {
   TouchableOpacity,
   ViewStyle,
 } from 'react-native';
-import { colors, radii, spacing } from './tokens';
+import { colors, radii, spacing, typography } from './tokens';
 
 type PrimaryButtonProps = {
   title: string;
@@ -35,17 +35,17 @@ export function PrimaryButton({
 const styles = StyleSheet.create({
   button: {
     backgroundColor: colors.accent,
-    borderRadius: radii.xl,
+    borderRadius: radii.pill,
     paddingVertical: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.4,
   },
   label: {
+    ...typography.heading,
     color: colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });

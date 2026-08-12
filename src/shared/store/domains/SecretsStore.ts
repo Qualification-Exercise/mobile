@@ -1,6 +1,11 @@
 import { makeAutoObservable } from 'mobx';
-import { secretsApi } from '@shared/api';
-import { hashMnemonic } from '@shared/lib';
+import { secretsApi, type RemoteRecoveryBundle } from '@shared/api';
+import { isValidEncryptedCredential, RemoteRecoveryError } from '@shared/lib';
+
+export type RemoteCredentialState = {
+  encryptedSeed: string | null;
+  encryptedEntropy: string | null;
+};
 
 export class SecretsStore {
   constructor() {
@@ -8,44 +13,84 @@ export class SecretsStore {
   }
 
   async hasRemoteWallet(): Promise<boolean> {
-    const entropies = await secretsApi.getEntropy();
-    return entropies.length > 0;
+    const [seed, entropy] = await Promise.all([
+      secretsApi.getSeed(),
+      secretsApi.getEntropy(),
+    ]);
+
+    return seed != null || entropy != null;
   }
 
-  async backupWalletSecrets({
-    encryptedEntropy,
-    encryptedSeed,
-    encryptionKey,
-    mnemonic,
-  }: {
-    encryptedEntropy: string;
-    encryptedSeed: string;
-    encryptionKey: string;
-    mnemonic: string;
-  }): Promise<void> {
-    const mnemonicHash = await hashMnemonic(mnemonic);
-    const metadata = { mnemonicHash, encryptionKey, version: 1 };
-    await secretsApi.storeSeed({ seed: encryptedSeed, metadata });
-    await secretsApi.storeEntropy({ entropy: encryptedEntropy, metadata });
+  async getRemoteCredentialState(): Promise<RemoteCredentialState> {
+    return loadRemoteCredentialState();
   }
 
-  async matchMnemonic(mnemonic: string): Promise<boolean> {
-    const entropies = await secretsApi.getEntropy();
-    if (entropies.length === 0) {
-      return false;
+  async getRemoteRecoveryBundle(): Promise<RemoteRecoveryBundle> {
+    const state = await loadRemoteCredentialState();
+    if (state.encryptedSeed == null || state.encryptedEntropy == null) {
+      throw new RemoteRecoveryError();
+    }
+    return {
+      encryptedSeed: state.encryptedSeed,
+      encryptedEntropy: state.encryptedEntropy,
+    };
+  }
+
+  async ensureRemoteWalletSecrets(
+    expected: RemoteRecoveryBundle,
+  ): Promise<boolean> {
+    if (
+      !isValidEncryptedCredential(expected.encryptedSeed) ||
+      !isValidEncryptedCredential(expected.encryptedEntropy)
+    ) {
+      throw new RemoteRecoveryError();
     }
 
-    const storedHashes = entropies
-      .map(item => item.metadata?.mnemonicHash)
-      .filter((hash): hash is string => Boolean(hash));
-    // A stored wallet with no comparable verifier (e.g. written by an older
-    // client) must not lock out a user who entered the correct phrase, so we
-    // treat it as a match rather than block the restore.
-    if (storedHashes.length === 0) {
-      return true;
+    const current = await loadRemoteCredentialState();
+    if (
+      (current.encryptedSeed != null &&
+        current.encryptedSeed !== expected.encryptedSeed) ||
+      (current.encryptedEntropy != null &&
+        current.encryptedEntropy !== expected.encryptedEntropy)
+    ) {
+      throw new RemoteRecoveryError();
     }
 
-    const candidate = await hashMnemonic(mnemonic);
-    return storedHashes.includes(candidate);
+    const metadata = { version: 1 } as const;
+    let changed = false;
+    if (current.encryptedSeed == null) {
+      await secretsApi.storeSeed({ seed: expected.encryptedSeed, metadata });
+      changed = true;
+    }
+    if (current.encryptedEntropy == null) {
+      await secretsApi.storeEntropy({
+        entropy: expected.encryptedEntropy,
+        metadata,
+      });
+      changed = true;
+    }
+    return changed;
   }
+}
+
+async function loadRemoteCredentialState(): Promise<RemoteCredentialState> {
+  const [seedRecord, entropyRecord] = await Promise.all([
+    secretsApi.getSeed(),
+    secretsApi.getEntropy(),
+  ]);
+  if (
+    (seedRecord != null &&
+      (typeof seedRecord.seed !== 'string' ||
+        !isValidEncryptedCredential(seedRecord.seed))) ||
+    (entropyRecord != null &&
+      (typeof entropyRecord.entropy !== 'string' ||
+        !isValidEncryptedCredential(entropyRecord.entropy)))
+  ) {
+    throw new RemoteRecoveryError();
+  }
+
+  return {
+    encryptedSeed: seedRecord?.seed ?? null,
+    encryptedEntropy: entropyRecord?.entropy ?? null,
+  };
 }

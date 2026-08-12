@@ -7,11 +7,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import * as Clipboard from 'expo-clipboard';
 import Toast from 'react-native-toast-message';
-import type { RootStackNavigationProp } from '@app/navigation/types';
+import { observer } from 'mobx-react-lite';
+import type {
+  RootStackNavigationProp,
+  RootStackParamList,
+} from '@app/navigation/types';
 import { useStore } from '@shared/store';
+import { getWalletBackupErrorMessage, toWalletBackupError } from '@shared/lib';
 import { MNEMONIC_WORD_COUNT, useWallet } from '@shared/lib/hooks/wallet';
 import {
   ScreenContainer,
@@ -24,28 +30,38 @@ import {
   SeedWordGrid,
 } from '@shared/ui';
 
-const BACKUP_STATUSES = [
-  { label: 'Device', status: 'Encrypted' },
-  { label: 'iCloud', status: 'Backed up' },
-  { label: 'Backend', status: 'Synced' },
-];
+const BACKUP_OPTIONS = [
+  { id: 'local', label: 'This device' },
+  { id: 'cloud', label: 'Google Drive' },
+] as const;
+
+type BackupOption = (typeof BACKUP_OPTIONS)[number]['id'];
 
 function splitMnemonic(mnemonic: string): string[] {
   return mnemonic.trim().split(/\s+/);
 }
 
-export function CreateWalletScreen() {
+export const CreateWalletScreen = observer(function CreateWalletScreenView() {
   const navigation = useNavigation<RootStackNavigationProp>();
-  const { secretsStore } = useStore();
-  const { generateMnemonic, restoreWallet, getSeedAndEntropyFromMnemonic } =
-    useWallet();
+  const route = useRoute<RouteProp<RootStackParamList, 'CreateWallet'>>();
+  // Set when the user chose to start over from the setup screen: the account's
+  // existing backup is knowingly abandoned, so skip the "wallet exists" gate.
+  const discardExistingWallet = route.params?.discardExistingWallet === true;
+  const { secretsStore, walletBackupStore } = useStore();
+  const { generateMnemonic, restoreWallet, getWalletCredentials } = useWallet();
 
   const [words, setWords] = useState<string[]>([]);
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState('');
   const [confirmed, setConfirmed] = useState(false);
+  const [walletCreatedForPendingBackup, setWalletCreatedForPendingBackup] =
+    useState(false);
+  const [selectedBackups, setSelectedBackups] = useState<
+    Record<BackupOption, boolean>
+  >({ local: false, cloud: false });
+  const [creationMessage, setCreationMessage] = useState('');
+  const [creating, setCreating] = useState(false);
+  const saving = walletBackupStore.status === 'loading' || creating;
 
   const generate = useCallback(async () => {
     setGenerating(true);
@@ -65,7 +81,7 @@ export function CreateWalletScreen() {
 
   useEffect(() => {
     if (!confirmed && words.length === 0 && !generating && !generateError) {
-      void generate();
+      generate().catch(() => undefined);
     }
   }, [confirmed, words.length, generating, generateError, generate]);
 
@@ -86,59 +102,90 @@ export function CreateWalletScreen() {
     }
   }
 
+  function toggleBackup(option: BackupOption) {
+    setSelectedBackups(current => ({
+      ...current,
+      [option]: !current[option],
+    }));
+  }
+
   async function handleConfirm() {
     if (words.length !== MNEMONIC_WORD_COUNT) {
+      setCreationMessage('Could not create wallet. Please try again.');
       return;
     }
 
-    const mnemonic = words.join(' ');
+    setCreationMessage('');
+    setCreating(true);
+    let walletCreated = walletCreatedForPendingBackup;
 
-    setSaving(true);
-    setSaveError('');
     try {
-      // The server is the source of truth: never create a second wallet for an
-      // account that already has one — steer the user to restore instead.
-      if (await secretsStore.hasRemoteWallet()) {
-        Alert.alert(
-          'Wallet already exists',
-          'You already have a wallet on this account. Restore it from your ' +
-            'recovery phrase instead.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Restore',
-              onPress: () => navigation.navigate('RestoreWallet'),
-            },
-          ],
-        );
-        return;
+      if (!walletCreatedForPendingBackup) {
+        if (!discardExistingWallet && (await secretsStore.hasRemoteWallet())) {
+          Alert.alert(
+            'Wallet already exists',
+            'You already have a wallet on this account. Use Google Drive ' +
+              'recovery, this device’s recovery key, or your recovery phrase.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              {
+                text: 'Restore options',
+                onPress: () => navigation.goBack(),
+              },
+            ],
+          );
+          return;
+        }
+
+        await restoreWallet(words.join(' '));
+        walletCreated = true;
+        setWalletCreatedForPendingBackup(true);
       }
 
-      // Derive the encrypted blobs and back them up (with the mnemonic
-      // verifier and the encryption key) before persisting locally, so the
-      // server stays authoritative even if the on-device write later fails.
-      const { encryptedEntropyBuffer, encryptedSeedBuffer, encryptionKey } =
-        await getSeedAndEntropyFromMnemonic(mnemonic);
-      await secretsStore.backupWalletSecrets({
-        encryptedEntropy: encryptedEntropyBuffer,
-        encryptedSeed: encryptedSeedBuffer,
-        encryptionKey,
-        mnemonic,
-      });
-
-      await restoreWallet(mnemonic);
-      setConfirmed(true);
-      navigation.reset({
-        index: 0,
-        routes: [{ name: 'Home' }],
-      });
-    } catch (err) {
-      setSaveError(
-        (err instanceof Error && err.message) || 'Could not save wallet',
+      if (selectedBackups.local || selectedBackups.cloud) {
+        const credentials = await getWalletCredentials();
+        if (
+          selectedBackups.local &&
+          !(await walletBackupStore.saveLocalBackup(credentials))
+        ) {
+          const error = walletBackupStore.error;
+          setCreationMessage(
+            error
+              ? getWalletBackupErrorMessage(error)
+              : 'Wallet created, device recovery backup incomplete.',
+          );
+          return;
+        }
+        if (
+          selectedBackups.cloud &&
+          !(await walletBackupStore.backupToCloud(credentials))
+        ) {
+          const error = walletBackupStore.error;
+          setCreationMessage(
+            error
+              ? getWalletBackupErrorMessage(error)
+              : 'Wallet created, Google Drive backup incomplete.',
+          );
+          return;
+        }
+      }
+    } catch (error) {
+      setCreationMessage(
+        walletCreated
+          ? getWalletBackupErrorMessage(toWalletBackupError(error))
+          : 'Could not create wallet. Please try again.',
       );
+      return;
     } finally {
-      setSaving(false);
+      setCreating(false);
     }
+
+    setWalletCreatedForPendingBackup(false);
+    setConfirmed(true);
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'Home' }],
+    });
   }
 
   return (
@@ -189,26 +236,73 @@ export function CreateWalletScreen() {
             </Text>
           </View>
           <View style={styles.spacer} />
+          <Text style={styles.backupHint}>
+            {discardExistingWallet
+              ? 'Your account still holds the previous wallet’s recovery data, ' +
+                'so backups are unavailable for this one. Keep the phrase safe.'
+              : 'Optional recovery backups — choose what to create.'}
+          </Text>
           <View style={styles.statusRow}>
-            {BACKUP_STATUSES.map(({ label, status }) => (
-              <View key={label} style={styles.statusCard}>
-                <Text style={styles.statusLabel}>{label}</Text>
-                <View style={styles.statusValueRow}>
-                  <Text style={styles.statusValue}>{status}</Text>
-                  <AppIcon
-                    name="checkmark-circle"
-                    size={12}
-                    color={colors.accentBright}
-                  />
-                </View>
+            <View style={[styles.statusCard, styles.statusCardSelected]}>
+              <Text style={styles.statusLabel}>Wallet</Text>
+              <View style={styles.statusValueRow}>
+                <Text style={styles.statusValue}>Device</Text>
+                <AppIcon
+                  name="checkmark-circle"
+                  size={12}
+                  color={colors.accentBright}
+                />
               </View>
-            ))}
+            </View>
+            {discardExistingWallet
+              ? null
+              : BACKUP_OPTIONS.map(({ id, label }) => {
+                  const selected = selectedBackups[id];
+                  return (
+                    <TouchableOpacity
+                      key={id}
+                      style={[
+                        styles.statusCard,
+                        selected && styles.statusCardSelected,
+                      ]}
+                      onPress={() => toggleBackup(id)}
+                      disabled={saving}
+                      activeOpacity={0.75}
+                      accessibilityRole="checkbox"
+                      accessibilityState={{ checked: selected }}
+                    >
+                      <Text style={styles.statusLabel}>{label}</Text>
+                      <View style={styles.statusValueRow}>
+                        <Text style={styles.statusValue}>
+                          {selected ? 'Selected' : 'Optional'}
+                        </Text>
+                        <AppIcon
+                          name={
+                            selected ? 'checkmark-circle' : 'ellipse-outline'
+                          }
+                          size={12}
+                          color={
+                            selected
+                              ? colors.accentBright
+                              : colors.textSecondary
+                          }
+                        />
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
           </View>
-          {saveError ? (
-            <Text style={styles.persistError}>{saveError}</Text>
+          {creationMessage ? (
+            <Text style={styles.persistError}>{creationMessage}</Text>
           ) : null}
           <PrimaryButton
-            title={saving ? 'Saving wallet…' : "I've saved it — Continue"}
+            title={
+              saving
+                ? 'Saving wallet…'
+                : walletCreatedForPendingBackup
+                ? 'Retry selected backups'
+                : "I've saved it — Continue"
+            }
             onPress={handleConfirm}
             disabled={saving}
           />
@@ -216,7 +310,7 @@ export function CreateWalletScreen() {
       )}
     </ScreenContainer>
   );
-}
+});
 
 const styles = StyleSheet.create({
   header: {
@@ -313,8 +407,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     backgroundColor: colors.surfaceAlt,
+    borderWidth: 1,
+    borderColor: 'transparent',
     borderRadius: radii.sm,
     padding: 11,
+  },
+  statusCardSelected: {
+    borderColor: colors.accent,
+  },
+  backupHint: {
+    color: colors.textSecondary,
+    fontSize: 11.5,
+    marginBottom: spacing.sm,
+    textAlign: 'center',
   },
   statusLabel: {
     fontSize: 12,
