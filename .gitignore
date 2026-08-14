@@ -92,3 +92,6 @@ fastlane/report.xml
 
 # Docs — kept local by default
 docs/*
+
+# Serena MCP
+.serena/
