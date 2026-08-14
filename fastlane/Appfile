@@ -1,9 +1,8 @@
 # Fastlane app configuration. All identity values are environment-driven so the
 # same config works locally and in CI without hardcoding accounts.
-
-app_identifier(ENV["IOS_BUNDLE_ID"])
-apple_id(ENV["APPLE_ID"])
-team_id(ENV["APPLE_TEAM_ID"])
+#
+# iOS is built by hand from Xcode; the bundle id (com.wdkqualification) and team
+# id (N2KQVU8JAT) live in the Xcode project's build settings.
 
 for_platform :android do
   package_name(ENV["ANDROID_PACKAGE"])
